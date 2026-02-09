@@ -1,0 +1,29 @@
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY packages/shared/package*.json ./packages/shared/
+COPY packages/worker/package*.json ./packages/worker/
+
+RUN npm install
+
+COPY packages/shared ./packages/shared
+COPY packages/worker ./packages/worker
+COPY tsconfig.json ./
+
+RUN npm run build --workspace=@smart-did/shared
+RUN npm run build --workspace=@smart-did/worker
+
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY --from=builder /app/packages/worker/dist ./dist
+COPY --from=builder /app/packages/shared/dist ./shared
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/worker/package*.json ./
+
+ENV NODE_ENV=production
+
+CMD ["node", "dist/index.js"]
