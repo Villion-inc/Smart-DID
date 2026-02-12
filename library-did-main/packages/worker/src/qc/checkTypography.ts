@@ -5,7 +5,44 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { TypographyQCResult, TypographyCheck, Anchor, Scene } from '../shared/types';
+import {
+  TypographyQCResult,
+  SceneScript,
+  TypographyPlan,
+  QCStatus,
+} from '../shared/types';
+
+/** Per-check result used internally */
+export interface TypographyCheck {
+  scene: number;
+  checkName: string;
+  pass: boolean;
+  expected: string;
+  actual: string;
+  message?: string;
+}
+
+/** Scene shape needed for typography check (sceneNumber only) */
+interface SceneForTypography {
+  sceneNumber: number;
+}
+
+/** Anchor-like shape actually used by checkTypography */
+interface AnchorForCheck {
+  language: 'ko' | 'en';
+  typographyPlan: {
+    subtitleRegion: { zone: string; safeAreaPercent: number };
+    fontSize: { subtitle: number };
+    contrast: number;
+  };
+  storyboard: {
+    scenes: Array<{ sceneNumber: number; subtitleText: string }>;
+  };
+}
+
+function rulesLanguage(lang: 'ko' | 'en'): 'korean' | 'english' {
+  return lang === 'ko' ? 'korean' : 'english';
+}
 
 interface TypographyRules {
   version: string;
@@ -41,14 +78,17 @@ async function loadRules(): Promise<TypographyRules> {
   return cachedRules!;
 }
 
+export type TypographyRawResult = { pass: boolean; score: number; checks: TypographyCheck[] };
+
 export async function checkTypography(
-  anchor: Anchor,
-  scenes: Scene[]
-): Promise<TypographyQCResult> {
+  anchor: AnchorForCheck,
+  scenes: SceneForTypography[]
+): Promise<TypographyRawResult> {
   const rules = await loadRules();
   const checks: TypographyCheck[] = [];
   let totalScore = 0;
   let checkCount = 0;
+  const langKey = rulesLanguage(anchor.language);
 
   // Check each scene's subtitle
   for (const scene of scenes) {
@@ -56,10 +96,9 @@ export async function checkTypography(
     if (!scenePlan) continue;
 
     const subtitleText = scenePlan.subtitleText;
-    const language = anchor.language;
 
     // Check 1: Line length
-    const maxLength = rules.rules.subtitle.maxLineLength[language];
+    const maxLength = rules.rules.subtitle.maxLineLength[langKey];
     const actualLength = subtitleText.length;
     const lineLengthPass = actualLength <= maxLength;
 
@@ -144,8 +183,57 @@ export async function checkTypography(
   return {
     pass,
     score,
-    checks
+    checks,
   };
+}
+
+
+function mapToQCResult(raw: TypographyRawResult): TypographyQCResult {
+  const violations = raw.checks.filter(c => !c.pass).map(c => c.message || c.checkName).filter(Boolean);
+  const byName = (name: string) => raw.checks.find(c => c.checkName === name)?.pass ?? false;
+  return {
+    status: raw.pass ? ('PASS' as QCStatus) : ('FAIL' as QCStatus),
+    score: raw.score,
+    checks: {
+      subtitleLength: byName('subtitle_line_length') && byName('subtitle_max_lines'),
+      subtitlePosition: byName('subtitle_safe_area'),
+      fontSizeCompliance: byName('subtitle_font_size'),
+      contrastRatio: byName('subtitle_contrast'),
+    },
+    violations,
+  };
+}
+
+/**
+ * Validator class for QC Runner: validates scripts against typography plan and returns TypographyQCResult.
+ */
+export class TypographyValidator {
+  async validate(
+    scripts: SceneScript[],
+    typographyPlan: TypographyPlan,
+    language: 'ko' | 'en'
+  ): Promise<TypographyQCResult> {
+    const anchor: AnchorForCheck = {
+      language,
+      typographyPlan: {
+        subtitleRegion: {
+          zone: 'bottom',
+          safeAreaPercent: 90,
+        },
+        fontSize: { subtitle: typographyPlan.subtitleRegion.fontSize },
+        contrast: 4.5,
+      },
+      storyboard: {
+        scenes: scripts.map(s => ({
+          sceneNumber: s.sceneNumber,
+          subtitleText: s.narration ?? s.visualDescription ?? '',
+        })),
+      },
+    };
+    const scenes: SceneForTypography[] = scripts.map(s => ({ sceneNumber: s.sceneNumber }));
+    const raw = await checkTypography(anchor, scenes);
+    return mapToQCResult(raw);
+  }
 }
 
 /**
@@ -155,7 +243,7 @@ export async function autoFixTypography(text: string, language: 'ko' | 'en'): Pr
   const rules = await loadRules();
   if (!rules.autoFix.truncateOverflow) return text;
 
-  const maxLength = rules.rules.subtitle.maxLineLength[language];
+  const maxLength = rules.rules.subtitle.maxLineLength[rulesLanguage(language)];
   if (text.length <= maxLength) return text;
 
   // Simple truncation with ellipsis

@@ -19,8 +19,17 @@ export async function internalRoutes(fastify: FastifyInstance) {
   fastify.post<{ Body: VideoCallbackBody }>(
     '/internal/video-callback',
     async (request: FastifyRequest<{ Body: VideoCallbackBody }>, reply: FastifyReply) => {
-      const secret = request.headers['x-internal-secret'];
-      if (secret !== config.internalApiSecret) {
+      const received = String(request.headers['x-internal-secret'] ?? '').trim();
+      const expected = String(config.internalApiSecret ?? '').trim();
+      if (!expected || received !== expected) {
+        fastify.log.warn(
+          {
+            headerPresent: received.length > 0,
+            expectedLen: expected.length,
+            receivedLen: received.length,
+          },
+          'video-callback: Unauthorized'
+        );
         return reply.code(401).send({ success: false, error: 'Unauthorized' });
       }
 

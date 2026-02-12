@@ -143,9 +143,10 @@ export class CacheManagerService {
       // DB에서 영상 URL 가져오기
       const record = await videoRepository.findByBookId(bookId);
       if (record?.videoUrl) {
-        // 로컬 파일인 경우 삭제
+        // 로컬 파일인 경우 삭제 (/api/videos/xxx → storagePath/xxx)
         if (record.videoUrl.startsWith('/') || record.videoUrl.startsWith('./')) {
-          const filePath = path.resolve(this.storagePath, record.videoUrl);
+          const filename = record.videoUrl.replace(/^\/api\/videos\//, '').replace(/^\/videos\//, '') || path.basename(record.videoUrl);
+          const filePath = path.join(this.storagePath, filename);
           try {
             const stats = await fs.stat(filePath);
             fileSize = stats.size;

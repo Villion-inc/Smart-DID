@@ -3,7 +3,7 @@
  * Stitches scene videos with FFmpeg, adds subtitles and title card
  */
 
-import { SceneResult, TypographyPlan } from '../shared/types';
+import { SceneResult } from '../shared/types';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
@@ -12,6 +12,33 @@ import fs from 'fs/promises';
 const execAsync = promisify(exec);
 
 export class VideoAssembler {
+  /**
+   * Concat scene videos and burn subtitles (no title card).
+   * Used by Pipeline V2 when scene buffers are written to temp files.
+   */
+  async concatAndSubtitles(
+    scenes: SceneResult[],
+    subtitlePath: string,
+    outputPath: string
+  ): Promise<string> {
+    const hasFFmpeg = await this.checkFFmpeg();
+    if (!hasFFmpeg) {
+      throw new Error('FFmpeg not available');
+    }
+    const concatenatedPath = await this.concatenateScenes(scenes, outputPath);
+    const finalPath = await this.addSubtitles(
+      concatenatedPath,
+      subtitlePath,
+      outputPath
+    );
+    try {
+      await fs.unlink(concatenatedPath);
+    } catch {
+      // ignore cleanup failure
+    }
+    return finalPath;
+  }
+
   /**
    * Assemble final video from scene videos
    */
@@ -61,12 +88,18 @@ export class VideoAssembler {
 
   /**
    * Concatenate scene videos
+   * Uses relative paths (basename) in concat list so FFmpeg works on Windows and with any cwd.
    */
   private async concatenateScenes(scenes: SceneResult[], outputPath: string): Promise<string> {
-    // Create concat file list
-    const concatListPath = path.join(path.dirname(outputPath), 'concat_list.txt');
+    const outDir = path.dirname(outputPath);
+    const concatListPath = path.join(outDir, 'concat_list.txt');
     const fileList = scenes
-      .map(scene => `file '${scene.videoUrl}'`)
+      .map((scene) => {
+        const p = scene.videoUrl ?? '';
+        const base = path.basename(p);
+        const safe = base.replace(/'/g, "'\\''");
+        return `file '${safe}'`;
+      })
       .join('\n');
 
     await fs.writeFile(concatListPath, fileList);
@@ -86,6 +119,7 @@ export class VideoAssembler {
 
   /**
    * Add subtitles to video
+   * Paths normalized to forward slashes for FFmpeg on Windows.
    */
   private async addSubtitles(
     videoPath: string,
@@ -93,9 +127,11 @@ export class VideoAssembler {
     outputPath: string
   ): Promise<string> {
     const tempOutput = outputPath.replace('.mp4', '_subtitled.mp4');
+    const videoPathNorm = videoPath.replace(/\\/g, '/');
+    const subtitlePathNorm = subtitlePath.replace(/\\/g, '/');
+    const outputNorm = tempOutput.replace(/\\/g, '/');
 
-    // FFmpeg subtitle command (burn subtitles into video)
-    const command = `ffmpeg -i "${videoPath}" -vf "subtitles=${subtitlePath}:force_style='FontName=Noto Sans KR,FontSize=22,PrimaryColour=&HFFFFFF&,OutlineColour=&H000000&,Outline=2,Shadow=1,MarginV=80'" -c:a copy "${tempOutput}"`;
+    const command = `ffmpeg -i "${videoPathNorm}" -vf "subtitles=${subtitlePathNorm}:force_style='FontName=Noto Sans KR,FontSize=22,PrimaryColour=&HFFFFFF&,OutlineColour=&H000000&,Outline=2,Shadow=1,MarginV=80'" -c:a copy "${outputNorm}"`;
 
     await execAsync(command);
 

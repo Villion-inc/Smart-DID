@@ -122,7 +122,7 @@ export async function groundBook(
 
     if (candidates.length === 0) {
       console.log('[Grounding] No API candidates found, checking fallback...');
-      return tryFallback(title);
+      return tryFallback(title, author);
     }
 
     // Step 2: Select best candidate
@@ -134,7 +134,7 @@ export async function groundBook(
 
     if (!bestCandidate) {
       console.log('[Grounding] Could not select candidate, checking fallback...');
-      return tryFallback(title);
+      return tryFallback(title, author);
     }
 
     // Step 3: Build book facts
@@ -149,14 +149,17 @@ export async function groundBook(
   } catch (error: any) {
     console.log(`[Grounding] API error: ${error.message}`);
     console.log('[Grounding] Checking fallback data...');
-    return tryFallback(title);
+    return tryFallback(title, author);
   }
 }
 
 /**
- * Try to find book in fallback data
+ * Try to find book in fallback data, or build minimal BookFacts from title+author (MVP: API 실패 시에도 파이프라인 진행)
  */
-function tryFallback(title: string): { bookFacts: BookFacts; candidate: BookCandidate } | null {
+function tryFallback(
+  title: string,
+  author?: string
+): { bookFacts: BookFacts; candidate: BookCandidate } | null {
   const normalizedTitle = title.toLowerCase().trim();
 
   // Direct match
@@ -173,6 +176,49 @@ function tryFallback(title: string): { bookFacts: BookFacts; candidate: BookCand
     }
   }
 
-  console.log('[Grounding] ❌ No fallback data available for this book');
-  return null;
+  // API 실패/미매칭 시 제목+저자만으로 최소 BookFacts 생성 (Mock 도서·429 등에서 파이프라인 계속 진행)
+  console.log('[Grounding] ✅ Using minimal book facts (title + author)');
+  return buildMinimalBookFacts(title, author);
+}
+
+/**
+ * Build minimal BookFacts when Google Books API is unavailable or rate-limited.
+ * Style Bible / Scene Planning 등이 이어서 동작할 수 있는 최소 필드만 채움.
+ */
+function buildMinimalBookFacts(
+  title: string,
+  author?: string
+): { bookFacts: BookFacts; candidate: BookCandidate } {
+  const authorName = author?.trim() || '알 수 없음';
+  const candidate: BookCandidate = {
+    id: `minimal-${encodeURIComponent(title)}`,
+    title: title.trim(),
+    authors: [authorName],
+    description: `${title}에 대한 도서입니다.`,
+    language: 'ko',
+  };
+  const bookFacts: BookFacts = {
+    canonicalTitle: title.trim(),
+    author: authorName,
+    logline: `${title}를 소개하는 영상입니다.`,
+    mainCharacters: [
+      {
+        name: '주인공',
+        role: 'protagonist',
+        appearance: 'Child-friendly character, warm and engaging',
+        personality: '친근하고 호기심 많은',
+      },
+    ],
+    plotBeats: [
+      { order: 1, abstractEvent: '도입', emotionalTone: '호기심' },
+      { order: 2, abstractEvent: '전개', emotionalTone: '몰입' },
+      { order: 3, abstractEvent: '마무리', emotionalTone: '여운' },
+    ],
+    setting: '책의 세계',
+    themes: ['독서', '상상력'],
+    targetAudience: '어린이·가족',
+    sourceConfidence: 0.5,
+    sourceBookId: candidate.id,
+  };
+  return { bookFacts, candidate };
 }

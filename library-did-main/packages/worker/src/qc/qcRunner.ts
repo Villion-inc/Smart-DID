@@ -46,7 +46,7 @@ export class QCRunner {
 
     // 2. Typography Validation
     console.log('[QC Runner] Stage 2: Typography Validation');
-    const typography = this.typographyValidator.validate(
+    const typography = await this.typographyValidator.validate(
       scripts,
       anchor.typographyPlan,
       language

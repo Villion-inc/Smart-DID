@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Book } from '@smart-did/shared';
+import { Book } from '../../types';
 import { bookApi } from '../../api/book.api';
 import { adminApi } from '../../api/admin.api';
 import { useAuthStore } from '../../stores/authStore';
@@ -31,7 +31,7 @@ export function AdminDashboard() {
   const handlePreGenerate = async (bookId: string) => {
     setLoading(true);
     try {
-      await adminApi.preGenerateVideo(bookId);
+      await adminApi.requestVideoGeneration(bookId);
       alert('영상 사전 생성이 요청되었습니다.');
     } catch (error) {
       console.error('Failed to pre-generate video:', error);
@@ -80,13 +80,13 @@ export function AdminDashboard() {
         </thead>
         <tbody>
           {books.map((book) => (
-            <tr key={book.bookId} style={{ borderBottom: '1px solid #ddd' }}>
+            <tr key={book.id} style={{ borderBottom: '1px solid #ddd' }}>
               <td style={{ padding: '0.75rem' }}>{book.title}</td>
               <td style={{ padding: '0.75rem' }}>{book.author}</td>
-              <td style={{ padding: '0.75rem' }}>{book.genre}</td>
+              <td style={{ padding: '0.75rem' }}>{book.category}</td>
               <td style={{ padding: '0.75rem', textAlign: 'center' }}>
                 <button
-                  onClick={() => handlePreGenerate(book.bookId)}
+                  onClick={() => handlePreGenerate(book.id)}
                   disabled={loading}
                   style={{
                     padding: '0.5rem 1rem',
@@ -101,7 +101,7 @@ export function AdminDashboard() {
                   영상 생성
                 </button>
                 <button
-                  onClick={() => navigate(`/books/${book.bookId}`)}
+                  onClick={() => navigate(`/books/${book.id}`)}
                   style={{
                     padding: '0.5rem 1rem',
                     backgroundColor: '#2196F3',

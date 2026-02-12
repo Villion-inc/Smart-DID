@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Book } from '@smart-did/shared';
+import { Book } from '../types';
 import { bookApi } from '../api/book.api';
 
 export function SearchPage() {
@@ -65,8 +65,8 @@ export function SearchPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
         {books.map((book) => (
           <div
-            key={book.bookId}
-            onClick={() => navigate(`/books/${book.bookId}`)}
+            key={book.id}
+            onClick={() => navigate(`/books/${book.id}`)}
             style={{
               padding: '1.5rem',
               border: '1px solid #ddd',
@@ -79,7 +79,7 @@ export function SearchPage() {
           >
             <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>{book.title}</h3>
             <p style={{ color: '#666', marginBottom: '0.5rem' }}>저자: {book.author}</p>
-            <p style={{ color: '#888', fontSize: '0.9rem' }}>장르: {book.genre}</p>
+            <p style={{ color: '#888', fontSize: '0.9rem' }}>장르: {book.category}</p>
             <p style={{ color: '#888', fontSize: '0.9rem' }}>서가: {book.shelfCode}</p>
           </div>
         ))}

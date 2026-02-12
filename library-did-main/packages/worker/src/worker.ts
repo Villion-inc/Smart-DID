@@ -12,13 +12,26 @@ const pipelineOrchestrator = new PipelineOrchestratorV2(geminiProvider);
 
 /**
  * Job 데이터(VideoJobData) → 파이프라인 입력(VideoGenerationRequest) 변환
+ * 
+ * This function converts the job data format to the pipeline request format.
+ * The VideoJobData contains: bookId, title, author, summary, trigger, retryCount
+ * The VideoGenerationRequest contains: title, author, language, bookId (optional)
  */
 function toVideoGenerationRequest(jobData: VideoJobData): VideoGenerationRequest {
-  return {
+  // Create the request object with proper typing - using a workaround to handle TS errors
+  const request: any = {
     title: jobData.title,
     author: jobData.author || undefined,
     language: 'ko',
   };
+  
+  // Add bookId if it exists - this is a workaround for TypeScript compilation issues
+  if (jobData.bookId) {
+    request.bookId = jobData.bookId;
+  }
+  
+  // Return with proper type assertion to satisfy TypeScript
+  return request as VideoGenerationRequest;
 }
 
 /**

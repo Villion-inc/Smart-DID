@@ -1,79 +1,138 @@
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
+import { config } from '../config';
 import { Book } from '../types';
 
 /**
  * Real ALPAS API Service
  *
- * Connects to actual ALPAS library system API.
- * Uses test server: http://www.alpas.kr
- * Network Adapter ID: 1 (test environment)
- *
- * APIs used:
- * - AD201: Book search
- * - AD206: Book detail
- * - AE117: New arrivals
+ * AD201.do: POST, _apikey, libNo, startPage, pageSize, searchWord?, searchType? → result.list[]
+ * AE117.do: 특정 기간 신착자료 검색. manage_code, shelf_date_from, shelf_date_to → searchList[]
  */
 
-const ALPAS_BASE_URL = 'http://www.alpas.kr/BTLMS/HOMEPAGE/API';
-const NETWORK_ADAPTER_ID = '1';
-const MANAGE_CODE = 'MA'; // 행복도서관
+const DEFAULT_BASE_URL = 'http://www.alpas.kr/BTLMS/HOMEPAGE/API';
 
-interface AlpasSearchResponse {
-  statusDescription: string;
-  fetchCount: string;
-  searchList: AlpasBook[];
+function createAlpasClient(): AxiosInstance {
+  const baseURL = (config.alpas.apiUrl || DEFAULT_BASE_URL).replace(/\/$/, '');
+  return axios.create({
+    baseURL,
+    timeout: 30000,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  });
 }
 
-interface AlpasBook {
-  TITLE?: string;
-  title?: string;
-  AUTHOR?: string;
+/** AD201 응답: result.list, result.totalCount */
+interface AlpasAD201Response {
+  result?: {
+    totalCount?: string;
+    list?: AlpasBook201[];
+  };
+}
+
+/** AD201.do result.list 항목 (문서 기준, JSON 응답이라 숫자 올 수 있음) */
+interface AlpasBook201 {
+  bookId?: string;
+  bookTitle?: string;
   author?: string;
-  PUBLISHER?: string;
   publisher?: string;
-  PUBLISH_YEAR?: string;
-  publish_year?: string;
-  EA_ISBN?: string;
-  ea_isbn?: string;
-  CALL_NO?: string;
-  call_no?: string;
-  SHELF_LOC_CODE_DESC?: string;
-  shelf_loc_code_desc?: string;
+  publishYear?: string | number;
+  callNo?: string;
+  subject?: string;
+  kdc?: string;
+  regDate?: string;
+  bookImage?: string;
+  isbn?: string;
+  orgNo?: string;
+  bookType?: string;
+  loanCnt?: string | number;
+  loanPossible?: string;
+}
+
+/** AE117.do 응답: searchList, totalCount, totalPage */
+interface AlpasAE117Response {
+  status?: string;
+  statusDescription?: string;
+  statusCode?: string;
+  totalCount?: number | string;
+  totalPage?: number | string;
+  searchList?: AlpasBookAE117[];
+}
+
+/** AE117.do searchList 항목 (문서 기준) */
+interface AlpasBookAE117 {
+  RNUM?: string | number;
   BOOK_KEY?: string;
-  book_key?: string;
+  SPECIES_KEY?: string;
   REG_NO?: string;
-  reg_no?: string;
   loan_able?: string;
-  LOAN_ABLE?: string;
+  AUTHOR?: string;
+  EA_ISBN?: string;
+  PUBLISHER?: string;
+  CALL_NO?: string;
+  TITLE?: string;
+  VOL_TITLE?: string;
+  SHELF_LOC_CODE_DESC?: string;
   USE_LIMIT_CODE_DESC?: string;
+  PUBLISH_YEAR?: string | number;
 }
 
 export class AlpasRealService {
-  /**
-   * Map ALPAS API response to internal Book model
-   */
-  private mapToBook(alpasBook: AlpasBook, index: number): Book {
-    const title = alpasBook.TITLE || alpasBook.title || '제목 없음';
-    const author = alpasBook.AUTHOR || alpasBook.author || '저자 미상';
-    const publisher = alpasBook.PUBLISHER || alpasBook.publisher || '출판사 미상';
-    const publishYear = alpasBook.PUBLISH_YEAR || alpasBook.publish_year || '';
-    const isbn = alpasBook.EA_ISBN || alpasBook.ea_isbn || '';
-    const callNumber = alpasBook.CALL_NO || alpasBook.call_no || '';
-    const shelfCode = alpasBook.SHELF_LOC_CODE_DESC || alpasBook.shelf_loc_code_desc || '';
-    const bookKey = alpasBook.BOOK_KEY || alpasBook.book_key || '';
-    const regNo = alpasBook.REG_NO || alpasBook.reg_no || '';
-    const loanAble = alpasBook.loan_able || alpasBook.LOAN_ABLE || 'N';
-    const category = alpasBook.USE_LIMIT_CODE_DESC || '일반';
+  private readonly client = createAlpasClient();
 
-    // Generate unique ID using book_key or reg_no
-    const id = bookKey || regNo || `ALPAS_${Date.now()}_${index}`;
+  /**
+   * AD201 result.list 항목 → 내부 Book 모델
+   */
+  private mapToBook(item: AlpasBook201, index: string): Book {
+    const id = item.bookId || item.orgNo || `ALPAS_${Date.now()}_${index}`;
+    const title = item.bookTitle || '제목 없음';
+    const author = item.author || '저자 미상';
+    const publisher = item.publisher || '출판사 미상';
+    const publishYear = item.publishYear != null ? String(item.publishYear) : '';
+    const isbn = item.isbn || '';
+    const callNumber = item.callNo || '';
+    const shelfCode = item.subject || item.kdc || '';
+    const regNo = item.orgNo || '';
+    const loanPossible = item.loanPossible || 'N';
+    const category = item.kdc || '일반';
 
     return {
       id,
       title: this.cleanTitle(title),
       author: this.cleanAuthor(author),
       publisher: this.cleanText(publisher),
-      publishedYear: this.parseYear(publishYear),
+      publishedYear: this.parseYear(String(publishYear)),
+      isbn: isbn.replace(/[^0-9]/g, ''),
+      summary: `${title} - ${author} 저. ${publisher}에서 출판한 도서입니다.`,
+      callNumber,
+      registrationNumber: regNo,
+      shelfCode: this.cleanShelfCode(shelfCode),
+      isAvailable: loanPossible === 'Y',
+      coverImageUrl: item.bookImage || `https://picsum.photos/seed/${id}/300/400`,
+      category,
+    };
+  }
+
+  /**
+   * AE117 searchList 항목 → 내부 Book 모델
+   */
+  private mapToBookFromAE117(item: AlpasBookAE117, index: string): Book {
+    const id = item.BOOK_KEY || item.REG_NO || `ALPAS_${Date.now()}_${index}`;
+    const title = item.TITLE || '제목 없음';
+    const author = item.AUTHOR || '저자 미상';
+    const publisher = item.PUBLISHER || '출판사 미상';
+    const publishYear = item.PUBLISH_YEAR != null ? String(item.PUBLISH_YEAR) : '';
+    const isbn = item.EA_ISBN || '';
+    const callNumber = item.CALL_NO || '';
+    const shelfCode = item.SHELF_LOC_CODE_DESC || '';
+    const regNo = item.REG_NO || '';
+    const loanAble = item.loan_able || 'N';
+    const category = item.USE_LIMIT_CODE_DESC || '일반';
+
+    return {
+      id,
+      title: this.cleanTitle(title),
+      author: this.cleanAuthor(author),
+      publisher: this.cleanText(publisher),
+      publishedYear: this.parseYear(String(publishYear)),
       isbn: isbn.replace(/[^0-9]/g, ''),
       summary: `${title} - ${author} 저. ${publisher}에서 출판한 도서입니다.`,
       callNumber,
@@ -83,6 +142,73 @@ export class AlpasRealService {
       coverImageUrl: `https://picsum.photos/seed/${id}/300/400`,
       category,
     };
+  }
+
+  /**
+   * AE117.do 호출 (특정 기간 신착자료)
+   * @param shelfDateFrom 배가일자 시작 YYYY/MM/DD
+   * @param shelfDateTo 배가일자 끝 YYYY/MM/DD
+   */
+  private async callAE117(
+    shelfDateFrom: string,
+    shelfDateTo: string,
+    currentPage: number = 1,
+    countPerPage: number = 10
+  ): Promise<AlpasBookAE117[]> {
+    const response = await this.client.get<AlpasAE117Response>('/AE117.do', {
+      params: {
+        networkadapterid: config.alpas.networkAdapterId,
+        manage_code: config.alpas.manageCode,
+        shelf_date_from: shelfDateFrom,
+        shelf_date_to: shelfDateTo,
+        current_page: String(currentPage),
+        count_per_page: String(countPerPage),
+        api_key: config.alpas.apiKey || undefined,
+      },
+    });
+    const list = response.data?.searchList;
+    return Array.isArray(list) ? list : [];
+  }
+
+  /**
+   * AD201.do GET 호출 (keyword 검색)
+   */
+  private async callAD201Get(keyword: string): Promise<(AlpasBook201 | AlpasBookAE117)[]> {
+    const response = await this.client.get<AlpasAD201Response & AlpasAE117Response>('/AD201.do', {
+      params: {
+        networkadapterid: config.alpas.networkAdapterId,
+        manage_code: config.alpas.manageCode,
+        keyword,
+        api_key: config.alpas.apiKey || undefined,
+      },
+    });
+    const data = response.data;
+    const list = data?.searchList ?? data?.result?.list;
+    return Array.isArray(list) ? list : [];
+  }
+
+  /**
+   * AD201.do POST 공통 호출 (libNo 기반, _apikey)
+   */
+  private async callAD201(
+    startPage: number,
+    pageSize: number,
+    searchWord?: string,
+    searchType?: string
+  ): Promise<AlpasBook201[]> {
+    const body = new URLSearchParams();
+    body.set('_apikey', config.alpas.apiKey || '');
+    body.set('libNo', config.alpas.libNo);
+    body.set('startPage', String(startPage));
+    body.set('pageSize', String(pageSize));
+    if (searchWord != null && searchWord.trim() !== '') {
+      body.set('searchWord', searchWord.trim());
+      if (searchType != null) body.set('searchType', String(searchType));
+    }
+
+    const response = await this.client.post<AlpasAD201Response>('/AD201.do', body);
+    const list = response.data?.result?.list;
+    return Array.isArray(list) ? list : [];
   }
 
   /**
@@ -134,61 +260,40 @@ export class AlpasRealService {
   }
 
   /**
-   * Search books by keyword
+   * Search books by keyword (AD201 GET, keyword 파라미터)
    */
   async searchBooks(keyword: string): Promise<Book[]> {
     try {
       if (!keyword || keyword.trim() === '') {
-        // Return recent books if no keyword
         return await this.getNewArrivals();
       }
-
-      const response = await axios.get<AlpasSearchResponse>(
-        `${ALPAS_BASE_URL}/AD201.do`,
-        {
-          params: {
-            networkadapterid: NETWORK_ADAPTER_ID,
-            manage_code: MANAGE_CODE,
-            title: keyword,
-          },
-          timeout: 10000,
-        }
+      const list = await this.callAD201Get(keyword.trim());
+      if (list.length === 0) return [];
+      // searchList(대문자 TITLE 등) → mapToBookFromAE117, result.list(camelCase) → mapToBook
+      const first = list[0] as Record<string, unknown>;
+      const isAE117Style = first && (first['TITLE'] !== undefined || first['BOOK_KEY'] !== undefined);
+      return list.map((book, index) =>
+        isAE117Style
+          ? this.mapToBookFromAE117(book as AlpasBookAE117, String(index))
+          : this.mapToBook(book as AlpasBook201, String(index))
       );
-
-      if (response.data.searchList && Array.isArray(response.data.searchList)) {
-        return response.data.searchList.map((book, index) => this.mapToBook(book, index));
-      }
-
-      return [];
     } catch (error: any) {
-      console.error('ALPAS API search error:', error.message);
-      return [];
+      console.error('AD201 검색 에러:', error.message);
+      throw error;
     }
   }
 
   /**
-   * Get book details by ID
+   * Get book details by ID (AD201 1건 조회 후 bookId 매칭)
    */
   async getBookDetail(bookId: string): Promise<Book | null> {
     try {
-      // First try to search by title to find the book
-      // Since we don't have a direct book detail API by ID in the test environment
-      const searchResponse = await axios.get<AlpasSearchResponse>(
-        `${ALPAS_BASE_URL}/AD201.do`,
-        {
-          params: {
-            networkadapterid: NETWORK_ADAPTER_ID,
-            manage_code: MANAGE_CODE,
-            book_key: bookId,
-          },
-          timeout: 10000,
-        }
-      );
-
-      if (searchResponse.data.searchList && searchResponse.data.searchList.length > 0) {
-        return this.mapToBook(searchResponse.data.searchList[0], 0);
-      }
-
+      const list = await this.callAD201(1, 50);
+      const found = list.find((b) => (b.bookId || b.orgNo) === bookId);
+      if (found) return this.mapToBook(found, '0');
+      // 검색으로 찾기 시도
+      const bySearch = await this.callAD201(1, 10, bookId, '1');
+      if (bySearch.length > 0) return this.mapToBook(bySearch[0], '0');
       return null;
     } catch (error: any) {
       console.error('ALPAS API book detail error:', error.message);
@@ -197,75 +302,41 @@ export class AlpasRealService {
   }
 
   /**
-   * Get new arrival books
+   * Get new arrival books (AE117 특정 기간 신착자료)
+   * 기간: 최근 1개월, 날짜 형식: YYYY/MM/DD
    */
   async getNewArrivals(): Promise<Book[]> {
     try {
-      // Get books from last 2 years
       const endDate = new Date();
       const startDate = new Date();
-      startDate.setFullYear(startDate.getFullYear() - 2);
+      startDate.setMonth(startDate.getMonth() - 1); // 최근 1개월
 
       const formatDate = (date: Date) => {
-        return date.toISOString().slice(0, 10).replace(/-/g, '');
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}/${m}/${d}`;
       };
 
-      const response = await axios.get<AlpasSearchResponse>(
-        `${ALPAS_BASE_URL}/AE117.do`,
-        {
-          params: {
-            networkadapterid: NETWORK_ADAPTER_ID,
-            manage_code: MANAGE_CODE,
-            start_date: formatDate(startDate),
-            end_date: formatDate(endDate),
-          },
-          timeout: 10000,
-        }
-      );
-
-      if (response.data.searchList && Array.isArray(response.data.searchList)) {
-        // Return first 10 books
-        return response.data.searchList
-          .slice(0, 10)
-          .map((book, index) => this.mapToBook(book, index));
-      }
-
-      return [];
+      const list = await this.callAE117(formatDate(startDate), formatDate(endDate), 1, 10);
+      return list.map((book, index) => this.mapToBookFromAE117(book, String(index)));
     } catch (error: any) {
-      console.error('ALPAS API new arrivals error:', error.message);
-      return [];
+      console.error('AE117 호출 에러:', error.message);
+      throw error;
     }
   }
 
   /**
-   * Get librarian recommended books
-   * Note: Using popular/frequently borrowed books as recommendation
+   * Get librarian recommended books (AD201 검색 여러 키워드)
    */
   async getLibrarianPicks(): Promise<Book[]> {
     try {
-      // Search for classic children's literature
       const keywords = ['어린왕자', '이상한나라', '해리포터'];
       const allBooks: Book[] = [];
-
       for (const keyword of keywords) {
-        const response = await axios.get<AlpasSearchResponse>(
-          `${ALPAS_BASE_URL}/AD201.do`,
-          {
-            params: {
-              networkadapterid: NETWORK_ADAPTER_ID,
-              manage_code: MANAGE_CODE,
-              title: keyword,
-            },
-            timeout: 10000,
-          }
-        );
-
-        if (response.data.searchList && response.data.searchList.length > 0) {
-          // Take first result from each search
-          allBooks.push(this.mapToBook(response.data.searchList[0], allBooks.length));
-        }
+        const list = await this.callAD201(1, 1, keyword, '1');
+        if (list.length > 0) allBooks.push(this.mapToBook(list[0], String(allBooks.length)));
       }
-
       return allBooks;
     } catch (error: any) {
       console.error('ALPAS API librarian picks error:', error.message);
@@ -274,12 +345,11 @@ export class AlpasRealService {
   }
 
   /**
-   * Get books by age group
+   * Get books by age group (AD201 검색)
    */
   async getBooksByAgeGroup(ageGroup: string): Promise<Book[]> {
     try {
       let keywords: string[] = [];
-
       switch (ageGroup.toLowerCase()) {
         case 'preschool':
         case '유아':
@@ -296,31 +366,11 @@ export class AlpasRealService {
         default:
           return [];
       }
-
       const allBooks: Book[] = [];
-
       for (const keyword of keywords) {
-        const response = await axios.get<AlpasSearchResponse>(
-          `${ALPAS_BASE_URL}/AD201.do`,
-          {
-            params: {
-              networkadapterid: NETWORK_ADAPTER_ID,
-              manage_code: MANAGE_CODE,
-              title: keyword,
-            },
-            timeout: 10000,
-          }
-        );
-
-        if (response.data.searchList && Array.isArray(response.data.searchList)) {
-          // Take first 5 results from each search
-          const books = response.data.searchList
-            .slice(0, 5)
-            .map((book, index) => this.mapToBook(book, allBooks.length + index));
-          allBooks.push(...books);
-        }
+        const list = await this.callAD201(1, 5, keyword, '1');
+        list.forEach((item, i) => allBooks.push(this.mapToBook(item, String(allBooks.length + i))));
       }
-
       return allBooks;
     } catch (error: any) {
       console.error('ALPAS API age group error:', error.message);

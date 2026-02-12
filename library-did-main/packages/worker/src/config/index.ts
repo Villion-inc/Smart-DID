@@ -1,7 +1,21 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+// .env 위치: library-did-main/.env (config 기준 ../../../../ = worker/src/config -> library-did-main)
+const envPaths = [
+  path.resolve(__dirname, '../../../../.env'),
+  path.resolve(__dirname, '../../../.env'),
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), '../.env'),
+  path.resolve(process.cwd(), '../../.env'),
+];
+const envPath = envPaths.find((p) => fs.existsSync(p));
+if (envPath) {
+  dotenv.config({ path: envPath });
+} else {
+  dotenv.config();
+}
 
 export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -61,9 +75,9 @@ export const config = {
     concurrency: parseInt(process.env.WORKER_CONCURRENCY || '2', 10),
   },
 
-  /** Backend 콜백 (영상 생성 완료/실패 시 DB 갱신) */
+  /** Backend 콜백 (영상 생성 완료/실패 시 DB 갱신). Backend와 동일한 .env의 INTERNAL_API_SECRET 사용 */
   backendUrl: process.env.BACKEND_URL || 'http://localhost:3000',
-  internalApiSecret: process.env.INTERNAL_API_SECRET || process.env.JWT_SECRET || '',
+  internalApiSecret: process.env.INTERNAL_API_SECRET || process.env.JWT_SECRET || 'internal-secret',
 };
 
 export function validateConfig(): void {

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
-import { Lock, User } from 'lucide-react';
+import { Lock } from 'lucide-react';
 
 export const AdminLogin: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -35,8 +35,11 @@ export const AdminLogin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
+    <div
+      className="mx-auto flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-600 to-primary-800 p-4"
+      style={{ fontFamily: 'Pretendard, sans-serif', maxWidth: 480 }}
+    >
+      <div className="w-full max-w-md">
         <div className="bg-white rounded-lg shadow-xl p-8">
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">

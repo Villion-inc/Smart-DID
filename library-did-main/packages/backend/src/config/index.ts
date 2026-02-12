@@ -1,7 +1,21 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+// Worker와 동일한 루트 .env 사용 (INTERNAL_API_SECRET 등 일치 필요)
+const envPaths = [
+  path.resolve(__dirname, '../../../../.env'),
+  path.resolve(__dirname, '../../../.env'),
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), '../.env'),
+  path.resolve(process.cwd(), '../../.env'),
+];
+const envPath = envPaths.find((p) => fs.existsSync(p));
+if (envPath) {
+  dotenv.config({ path: envPath });
+} else {
+  dotenv.config();
+}
 
 export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -21,7 +35,19 @@ export const config = {
 
   storage: {
     type: process.env.STORAGE_TYPE || 'local',
-    path: process.env.STORAGE_PATH || './storage/videos',
+    // Worker 저장 경로. 절대경로면 그대로, 아니면 후보 중 존재하는 경로 사용
+    path: (() => {
+      const raw = process.env.STORAGE_PATH || '';
+      if (raw && path.isAbsolute(raw)) return raw;
+      const candidates = [
+        path.resolve(__dirname, '../../../worker/storage/videos'), // run from backend/src
+        path.resolve(__dirname, '../../worker/storage/videos'),    // run from backend/dist
+        path.resolve(process.cwd(), '../worker/storage/videos'),   // cwd = packages/backend
+        path.resolve(process.cwd(), 'packages/worker/storage/videos'), // cwd = repo root
+      ];
+      const chosen = candidates.find((p) => fs.existsSync(p));
+      return chosen || candidates[0];
+    })(),
   },
 
   veo: {
@@ -40,8 +66,14 @@ export const config = {
   },
 
   alpas: {
+    /** true 또는 1이면 실제 API 대신 Mock 도서(BK001~BK035) 사용 */
+    useMock:
+      process.env.ALPAS_USE_MOCK === 'true' || process.env.ALPAS_USE_MOCK === '1',
     apiUrl: process.env.ALPAS_API_URL || '',
     apiKey: process.env.ALPAS_API_KEY || '',
+    libNo: process.env.ALPAS_LIB_NO || '1',
+    manageCode: process.env.ALPAS_MANAGE_CODE || 'MA',
+    networkAdapterId: process.env.ALPAS_NETWORK_ADAPTER_ID || '1',
   },
 
   admin: {
@@ -49,7 +81,7 @@ export const config = {
     password: process.env.ADMIN_PASSWORD || 'admin1234',
   },
 
-  logLevel: process.env.LOG_LEVEL || 'info',
+  logLevel: process.env.LOG_LEVEL || 'warn',
 
   /** Worker 콜백용 (비공개 API) */
   internalApiSecret: process.env.INTERNAL_API_SECRET || process.env.JWT_SECRET || 'internal-secret',

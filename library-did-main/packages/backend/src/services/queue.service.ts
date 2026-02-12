@@ -58,11 +58,9 @@ export class QueueService {
     if (existingRecord) {
       const { status } = existingRecord;
       if (status === 'QUEUED' || status === 'GENERATING') {
-        console.log(`[Queue] Skip: Book ${bookId} already in ${status} state`);
         return null;
       }
       if (status === 'READY' && existingRecord.videoUrl) {
-        console.log(`[Queue] Skip: Book ${bookId} already has video`);
         return null;
       }
     }
@@ -70,24 +68,16 @@ export class QueueService {
     // 2. 큐에 같은 bookId 작업이 있는지 확인
     const existingJob = await this.findJobByBookId(bookId);
     if (existingJob) {
-      console.log(`[Queue] Skip: Job for book ${bookId} already in queue`);
       return null;
     }
 
-    // 3. DB에 QUEUED 상태로 기록
-    if (existingRecord) {
-      await videoRepository.update(bookId, {
-        status: 'QUEUED',
-        lastRequestedAt: new Date(),
-        errorMessage: null,
-      });
-    } else {
-      await videoRepository.create({
-        bookId,
-        status: 'QUEUED',
-        expiresAt: this.calculateExpiryDate(),
-      });
-    }
+    // 3. DB에 QUEUED 상태로 기록 (upsert로 동시 요청 시 unique 제약 오류 방지)
+    const expiresAt = this.calculateExpiryDate();
+    await videoRepository.upsert(
+      bookId,
+      { bookId, status: 'QUEUED', expiresAt },
+      { status: 'QUEUED', lastRequestedAt: new Date(), errorMessage: null, expiresAt }
+    );
 
     // 4. 큐에 작업 추가
     const jobOptions: JobsOptions = {
@@ -96,8 +86,6 @@ export class QueueService {
     };
 
     const job = await this.queue.add('generate-video', jobData, jobOptions);
-    console.log(`[Queue] Added job ${job.id} for book ${bookId} with priority ${priority}`);
-
     return job;
   }
 

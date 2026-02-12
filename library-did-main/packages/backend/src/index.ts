@@ -11,6 +11,7 @@ import { bookRoutes } from './routes/book.routes';
 import { adminRoutes } from './routes/admin.routes';
 import { didRoutes } from './routes/did.routes';
 import { internalRoutes } from './routes/internal.routes';
+import { videoRoutes } from './routes/video.routes';
 import prisma from './config/database';
 import { schedulerService } from './services/scheduler.service';
 
@@ -93,6 +94,7 @@ async function main() {
     await fastify.register(adminRoutes, { prefix: config.apiPrefix });
     await fastify.register(didRoutes, { prefix: config.apiPrefix });
     await fastify.register(internalRoutes, { prefix: config.apiPrefix });
+    await fastify.register(videoRoutes, { prefix: config.apiPrefix });
 
     // Start server
     await fastify.listen({
@@ -102,6 +104,7 @@ async function main() {
 
     fastify.log.info(`Server running on port ${config.port}`);
     fastify.log.info(`Environment: ${config.nodeEnv}`);
+    fastify.log.info(`Video storage path: ${config.storage.path}`);
     fastify.log.info(`API Documentation: http://localhost:${config.port}/documentation`);
 
     // Start scheduler for periodic tasks (cache cleanup, etc.)

@@ -206,6 +206,7 @@ export class DidController {
           bookId: record.bookId,
           status: record.status,
           videoUrl: record.status === 'READY' ? record.videoUrl : null,
+          subtitleUrl: record.status === 'READY' && record.subtitleUrl ? record.subtitleUrl : null,
           message: this.getStatusMessage(record.status),
         },
       });
@@ -231,13 +232,23 @@ export class DidController {
     try {
       const { bookId } = request.params;
 
-      // 1. 책 정보 조회
-      const book = await alpasService.getBookDetail(bookId);
+      // 1. 책 정보 조회 (없으면 fallback 책 정보로 큐 등록 허용 → Worker가 실제 영상 생성)
+      let book = await alpasService.getBookDetail(bookId);
       if (!book) {
-        return reply.code(404).send({
-          success: false,
-          error: '책을 찾을 수 없습니다.',
-        });
+        book = {
+          id: bookId,
+          title: `도서 ${bookId}`,
+          author: '알 수 없음',
+          summary: '',
+          publisher: '',
+          publishedYear: 0,
+          isbn: bookId,
+          callNumber: '',
+          registrationNumber: '',
+          shelfCode: '',
+          isAvailable: true,
+          category: '',
+        };
       }
 
       // 2. 기존 영상 상태 확인
@@ -252,6 +263,7 @@ export class DidController {
             bookId,
             status: 'READY',
             videoUrl: existingRecord.videoUrl,
+            subtitleUrl: existingRecord.subtitleUrl ?? null,
             message: '영상이 준비되어 있습니다.',
           },
         });

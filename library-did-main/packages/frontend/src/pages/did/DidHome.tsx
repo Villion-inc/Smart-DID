@@ -1,230 +1,132 @@
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDidStore } from '../../stores/didStore';
-import { HorizontalBookScroll } from '../../components/HorizontalBookScroll';
-import { DidBookCard } from '../../components/DidBookCard';
-import { DidMenuType } from '../../types';
+import { ThemeType, THEME_LABELS } from '../../types';
 
 /**
- * DidHome
- *
- * Main DID (Digital Information Display) touch interface page.
- * Features large touch buttons for menu selection and horizontal book lists.
- * Designed for fullscreen kiosk display in public library.
+ * DidHome - GenTA 테마 선택 페이지 (Step 1)
+ * 1920x1200 키오스크 화면에 최적화
  */
 export const DidHome = () => {
   const navigate = useNavigate();
-  const {
-    activeMenu,
-    setActiveMenu,
-    newArrivals,
-    librarianPicks,
-    preschoolBooks,
-    elementaryBooks,
-    teenBooks,
-    isLoading,
-    error,
-    fetchNewArrivals,
-    fetchLibrarianPicks,
-    fetchBooksByAge,
-  } = useDidStore();
+  const [selectedTheme, setSelectedTheme] = useState<ThemeType | null>(null);
 
-  // Load initial menu content
-  useEffect(() => {
-    if (activeMenu === null) {
-      // Default to new arrivals on first load
-      setActiveMenu('new-arrivals');
-    }
-  }, []);
+  const themes: { type: ThemeType; emoji: string }[] = [
+    { type: 'adventure', emoji: '🏔️' },
+    { type: 'fairytale', emoji: '🏰' },
+    { type: 'science', emoji: '🔬' },
+    { type: 'comic', emoji: '📚' },
+    { type: 'history', emoji: '🏛️' },
+  ];
 
-  // Fetch data when menu changes
-  useEffect(() => {
-    if (!activeMenu) return;
-
-    switch (activeMenu) {
-      case 'new-arrivals':
-        fetchNewArrivals();
-        break;
-      case 'librarian-picks':
-        fetchLibrarianPicks();
-        break;
-      case 'age-preschool':
-        fetchBooksByAge('preschool');
-        break;
-      case 'age-elementary':
-        fetchBooksByAge('elementary');
-        break;
-      case 'age-teen':
-        fetchBooksByAge('teen');
-        break;
-    }
-  }, [activeMenu]);
-
-  const handleMenuClick = (menu: DidMenuType) => {
-    setActiveMenu(menu);
-  };
-
-  const handleBookClick = (bookId: string) => {
-    navigate(`/did/books/${bookId}`);
-  };
-
-  // Get current book list based on active menu
-  const getCurrentBooks = () => {
-    switch (activeMenu) {
-      case 'new-arrivals':
-        return newArrivals;
-      case 'librarian-picks':
-        return librarianPicks;
-      case 'age-preschool':
-        return preschoolBooks;
-      case 'age-elementary':
-        return elementaryBooks;
-      case 'age-teen':
-        return teenBooks;
-      default:
-        return [];
+  const handleNext = () => {
+    if (selectedTheme) {
+      navigate(`/did/books/${selectedTheme}`);
     }
   };
 
-  const getMenuTitle = () => {
-    switch (activeMenu) {
-      case 'new-arrivals':
-        return '신착 도서';
-      case 'librarian-picks':
-        return '사서 추천 도서';
-      case 'age-preschool':
-        return '유아 도서';
-      case 'age-elementary':
-        return '초등 도서';
-      case 'age-teen':
-        return '청소년 도서';
-      default:
-        return '';
-    }
+  const handleAiRecommend = () => {
+    navigate('/did/ai');
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header */}
-      <header className="bg-white shadow-md">
-        <div className="container mx-auto px-12 py-8">
-          <h1 className="text-5xl font-bold text-blue-600">꿈샘 도서관</h1>
-          <p className="text-2xl text-gray-600 mt-2">책을 터치해서 자세히 알아보세요</p>
-        </div>
-      </header>
+    <div className="relative w-[1920px] h-[1200px] bg-white mx-auto overflow-hidden">
+      {/* GenTA Logo - left:76px, top:62px */}
+      <div className="absolute left-[76px] top-[62px] flex items-center gap-4">
+        <img 
+          src="/genta-logo.png" 
+          alt="GenTA" 
+          className="w-[83px] h-[80px] object-contain"
+        />
+      </div>
 
-      {/* Menu Buttons */}
-      <div className="container mx-auto px-12 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-12">
-          {/* New Arrivals */}
-          <button
-            onClick={() => handleMenuClick('new-arrivals')}
-            className={`h-32 rounded-3xl shadow-xl font-bold text-3xl
-                       transform transition-all active:scale-95
-                       ${
-                         activeMenu === 'new-arrivals'
-                           ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white scale-105'
-                           : 'bg-white text-gray-800 hover:shadow-2xl'
-                       }`}
-          >
-            📚 신착 도서
-          </button>
+      {/* Title Box - center, top:44px */}
+      <div 
+        className="absolute left-[655px] top-[44px] w-[655px] h-[124px] 
+                   border border-black rounded-[60px] flex items-center justify-center"
+        style={{ background: 'rgba(255, 255, 255, 0.1)' }}
+      >
+        <span className="text-[48px] font-bold text-black">꿈샘어린이청소년도서관</span>
+      </div>
 
-          {/* Librarian Picks */}
-          <button
-            onClick={() => handleMenuClick('librarian-picks')}
-            className={`h-32 rounded-3xl shadow-xl font-bold text-3xl
-                       transform transition-all active:scale-95
-                       ${
-                         activeMenu === 'librarian-picks'
-                           ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white scale-105'
-                           : 'bg-white text-gray-800 hover:shadow-2xl'
-                       }`}
-          >
-            ⭐ 사서 추천
-          </button>
+      {/* Subtitle - top:187px */}
+      <p className="absolute left-[777px] top-[187px] w-[411px] text-[30px] text-black text-center">
+        아산시립도서관 | AI 영상 생성 체험
+      </p>
 
-          {/* Preschool */}
-          <button
-            onClick={() => handleMenuClick('age-preschool')}
-            className={`h-32 rounded-3xl shadow-xl font-bold text-3xl
-                       transform transition-all active:scale-95
-                       ${
-                         activeMenu === 'age-preschool'
-                           ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white scale-105'
-                           : 'bg-white text-gray-800 hover:shadow-2xl'
-                       }`}
-          >
-            🧸 유아
-          </button>
+      {/* Main Title - top:275px */}
+      <h1 className="absolute left-[551px] top-[275px] w-[924px] text-[48px] font-bold text-black text-center leading-[58px]">
+        좋아하는 테마를 골라 책 영상을 만나보세요! 📚✨
+      </h1>
 
-          {/* Elementary */}
-          <button
-            onClick={() => handleMenuClick('age-elementary')}
-            className={`h-32 rounded-3xl shadow-xl font-bold text-3xl
-                       transform transition-all active:scale-95
-                       ${
-                         activeMenu === 'age-elementary'
-                           ? 'bg-gradient-to-r from-green-500 to-green-600 text-white scale-105'
-                           : 'bg-white text-gray-800 hover:shadow-2xl'
-                       }`}
-          >
-            🎒 초등
-          </button>
+      {/* Progress Indicator - top:367px */}
+      <div className="absolute left-[515px] top-[367px] flex items-center">
+        {[1, 2, 3, 4].map((step, index) => (
+          <div key={step} className="flex items-center">
+            <div
+              className={`w-[115px] h-[110px] rounded-full flex items-center justify-center
+                         text-[48px] font-bold border border-black shadow-md
+                         ${step === 1 ? 'bg-black text-white' : 'bg-[#D9D9D9] text-black'}`}
+            >
+              {step}
+            </div>
+            {index < 3 && (
+              <div className="w-[65px] h-0 border-t border-black mx-[56px]" />
+            )}
+          </div>
+        ))}
+      </div>
 
-          {/* Teen */}
-          <button
-            onClick={() => handleMenuClick('age-teen')}
-            className={`h-32 rounded-3xl shadow-xl font-bold text-3xl
-                       transform transition-all active:scale-95
-                       ${
-                         activeMenu === 'age-teen'
-                           ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white scale-105'
-                           : 'bg-white text-gray-800 hover:shadow-2xl'
-                       }`}
-          >
-            📖 청소년
-          </button>
+      {/* Theme Selection Card - top:535px */}
+      <div 
+        className="absolute left-[104px] top-[535px] w-[1712px] h-[563px]
+                   border border-black rounded-[30px] shadow-md"
+      >
+        {/* Card Title */}
+        <h2 className="absolute left-[123px] top-[93px] text-[40px] font-bold text-black">
+          📒 좋아하는 테마를 선택해 주세요!
+        </h2>
+
+        {/* Theme Buttons - 5개, top:173px (카드 내부 기준) */}
+        <div className="absolute left-[115px] top-[173px] flex gap-[38px]">
+          {themes.map(({ type, emoji }) => (
+            <button
+              key={type}
+              onClick={() => setSelectedTheme(type)}
+              className={`w-[266px] h-[168px] rounded-[30px] border border-black shadow-md
+                         flex flex-col items-center justify-center transition-all
+                         ${selectedTheme === type
+                           ? 'bg-black text-white'
+                           : 'bg-white text-black hover:bg-gray-50'
+                         }`}
+            >
+              <span className="text-[40px]">{emoji}</span>
+              <span className="text-[40px] font-bold">{THEME_LABELS[type]}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Book List */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-24">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-2xl text-gray-600">책을 불러오는 중...</p>
-          </div>
-        </div>
-      ) : error ? (
-        <div className="container mx-auto px-12 py-12">
-          <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-8 text-center">
-            <p className="text-2xl text-red-600 font-medium">{error}</p>
-          </div>
-        </div>
-      ) : getCurrentBooks().length > 0 ? (
-        <HorizontalBookScroll title={getMenuTitle()}>
-          {getCurrentBooks().map((book) => (
-            <DidBookCard key={book.id} book={book} onClick={() => handleBookClick(book.id)} />
-          ))}
-        </HorizontalBookScroll>
-      ) : (
-        <div className="container mx-auto px-12 py-12 text-center">
-          <p className="text-2xl text-gray-500">도서가 없습니다</p>
-        </div>
-      )}
+      {/* Next Button - top:928px */}
+      <button
+        onClick={handleNext}
+        disabled={!selectedTheme}
+        className={`absolute left-[204px] top-[928px] w-[1497px] h-[111px]
+                   rounded-[40px] shadow-md flex items-center justify-center transition-all
+                   ${selectedTheme
+                     ? 'bg-[#D9D9D9] hover:bg-gray-400 text-black cursor-pointer'
+                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                   }`}
+      >
+        <span className="text-[40px] font-bold">→ 다음 단계로</span>
+      </button>
 
-      {/* Footer */}
-      <footer className="mt-24 py-12 bg-gray-100">
-        <div className="container mx-auto px-12 text-center">
-          <p className="text-xl text-gray-600">
-            도서관 이용 시간: 평일 09:00 - 18:00 | 주말 10:00 - 17:00
-          </p>
-          <p className="text-lg text-gray-500 mt-2">
-            문의: 031-XXX-XXXX
-          </p>
-        </div>
-      </footer>
+      {/* AI Recommend Link (optional) */}
+      <button
+        onClick={handleAiRecommend}
+        className="absolute right-[100px] top-[80px] text-[24px] text-gray-500 hover:text-black"
+      >
+        🤖 AI 추천
+      </button>
     </div>
   );
 };

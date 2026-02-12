@@ -7,6 +7,9 @@ async function main() {
   logger.info(`Environment: ${config.nodeEnv}`);
   logger.info(`Redis: ${config.redis.host}:${config.redis.port}`);
   logger.info(`Concurrency: ${config.worker.concurrency}`);
+  logger.info(`GEMINI_API_KEY: ${config.geminiApiKey ? 'set' : 'NOT SET'}`);
+  logger.info(`OPENAI_API_KEY (Sora): ${config.openaiApiKey ? 'set' : 'NOT SET'}`);
+  logger.info(`VEO_API_KEY: ${config.veo?.apiKey ? 'set' : 'not set'}`);
 
   const worker = createWorker();
 

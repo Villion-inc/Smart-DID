@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Book, VideoStatus } from '@smart-did/shared';
+import { Book, type VideoStatus } from '../types';
 import { bookApi } from '../api/book.api';
 
 export function BookDetailPage() {
   const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
   const [book, setBook] = useState<Book | null>(null);
-  const [videoStatus, setVideoStatus] = useState<VideoStatus>(VideoStatus.NONE);
+  const [videoStatus, setVideoStatus] = useState<VideoStatus>('NONE');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -22,7 +22,7 @@ export function BookDetailPage() {
 
     try {
       const [bookData, videoData] = await Promise.all([
-        bookApi.getBook(bookId),
+        bookApi.getBookDetail(bookId),
         bookApi.getVideoStatus(bookId),
       ]);
 
@@ -41,9 +41,9 @@ export function BookDetailPage() {
     try {
       const result = await bookApi.requestVideo(bookId);
       setVideoStatus(result.status);
-      alert(result.message);
+      alert(result.message ?? '영상 요청이 접수되었습니다.');
 
-      if (result.status !== VideoStatus.READY) {
+      if (result.status !== 'READY') {
         setTimeout(loadBookAndVideo, 3000);
       }
     } catch (error) {
@@ -76,7 +76,7 @@ export function BookDetailPage() {
 
       <h1 style={{ fontSize: '2rem', marginBottom: '1rem' }}>{book.title}</h1>
       <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: '1rem' }}>저자: {book.author}</p>
-      <p style={{ color: '#888', marginBottom: '0.5rem' }}>장르: {book.genre}</p>
+      <p style={{ color: '#888', marginBottom: '0.5rem' }}>장르: {book.category}</p>
       <p style={{ color: '#888', marginBottom: '2rem' }}>서가: {book.shelfCode}</p>
 
       <div style={{ backgroundColor: '#f5f5f5', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
@@ -87,7 +87,7 @@ export function BookDetailPage() {
       <div style={{ border: '2px solid #4CAF50', borderRadius: '8px', padding: '1.5rem' }}>
         <h3 style={{ marginBottom: '1rem' }}>영상 요약</h3>
 
-        {videoStatus === VideoStatus.READY && videoUrl && (
+        {videoStatus === 'READY' && videoUrl && (
           <div>
             <video
               controls
@@ -100,7 +100,7 @@ export function BookDetailPage() {
           </div>
         )}
 
-        {videoStatus === VideoStatus.NONE && (
+        {videoStatus === 'NONE' && (
           <div>
             <p style={{ marginBottom: '1rem' }}>이 책의 영상 요약이 아직 없습니다.</p>
             <button
@@ -121,21 +121,21 @@ export function BookDetailPage() {
           </div>
         )}
 
-        {videoStatus === VideoStatus.QUEUED && (
+        {videoStatus === 'QUEUED' && (
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
             <p style={{ color: '#FF9800' }}>영상 생성 대기 중...</p>
           </div>
         )}
 
-        {videoStatus === VideoStatus.GENERATING && (
+        {videoStatus === 'GENERATING' && (
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🎬</div>
             <p style={{ color: '#2196F3' }}>영상 생성 중...</p>
           </div>
         )}
 
-        {videoStatus === VideoStatus.FAILED && (
+        {videoStatus === 'FAILED' && (
           <div>
             <p style={{ color: '#f44336', marginBottom: '1rem' }}>영상 생성에 실패했습니다.</p>
             <button

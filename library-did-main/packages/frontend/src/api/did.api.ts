@@ -8,6 +8,7 @@ export interface VideoStatusResponse {
   bookId: string;
   status: 'NONE' | 'QUEUED' | 'GENERATING' | 'READY' | 'FAILED';
   videoUrl: string | null;
+  subtitleUrl?: string | null;
   message: string;
   queuePosition?: number;
 }
@@ -36,16 +37,27 @@ export interface PopularVideo {
 /**
  * DID API Client
  *
- * Handles API calls for the Digital Information Display (DID) touch interface.
- * All endpoints are public (no authentication required).
+ * 새 DID 프론트(900×1600 북메이트 추천도서) ↔ 백엔드 연동.
+ * baseURL = VITE_API_URL (예: http://localhost:3000/api). 모든 경로는 상대 경로.
+ *
+ * 백엔드 flow:
+ * - GET /did/new-arrivals, /did/age/:group, /did/search, /did/books/:bookId → alpasService (Mock/Real)
+ * - GET /did/books/:bookId/video → VideoRecord 상태/URL
+ * - POST /did/books/:bookId/video/request → 없으면 큐 등록 후 Worker가 영상 생성, 콜백으로 DB 갱신
+ * - 영상 재생 URL: backend가 저장한 videoUrl이 /api/videos/xxx 이면 origin + videoUrl 로 재생
  */
 
 /**
  * Fetch newly arrived books for DID display
  */
 export const getNewArrivals = async (): Promise<DidBook[]> => {
-  const response = await apiClient.get<ApiResponse<DidBook[]>>('/did/new-arrivals');
-  return response.data.data || [];
+  try {
+    const response = await apiClient.get<ApiResponse<DidBook[]>>('/did/new-arrivals');
+    return response.data.data || [];
+  } catch (error) {
+    console.error('getNewArrivals failed:', error);
+    return [];
+  }
 };
 
 /**
@@ -61,8 +73,13 @@ export const getLibrarianPicks = async (): Promise<DidBook[]> => {
  * @param ageGroup - 'preschool' | 'elementary' | 'teen'
  */
 export const getBooksByAge = async (ageGroup: AgeGroup): Promise<DidBook[]> => {
-  const response = await apiClient.get<ApiResponse<DidBook[]>>(`/did/age/${ageGroup}`);
-  return response.data.data || [];
+  try {
+    const response = await apiClient.get<ApiResponse<DidBook[]>>(`/did/age/${ageGroup}`);
+    return response.data.data || [];
+  } catch (error) {
+    console.error('getBooksByAge failed:', error);
+    return [];
+  }
 };
 
 /**
@@ -88,10 +105,15 @@ export const getDidBookDetail = async (bookId: string): Promise<DidBookDetail | 
  * @param bookId - Book identifier
  */
 export const getVideoStatus = async (bookId: string): Promise<VideoStatusResponse> => {
-  const response = await apiClient.get<ApiResponse<VideoStatusResponse>>(
-    `/did/books/${bookId}/video`
-  );
-  return response.data.data!;
+  try {
+    const response = await apiClient.get<ApiResponse<VideoStatusResponse>>(
+      `/did/books/${bookId}/video`
+    );
+    return response.data.data ?? { bookId, status: 'NONE', videoUrl: null, message: '영상이 아직 생성되지 않았습니다.' };
+  } catch (error) {
+    console.error('getVideoStatus failed:', error);
+    return { bookId, status: 'NONE', videoUrl: null, message: '영상이 아직 생성되지 않았습니다.' };
+  }
 };
 
 /**
@@ -102,10 +124,15 @@ export const getVideoStatus = async (bookId: string): Promise<VideoStatusRespons
  * @param bookId - Book identifier
  */
 export const requestVideo = async (bookId: string): Promise<VideoStatusResponse> => {
-  const response = await apiClient.post<ApiResponse<VideoStatusResponse>>(
-    `/did/books/${bookId}/video/request`
-  );
-  return response.data.data!;
+  try {
+    const response = await apiClient.post<ApiResponse<VideoStatusResponse>>(
+      `/did/books/${bookId}/video/request`
+    );
+    return response.data.data ?? { bookId, status: 'QUEUED', videoUrl: null, message: '영상 생성 요청이 접수되었습니다.' };
+  } catch (error) {
+    console.error('requestVideo failed:', error);
+    throw error;
+  }
 };
 
 /**
@@ -128,8 +155,13 @@ export const searchBooksWithVideo = async (
   query: string,
   limit: number = 20
 ): Promise<SearchResultWithVideo[]> => {
-  const response = await apiClient.get<ApiResponse<SearchResultWithVideo[]>>(
-    `/did/search?q=${encodeURIComponent(query)}&limit=${limit}`
-  );
-  return response.data.data || [];
+  try {
+    const response = await apiClient.get<ApiResponse<SearchResultWithVideo[]>>(
+      `/did/search?q=${encodeURIComponent(query)}&limit=${limit}`
+    );
+    return response.data.data || [];
+  } catch (error) {
+    console.error('searchBooksWithVideo failed:', error);
+    return [];
+  }
 };

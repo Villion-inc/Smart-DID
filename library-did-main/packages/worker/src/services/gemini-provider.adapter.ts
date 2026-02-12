@@ -1,15 +1,13 @@
 /**
  * GeminiProvider 구현 — PipelineOrchestratorV2에서 사용
- * trailer-engine src/services 기준: 키프레임 = Banana(NanovaBananaClient), 비디오 = Veo31
- *
- * - generateKeyframe: BANANA_API_KEY 설정 시 NanovaBananaClient 사용, 미설정 시 플레이스홀더 PNG
- * - generateVideo: Veo31 generateVideoFromImageBuffer 사용 (VEO_API_KEY 필요)
- * - generateAnchor / generateSceneScript: V2는 groundBook/planScenes 사용 → 미사용 시 스텁
+ * - 키프레임: BANANA 설정 시 NanovaBananaClient, 미설정 시 플레이스홀더 PNG
+ * - 비디오: OPENAI_API_KEY(Sora) 우선, 없으면 VEO_API_KEY(Veo 3.1)
  */
 
 import type { GeminiProvider, Anchor, SceneScript, SceneType } from '../shared/types';
 import { config } from '../config';
 import { Veo31Client } from './veo31-client';
+import { SoraClient } from './sora-client';
 import { NanovaBananaClient } from './nanova-banana-client';
 import { logger } from '../config/logger';
 
@@ -19,15 +17,21 @@ const PLACEHOLDER_PNG_BASE64 =
 
 export class GeminiProviderAdapter implements GeminiProvider {
   private veo: Veo31Client | null = null;
+  private sora: SoraClient | null = null;
   private banana: NanovaBananaClient | null = null;
 
   constructor() {
-    if (config.veo?.apiKey) {
+    if (config.openaiApiKey) {
+      this.sora = new SoraClient(config.openaiApiKey);
+      logger.info('[GeminiProvider] Using Sora (OpenAI) for video generation');
+    }
+    if (config.veo?.apiKey && !this.sora) {
       this.veo = new Veo31Client(
         config.veo.apiKey,
         process.env.VEO_PROJECT_ID || 'your-project-id',
         process.env.VEO_LOCATION || 'us-central1'
       );
+      logger.info('[GeminiProvider] Using Veo 3.1 for video generation');
     }
     if (config.banana?.apiKey && config.banana?.modelKey) {
       this.banana = new NanovaBananaClient(config.banana.apiKey, config.banana.modelKey);
@@ -69,27 +73,37 @@ export class GeminiProviderAdapter implements GeminiProvider {
 
   /**
    * 키프레임 + 프롬프트로 비디오 생성
-   * - Veo 설정 시: imageBuffer를 base64로 Veo에 전달 후 반환 URL을 fetch하여 Buffer 반환
-   * - 미설정 시: 안내 메시지와 함께 에러
+   * - Sora(OPENAI_API_KEY) 우선, 없으면 Veo(VEO_API_KEY)
    */
   async generateVideo(
     keyframeBuffer: Buffer,
     prompt: string,
     duration: 8
   ): Promise<Buffer> {
-    if (!this.veo) {
-      throw new Error(
-        'Veo not configured. Set VEO_API_KEY (and optionally VEO_PROJECT_ID, VEO_LOCATION) for Pipeline V2 video generation.'
+    if (this.sora) {
+      const result = await this.sora.generateVideoFromImage(
+        keyframeBuffer,
+        prompt,
+        duration
       );
+      if (result.success && result.videoBuffer) {
+        return result.videoBuffer;
+      }
+      throw new Error(result.error || 'Sora video generation failed');
     }
-    const result = await this.veo.generateVideoFromImageBuffer(
-      keyframeBuffer,
-      prompt,
-      duration
+    if (this.veo) {
+      const result = await this.veo.generateVideoFromImageBuffer(
+        keyframeBuffer,
+        prompt,
+        duration
+      );
+      if (!result.success || !result.videoBuffer) {
+        throw new Error(result.error || 'Veo video generation failed');
+      }
+      return result.videoBuffer;
+    }
+    throw new Error(
+      'No video provider. Set OPENAI_API_KEY (Sora) or VEO_API_KEY for Pipeline V2 video generation.'
     );
-    if (!result.success || !result.videoBuffer) {
-      throw new Error(result.error || 'Veo video generation failed');
-    }
-    return result.videoBuffer;
   }
 }

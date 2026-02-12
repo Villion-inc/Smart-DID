@@ -14,6 +14,8 @@ export interface VideoGenerationRequest {
   author?: string;
   language: 'ko' | 'en';
   style?: 'animation-3d' | 'animation-2d';
+  /** bookId for saving video and callback (worker MVP) */
+  bookId?: string;
 }
 
 export interface VideoGenerationJob {

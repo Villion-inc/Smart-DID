@@ -3,12 +3,15 @@
  * Coordinates the complete video generation workflow
  */
 
+import path from 'path';
+import fs from 'fs/promises';
 import {
   VideoGenerationJob,
   VideoGenerationResult,
   VideoGenerationRequest,
   VideoGenerationJobV2,
   SceneResultV2,
+  SceneResult,
   BookFacts,
   StyleBible,
   ScenePlan,
@@ -16,6 +19,8 @@ import {
   SceneNumber,
   GeminiProvider,
 } from '../shared/types';
+import { config } from '../config';
+import { VideoAssembler } from './assemble';
 import { AnchorBuilder } from '../anchor/buildAnchor';
 import { SceneGenerator } from '../retry/sceneGenerator';
 import { RetryPolicy } from '../retry/retryPolicy';
@@ -23,6 +28,7 @@ import { QCRunner } from '../qc/qcRunner';
 import { CostReporter } from '../cost/costReport';
 import { VTTGenerator } from '../subtitles/vttGenerator';
 import { cacheStore } from '../cache/cacheStore';
+import { getStorageProvider } from '../services/storage-provider.factory';
 
 // V2 imports
 import { groundBook } from './grounding';
@@ -444,13 +450,100 @@ export class PipelineOrchestratorV2 {
       // Step 6: Generate Subtitles
       console.log('[Pipeline V2] Step 6: Generate Subtitles');
       const subtitles = this.generateSubtitles(scripts, request.language);
-      const subtitleUrl = `output/subtitles/${jobId}.vtt`;
+      let subtitleUrl = `output/subtitles/${jobId}.vtt`;
       console.log('[Pipeline V2] ✅ Subtitles generated\n');
 
-      // Step 7: Final Assembly (placeholder)
-      console.log('[Pipeline V2] Step 7: Assemble Video');
-      const videoUrl = `output/videos/${jobId}.mp4`;
-      console.log('[Pipeline V2] ⚠️  Assembly skipped (FFmpeg integration needed)\n');
+      // Step 7: Merge scenes (FFmpeg) and save to storage
+      console.log('[Pipeline V2] Step 7: Save Video');
+      let videoUrl = `output/videos/${jobId}.mp4`;
+      const bookId = (request as VideoGenerationRequest & { bookId?: string }).bookId;
+      const sortedScenes = [...successfulScenes].sort(
+        (a, b) => a.sceneNumber - b.sceneNumber
+      );
+      const tempDir = path.join(config.tempDir, jobId);
+      const tempFiles: string[] = [];
+
+      if (bookId && sortedScenes.length > 0 && sortedScenes.every((s) => s.videoBuffer)) {
+        try {
+          await fs.mkdir(tempDir, { recursive: true });
+
+          // Write each scene buffer to temp file (order: 1, 2, 3)
+          const scenePaths: string[] = [];
+          for (let i = 0; i < sortedScenes.length; i++) {
+            const scene = sortedScenes[i];
+            const filePath = path.join(tempDir, `scene-${scene.sceneNumber}.mp4`);
+            await fs.writeFile(filePath, scene.videoBuffer!);
+            tempFiles.push(filePath);
+            scenePaths.push(filePath);
+          }
+
+          // VTT to temp file
+          const vttPath = path.join(tempDir, `${jobId}.vtt`);
+          await fs.writeFile(vttPath, subtitles, 'utf-8');
+          tempFiles.push(vttPath);
+
+          // SceneResult[] for assembler (videoUrl = file path)
+          const scenesForAssemble: SceneResult[] = sortedScenes.map((s, i) => ({
+            sceneNumber: s.sceneNumber,
+            sceneType: s.sceneType,
+            status: 'success' as const,
+            videoUrl: scenePaths[i],
+            retryCount: 0,
+          }));
+
+          const mergedPath = path.join(tempDir, 'merged.mp4');
+          const assembler = new VideoAssembler();
+          const finalPath = await assembler.concatAndSubtitles(
+            scenesForAssemble,
+            vttPath,
+            mergedPath
+          );
+
+          const mergedBuffer = await fs.readFile(finalPath);
+          const storage = getStorageProvider();
+          const key = `${bookId}-${Date.now()}.mp4`;
+          const savedUrl = await storage.save(key, mergedBuffer);
+          videoUrl = savedUrl.startsWith('/videos/') ? '/api' + savedUrl : savedUrl;
+          console.log(`[Pipeline V2] ✅ Video saved (${sortedScenes.length} scenes merged): ${videoUrl}\n`);
+
+          // Cleanup temp files
+          for (const f of tempFiles) {
+            try {
+              await fs.unlink(f);
+            } catch {
+              /* ignore */
+            }
+          }
+          try {
+            await fs.rm(tempDir, { recursive: true, force: true });
+          } catch {
+            /* ignore */
+          }
+        } catch (err: any) {
+          console.error('[Pipeline V2] ⚠️  Merge/save failed:', err?.message || err);
+          // Fallback: save first scene only
+          const first = sortedScenes[0];
+          if (first?.videoBuffer && bookId) {
+            try {
+              const storage = getStorageProvider();
+              const key = `${bookId}-${Date.now()}.mp4`;
+              const savedUrl = await storage.save(key, first.videoBuffer);
+              videoUrl = savedUrl.startsWith('/videos/') ? '/api' + savedUrl : savedUrl;
+              console.log(`[Pipeline V2] ✅ Fallback: first scene saved: ${videoUrl}\n`);
+            } catch (e: any) {
+              console.error('[Pipeline V2] ⚠️  Fallback save failed:', e?.message || e);
+            }
+          }
+          // Cleanup on error
+          try {
+            await fs.rm(tempDir, { recursive: true, force: true });
+          } catch {
+            /* ignore */
+          }
+        }
+      } else {
+        console.log('[Pipeline V2] ⚠️  No bookId or video buffer; using placeholder URL\n');
+      }
 
       // Step 8: Cost Reporting
       const elapsedTimeMs = Date.now() - startTime;

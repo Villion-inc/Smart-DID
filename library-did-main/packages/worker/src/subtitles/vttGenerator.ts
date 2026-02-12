@@ -6,12 +6,17 @@
 import { SceneScript, TypographyPlan } from '../shared/types';
 import typographyRules from '../qc/typographyRules.json';
 
+/** typographyRules.json uses 'korean' | 'english' keys */
+function toRulesKey(language: 'ko' | 'en'): 'korean' | 'english' {
+  return language === 'ko' ? 'korean' : 'english';
+}
+
 export class VTTGenerator {
   /**
    * Generate VTT subtitle file from scene scripts
    */
   generateVTT(scripts: SceneScript[], typographyPlan: TypographyPlan, language: 'ko' | 'en'): string {
-    const rules = typographyRules[language];
+    const rules = typographyRules[toRulesKey(language)];
 
     const vttContent: string[] = ['WEBVTT', ''];
 
@@ -117,7 +122,7 @@ export class VTTGenerator {
     valid: boolean;
     violations: string[];
   } {
-    const rules = typographyRules[language];
+    const rules = typographyRules[toRulesKey(language)];
     const violations: string[] = [];
 
     const maxTotalChars = rules.maxCharsPerLine * rules.maxLines;
@@ -170,7 +175,7 @@ export class VTTGenerator {
    * Generate SRT format (alternative to VTT)
    */
   generateSRT(scripts: SceneScript[], typographyPlan: TypographyPlan, language: 'ko' | 'en'): string {
-    const rules = typographyRules[language];
+    const rules = typographyRules[toRulesKey(language)];
     const srtContent: string[] = [];
 
     let cueNumber = 1;

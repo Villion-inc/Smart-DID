@@ -19,11 +19,12 @@ export interface Book {
 export interface VideoStatusResponse {
   bookId: string;
   status: VideoStatus;
-  requestCount: number;
-  lastRequestedAt: string | null;
-  expiresAt: string | null;
+  requestCount?: number;
+  lastRequestedAt?: string | null;
+  expiresAt?: string | null;
   videoUrl: string | null;
-  rankingScore: number;
+  rankingScore?: number;
+  message?: string;
 }
 
 export interface AuthResponse {
@@ -81,3 +82,22 @@ export interface DidBookDetail {
 }
 
 export type DidMenuType = 'new-arrivals' | 'librarian-picks' | 'age-preschool' | 'age-elementary' | 'age-teen';
+
+// GenTA Theme types
+export type ThemeType = 'adventure' | 'fairytale' | 'science' | 'comic' | 'history';
+
+export const THEME_LABELS: Record<ThemeType, string> = {
+  adventure: '모험',
+  fairytale: '동화',
+  science: '과학',
+  comic: '만화',
+  history: '역사',
+};
+
+// AI Chat types
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
