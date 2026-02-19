@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "types": ["node", "jest"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "src/app.ts", "src/middleware/error.middleware.ts", "src/routes/recommendation.routes.ts"],
+  "references": [
+    { "path": "../shared" }
+  ]
+}

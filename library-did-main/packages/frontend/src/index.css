@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    /* 스크롤바 공간 항상 확보 → /did 페이지 이동 시 좌우 흔들림 방지 */
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900;
+    overflow-x: hidden;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar for horizontal scroll in DID interface */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

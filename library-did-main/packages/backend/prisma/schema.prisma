@@ -1,0 +1,62 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("admin")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("admin_users")
+}
+
+model VideoRecord {
+  bookId          String    @id
+  status          String    @default("NONE")
+  requestCount    Int       @default(0)
+  lastRequestedAt DateTime?
+  retryCount      Int       @default(0)
+  rankingScore    Float     @default(0)
+  expiresAt       DateTime?
+  videoUrl        String?
+  subtitleUrl     String?
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("video_records")
+}
+
+model ShelfMap {
+  id         String   @id @default(uuid())
+  bookId     String   @unique
+  shelfCode  String
+  mapX       Float
+  mapY       Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([shelfCode])
+  @@map("shelf_maps")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  type      String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}

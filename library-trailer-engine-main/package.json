@@ -1,0 +1,54 @@
+{
+  "name": "trailer-engine",
+  "version": "1.0.0",
+  "description": "Gemini-powered video generation engine for book summaries",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "start": "node dist/server.js",
+    "test": "ts-node src/test/test-client.ts",
+    "test:consistency": "ts-node src/test/test-consistency-strategy.ts",
+    "test:full": "ts-node src/test/test-full-workflow.ts",
+    "test:veo": "ts-node src/test/test-veo-simple.ts",
+    "test:complete": "ts-node src/test/test-complete-workflow.ts",
+    "generate:scene1": "ts-node src/test/generate-scene1.ts",
+    "generate:v2": "ts-node src/test/generate-complete-v2.ts",
+    "generate:keyframes": "ts-node src/test/generate-with-keyframes.ts",
+    "generate:batch": "ts-node src/test/batch-generate-with-qc.ts",
+    "generate:proper": "ts-node src/test/generate-proper-trailer.ts",
+    "generate:old": "ts-node src/test/generate-final-proper.ts",
+    "generate": "ts-node src/test/generate-with-reference-images.ts",
+    "ab-test": "ts-node src/test/ab-test-generate.ts",
+    "enhance": "bash src/scripts/enhance-video.sh",
+    "play": "open output/final/어린왕자_최신버전_완성.mp4",
+    "play:old": "open output/final/어린왕자_24초_완성본.mp4",
+    "clean": "rm -rf temp/*.mp4 output/archive/* output/tests/*"
+  },
+  "keywords": [
+    "video",
+    "gemini",
+    "book",
+    "trailer"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^1.35.0",
+    "@google/generative-ai": "^0.21.0",
+    "axios": "^1.6.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "fluent-ffmpeg": "^2.1.2",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/fluent-ffmpeg": "^2.1.24",
+    "@types/node": "^20.11.5",
+    "@types/uuid": "^9.0.7",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  }
+}
