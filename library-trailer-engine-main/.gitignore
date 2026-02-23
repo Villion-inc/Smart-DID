@@ -1,9 +1,0 @@
-node_modules/
-dist/
-output/
-temp/
-.env
-*.log
-.DS_Store
-*.mp4
-*.vtt
