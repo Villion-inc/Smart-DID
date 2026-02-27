@@ -78,7 +78,8 @@ export function DidV2Location() {
           </div>
         </div>
 
-        {/* Location map placeholder */}
+        {/* Location map placeholder - 지도 데이터 준비 전까지 숨김 */}
+        {/* TODO: 도서관 지도 이미지/데이터 연동 후 활성화
         <div
           className="relative mb-4 w-full overflow-hidden rounded-2xl"
           style={{
@@ -92,6 +93,7 @@ export function DidV2Location() {
             <span className="mt-2 text-sm text-gray-500">도서관 지도</span>
           </div>
         </div>
+        */}
 
         {/* Location Details */}
         <div

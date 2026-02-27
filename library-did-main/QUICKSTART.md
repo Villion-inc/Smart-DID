@@ -1,293 +1,148 @@
 # Quick Start Guide
 
-Get the Smart DID Video Service running in under 5 minutes.
+> 5분 안에 프로젝트를 실행하는 가이드입니다.
 
-## Prerequisites Check
+## 사전 요구사항
 
-```bash
-# Check Node.js version (must be >= 18)
-node --version
+- Node.js 18+
+- Redis (Docker 권장)
+- FFmpeg (영상 병합용, 선택)
 
-# Check npm version (must be >= 9)
-npm --version
-
-# Check if Redis is installed
-redis-cli --version
-```
-
-If any are missing, install them first.
-
-## Step-by-Step Setup
-
-### 1. Install Dependencies
+## 1. 프로젝트 클론 및 설치
 
 ```bash
+# 의존성 설치
 npm install
 ```
 
-This will install all dependencies for all packages (backend, frontend, worker, shared).
-
-### 2. Configure Environment
+## 2. 환경 변수 설정
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and set required values:
+**필수 환경변수** (`.env` 파일 편집):
 
 ```env
-# Minimum required configuration
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=your_secure_password_here
-JWT_SECRET=generate_a_random_secret_key_here
+DATABASE_URL=file:./dev.db
+JWT_SECRET=your-secret-key-change-in-production-32chars
+INTERNAL_API_SECRET=your-internal-secret-change-in-production
+REDIS_HOST=localhost
+REDIS_PORT=6379
+BACKEND_URL=http://localhost:3001
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 
-# Veo3.1 API (get from Veo)
-VEO_API_KEY=your_veo_api_key
-VEO_API_ENDPOINT=https://api.veo.example.com/v1
+# 영상 생성 (둘 중 하나 이상)
+OPENAI_API_KEY=YOUR_OPENAI_KEY
+# VEO_API_KEY=YOUR_VEO_KEY
+
+STORAGE_TYPE=local
+STORAGE_PATH=./storage/videos
 ```
 
-### 3. Start Redis
+## 3. 데이터베이스 초기화
 
-**Option A: Using Homebrew (macOS)**
 ```bash
-brew services start redis
+cd packages/backend
+npm run prisma:migrate:deploy
+npm run prisma:generate
+cd ../..
 ```
 
-**Option B: Using Docker**
+## 4. Redis 실행
+
 ```bash
-docker run -d -p 6379:6379 --name redis redis:latest
+# Docker 사용
+docker run -d -p 6379:6379 --name redis redis:alpine
+
+# 또는 이미 실행 중인지 확인
+docker ps | grep redis
 ```
 
-**Option C: Direct command**
-```bash
-redis-server
-```
-
-Verify Redis is running:
-```bash
-redis-cli ping
-# Should return: PONG
-```
-
-### 4. Start All Services
+## 5. 서비스 실행
 
 ```bash
+# 전체 실행 (권장)
 npm run dev
 ```
 
-This starts:
-- **Backend API**: http://localhost:3000
-- **Frontend**: http://localhost:5173
-- **Worker**: Running in background
-
-### 5. Verify Everything Works
-
-**Check Backend Health:**
-```bash
-curl http://localhost:3000/health
-```
-
-Expected response:
-```json
-{"status":"ok","timestamp":"2024-01-15T10:00:00.000Z"}
-```
-
-**Open Frontend:**
-
-Visit http://localhost:5173 in your browser.
-
-**Test Login:**
-
-1. Navigate to http://localhost:5173/admin/login
-2. Login with credentials from `.env`
-3. You should see the admin dashboard
-
-## First Use
-
-### Search for Books
-
-1. Go to homepage (http://localhost:5173)
-2. Search for "별" or any other keyword
-3. Click on a book to view details
-
-### Generate Your First Video
-
-1. Click on a book (e.g., "별을 헤아리는 아이")
-2. Click "영상 생성 요청" button
-3. Video will be queued for generation
-4. Watch the status change: QUEUED → GENERATING → READY
-
-### Admin Functions
-
-1. Login at http://localhost:5173/admin/login
-2. Pre-generate videos for books
-3. Monitor generation status
-4. View all books and their video status
-
-## Testing
-
-Run tests:
+또는 터미널 3개에서 개별 실행:
 
 ```bash
-# All tests
-npm test
-
-# Specific package
-npm test --workspace=@smart-did/backend
-```
-
-## Troubleshooting
-
-### "Cannot connect to Redis"
-
-```bash
-# Check if Redis is running
-redis-cli ping
-
-# If not, start it
-brew services start redis
-# or
-redis-server
-```
-
-### "Port 3000 already in use"
-
-```bash
-# Find and kill the process
-lsof -ti:3000 | xargs kill
-
-# Or change the port in .env
-PORT=3001
-```
-
-### "Module not found" errors
-
-```bash
-# Clean install
-rm -rf node_modules package-lock.json
-rm -rf packages/*/node_modules packages/*/package-lock.json
-npm install
-```
-
-### Frontend shows "Network Error"
-
-Check that backend is running:
-```bash
-curl http://localhost:3000/health
-```
-
-If not running, restart:
-```bash
-npm run dev:backend
-```
-
-## Production Deployment
-
-### Using Docker Compose
-
-```bash
-# Build and start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-```
-
-Services will be available at:
-- Frontend: http://localhost
-- Backend API: http://localhost:3000
-
-### Manual Production Build
-
-```bash
-# Build all packages
-npm run build
-
-# Start backend
-cd packages/backend
-npm start
-
-# Start worker
-cd packages/worker
-npm start
-
-# Serve frontend (use nginx or similar)
-cd packages/frontend
-npm run preview
-```
-
-## Next Steps
-
-1. **Configure Veo3.1 Integration**: Update worker to call actual Veo API
-2. **Set Up Database**: Replace in-memory DB with PostgreSQL/MongoDB
-3. **Configure ALPAS Integration**: Connect to library system
-4. **Set Up SSL**: Use HTTPS in production
-5. **Configure Monitoring**: Set up logging and alerts
-
-## Development Tips
-
-### Run Services Individually
-
-```bash
-# Backend only
+# 터미널 1: Backend
 npm run dev:backend
 
-# Frontend only
+# 터미널 2: Frontend
 npm run dev:frontend
 
-# Worker only
+# 터미널 3: Worker
 npm run dev:worker
 ```
 
-### View Logs
+## 6. 접속 확인
 
-Logs are written to:
-- Backend: `packages/backend/logs/`
-- Worker: `packages/worker/logs/`
+| 서비스 | URL |
+|--------|-----|
+| DID 메인 | http://localhost:5173/did |
+| 관리자 로그인 | http://localhost:5173/admin/login |
+| API 문서 (Swagger) | http://localhost:3001/documentation |
 
-### Seed Sample Data
+## 7. 테스트
 
-Sample data is automatically seeded in development mode. To re-seed:
-
-1. Stop the backend
-2. Restart it (data is in-memory, so it resets)
-
-### API Testing
-
-Use the included API examples:
+### 도서 검색 테스트
 
 ```bash
-# Login
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"your_password"}'
-
-# Save the token
-export TOKEN="your_jwt_token_here"
-
-# Search books
-curl http://localhost:3000/api/books?query=별
-
-# Get book
-curl http://localhost:3000/api/books/ISBN-001
-
-# Request video
-curl -X POST http://localhost:3000/api/books/ISBN-001/video
-
-# Admin: Pre-generate (requires auth)
-curl -X POST http://localhost:3000/api/admin/books/ISBN-002/video \
-  -H "Authorization: Bearer $TOKEN"
+curl "http://localhost:3001/api/did/search?q=어린왕자"
 ```
 
-## Support
+### 영상 생성 요청 테스트
 
-- Check the main [README.md](./README.md) for detailed documentation
-- See [docs/API.md](./docs/API.md) for API reference
-- Review [docs/ERD.md](./docs/ERD.md) for database schema
+```bash
+curl -X POST http://localhost:3001/api/did/books/70007968/video/request \
+  -H "Content-Type: application/json" \
+  -d '{"title":"어린왕자","author":"생텍쥐페리","summary":"사막에 불시착한 비행사가..."}'
+```
 
----
+## 트러블슈팅
 
-**Ready to code!** Your Smart DID Video Service is now running. Start building amazing features for the library! 🚀
+### Redis 연결 실패
+
+```
+Error: connect ECONNREFUSED 127.0.0.1:6379
+```
+
+→ Redis가 실행 중인지 확인: `docker ps | grep redis`
+
+### Prisma 오류
+
+```
+Error: Cannot find module '.prisma/client'
+```
+
+→ `cd packages/backend && npm run prisma:generate`
+
+### Worker 키 미설정
+
+```
+GEMINI_API_KEY: NOT SET
+```
+
+→ `.env` 파일에 API 키가 설정되어 있는지 확인
+
+### FFmpeg 미설치
+
+영상 병합이 실패하면 첫 번째 장면만 저장됩니다. FFmpeg 설치:
+
+```bash
+# macOS
+brew install ffmpeg
+
+# Ubuntu
+sudo apt install ffmpeg
+```
+
+## 다음 단계
+
+- [docs/API.md](./docs/API.md) - API 레퍼런스
+- [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md) - 개발 가이드
+- [개발_기록.md](../개발_기록.md) - 변경 이력
