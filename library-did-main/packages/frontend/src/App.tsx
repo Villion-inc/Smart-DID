@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
-import { Home } from './pages/Home';
-import { BookDetail } from './pages/BookDetail';
 import { AdminLogin } from './pages/admin/Login';
 import { AdminDashboard } from './pages/admin/Dashboard';
 import { AdminRecommendBook } from './pages/admin/AdminRecommendBook';
@@ -21,14 +19,13 @@ function App() {
     initialize();
   }, []);
 
-  return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<Home />} />
-        <Route path="/books/:bookId" element={<BookDetail />} />
+  const basename = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '/';
 
-        {/* DID - 900×1600 북메이트 추천도서 (Frame 12~23) */}
+  return (
+    <BrowserRouter basename={basename}>
+      <Routes>
+        {/* DID 메인 (900×1600 북메이트 추천도서) */}
+        <Route path="/" element={<Navigate to="/did" replace />} />
         <Route path="/did" element={<DidV2Home />} />
         <Route path="/did/age/:group" element={<DidV2BookGrid />} />
         <Route path="/did/video/:bookId" element={<DidV2BookDetail />} />
@@ -40,14 +37,15 @@ function App() {
         <Route path="/pip" element={<Navigate to="/did/video/BK001" replace />} />
         <Route path="/pip/:bookId" element={<DidV2BookDetail />} />
 
-        {/* Admin Routes - DID와 동일 뷰포트(480px) */}
+        {/* Admin 관리자 페이지 */}
+        <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/recommend" element={<AdminRecommendBook />} />
         <Route path="/admin/videos" element={<VideoManagement />} />
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/did" replace />} />
       </Routes>
     </BrowserRouter>
   );

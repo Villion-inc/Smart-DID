@@ -4,8 +4,14 @@ import { getBooksByAge } from '../../api/did.api';
 import type { DidBook, AgeGroup } from '../../types';
 import { DidV2Layout } from './DidV2Layout';
 
+const AGE_LABELS: Record<AgeGroup, string> = {
+  preschool: '4-6세',
+  elementary: '7-9세',
+  teen: '10-13세',
+};
+
 /**
- * Frame 13 - 연령별 도서 3×3 그리드
+ * 연령별 도서 3×3 그리드 (키오스크 세로 화면)
  */
 export function DidV2BookGrid() {
   const navigate = useNavigate();
@@ -13,79 +19,66 @@ export function DidV2BookGrid() {
   const ageGroup = (group || 'elementary') as AgeGroup;
   const [books, setBooks] = useState<DidBook[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setError(null);
     (async () => {
       setLoading(true);
       try {
         const list = await getBooksByAge(ageGroup);
-        if (!cancelled) {
-          setBooks(list.slice(0, 9));
-          setError(null);
-        }
+        if (!cancelled) setBooks(list.slice(0, 9));
       } catch (e) {
-        if (!cancelled) {
-          setBooks([]);
-          setError('도서를 불러오지 못했습니다.');
-        }
+        if (!cancelled) setBooks([]);
       }
       if (!cancelled) setLoading(false);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [ageGroup]);
 
   return (
-    <DidV2Layout title="북메이트 추천도서">
-      <div
-        className="flex w-full max-w-[480px] flex-1 flex-col items-center px-4 py-4"
-        style={{ fontFamily: 'Pretendard, sans-serif' }}
-      >
-        <button
-          type="button"
-          onClick={() => navigate('/did')}
-          className="mb-4 self-start text-lg font-normal text-black"
-        >
-          ◀︎ 이전
-        </button>
-
-        <div className="grid w-full grid-cols-3 gap-x-3 gap-y-6">
+    <DidV2Layout title={`${AGE_LABELS[ageGroup]} 추천도서`}>
+      <div className="flex flex-1 flex-col px-4 py-4">
+        <div className="grid w-full grid-cols-3 gap-3">
           {(loading ? [] : books).map((book) => (
             <button
               key={book.id}
               type="button"
               onClick={() => navigate(`/did/video/${book.id}`)}
-              className="flex flex-col items-center"
+              className="flex flex-col items-center transition active:scale-[0.97]"
             >
               <div
-                className="h-36 w-full max-w-[140px] overflow-hidden rounded-xl bg-[#D9D9D9] shadow"
-                style={{ boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.2)' }}
+                className="relative w-full overflow-hidden rounded-xl"
+                style={{
+                  aspectRatio: '3/4',
+                  background: book.coverImageUrl
+                    ? `url(${book.coverImageUrl}) center/cover no-repeat`
+                    : 'linear-gradient(180deg, #E0F0F8 0%, #C8E8D0 100%)',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                }}
               >
-                {book.coverImageUrl ? (
-                  <img
-                    src={book.coverImageUrl}
-                    alt={book.title}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-3xl">
-                    📖
+                {!book.coverImageUrl && (
+                  <div className="absolute inset-0 flex items-center justify-center text-4xl">
+                    📚
                   </div>
                 )}
               </div>
-              <span className="mt-2 max-w-[140px] truncate text-center text-sm font-normal text-black">
+              <span className="mt-2 w-full truncate text-center text-sm font-medium text-gray-800">
                 {book.title || '제목'}
               </span>
             </button>
           ))}
         </div>
-        {error && (
-          <p className="w-full py-4 text-center text-sm text-red-600">{error}</p>
+        {loading && (
+          <div className="flex flex-1 items-center justify-center">
+            <p className="text-base text-gray-500">불러오는 중...</p>
+          </div>
         )}
-        {!loading && !error && books.length === 0 && (
-          <p className="flex flex-1 items-center py-8 text-center text-base text-black">도서가 없습니다.</p>
+        {!loading && books.length === 0 && (
+          <div className="flex flex-1 items-center justify-center">
+            <p className="text-base text-gray-500">도서가 없습니다.</p>
+          </div>
         )}
       </div>
     </DidV2Layout>

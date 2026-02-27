@@ -4,7 +4,6 @@
 
 @layer base {
   html {
-    /* 스크롤바 공간 항상 확보 → /did 페이지 이동 시 좌우 흔들림 방지 */
     scrollbar-gutter: stable;
   }
 
@@ -12,10 +11,19 @@
     @apply bg-gray-50 text-gray-900;
     overflow-x: hidden;
   }
+
+  /* 전역 스크롤바 숨기기 */
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
+  * {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 @layer utilities {
-  /* Hide scrollbar for horizontal scroll in DID interface */
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }

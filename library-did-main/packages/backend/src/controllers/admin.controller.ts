@@ -28,13 +28,17 @@ export class AdminController {
 
   // Video management
   async requestVideoGeneration(
-    request: FastifyRequest<{ Params: { bookId: string } }>,
+    request: FastifyRequest<{
+      Params: { bookId: string };
+      Body?: { title?: string; author?: string };
+    }>,
     reply: FastifyReply
   ) {
     const { bookId } = request.params;
+    const bookInfo = request.body || {};
 
     try {
-      const result = await videoService.requestVideo(bookId, true);
+      const result = await videoService.requestVideo(bookId, true, bookInfo);
       return reply.send({
         success: true,
         data: result,

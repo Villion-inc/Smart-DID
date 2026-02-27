@@ -501,10 +501,19 @@ export class PipelineOrchestratorV2 {
 
           const mergedBuffer = await fs.readFile(finalPath);
           const storage = getStorageProvider();
-          const key = `${bookId}-${Date.now()}.mp4`;
-          const savedUrl = await storage.save(key, mergedBuffer);
-          videoUrl = savedUrl.startsWith('/videos/') ? '/api' + savedUrl : savedUrl;
-          console.log(`[Pipeline V2] ✅ Video saved (${sortedScenes.length} scenes merged): ${videoUrl}\n`);
+          const timestamp = Date.now();
+          const videoKey = `${bookId}-${timestamp}.mp4`;
+          const savedVideoUrl = await storage.save(videoKey, mergedBuffer);
+          videoUrl = savedVideoUrl.startsWith('/videos/') ? '/api' + savedVideoUrl : savedVideoUrl;
+
+          // VTT 자막도 Storage에 저장
+          const vttBuffer = Buffer.from(subtitles, 'utf-8');
+          const vttKey = `${bookId}-${timestamp}.vtt`;
+          const savedVttUrl = await storage.save(vttKey, vttBuffer);
+          subtitleUrl = savedVttUrl.startsWith('/videos/') ? '/api' + savedVttUrl : savedVttUrl;
+
+          console.log(`[Pipeline V2] ✅ Video saved (${sortedScenes.length} scenes merged): ${videoUrl}`);
+          console.log(`[Pipeline V2] ✅ Subtitles saved: ${subtitleUrl}\n`);
 
           // Cleanup temp files
           for (const f of tempFiles) {
@@ -521,17 +530,52 @@ export class PipelineOrchestratorV2 {
           }
         } catch (err: any) {
           console.error('[Pipeline V2] ⚠️  Merge/save failed:', err?.message || err);
-          // Fallback: save first scene only
-          const first = sortedScenes[0];
-          if (first?.videoBuffer && bookId) {
-            try {
+          
+          // Fallback 1: Try to save concat-only video (without subtitles)
+          const concatPath = path.join(tempDir, 'merged_concat.mp4');
+          try {
+            const concatExists = await fs.access(concatPath).then(() => true).catch(() => false);
+            if (concatExists && bookId) {
               const storage = getStorageProvider();
-              const key = `${bookId}-${Date.now()}.mp4`;
-              const savedUrl = await storage.save(key, first.videoBuffer);
+              const timestamp = Date.now();
+              const concatBuffer = await fs.readFile(concatPath);
+              const key = `${bookId}-${timestamp}.mp4`;
+              const savedUrl = await storage.save(key, concatBuffer);
               videoUrl = savedUrl.startsWith('/videos/') ? '/api' + savedUrl : savedUrl;
-              console.log(`[Pipeline V2] ✅ Fallback: first scene saved: ${videoUrl}\n`);
-            } catch (e: any) {
-              console.error('[Pipeline V2] ⚠️  Fallback save failed:', e?.message || e);
+
+              // VTT 저장 (외부 자막 파일로 사용)
+              const vttBuffer = Buffer.from(subtitles, 'utf-8');
+              const vttKey = `${bookId}-${timestamp}.vtt`;
+              const savedVttUrl = await storage.save(vttKey, vttBuffer);
+              subtitleUrl = savedVttUrl.startsWith('/videos/') ? '/api' + savedVttUrl : savedVttUrl;
+
+              console.log(`[Pipeline V2] ✅ Fallback: concat video saved (no burned subtitles): ${videoUrl}`);
+              console.log(`[Pipeline V2] ✅ Fallback: subtitles saved (external): ${subtitleUrl}\n`);
+            } else {
+              throw new Error('Concat file not found');
+            }
+          } catch {
+            // Fallback 2: save first scene only
+            const first = sortedScenes[0];
+            if (first?.videoBuffer && bookId) {
+              try {
+                const storage = getStorageProvider();
+                const timestamp = Date.now();
+                const key = `${bookId}-${timestamp}.mp4`;
+                const savedUrl = await storage.save(key, first.videoBuffer);
+                videoUrl = savedUrl.startsWith('/videos/') ? '/api' + savedUrl : savedUrl;
+
+                // Fallback에서도 VTT 저장
+                const vttBuffer = Buffer.from(subtitles, 'utf-8');
+                const vttKey = `${bookId}-${timestamp}.vtt`;
+                const savedVttUrl = await storage.save(vttKey, vttBuffer);
+                subtitleUrl = savedVttUrl.startsWith('/videos/') ? '/api' + savedVttUrl : savedVttUrl;
+
+                console.log(`[Pipeline V2] ✅ Fallback: first scene saved: ${videoUrl}`);
+                console.log(`[Pipeline V2] ✅ Fallback: subtitles saved: ${subtitleUrl}\n`);
+              } catch (e: any) {
+                console.error('[Pipeline V2] ⚠️  Fallback save failed:', e?.message || e);
+              }
             }
           }
           // Cleanup on error
@@ -616,11 +660,21 @@ export class PipelineOrchestratorV2 {
       const endTime = startTime + 8;
 
       vttContent += `${index + 1}\n`;
-      vttContent += `00:00:${String(startTime).padStart(2, '0')}.000 --> 00:00:${String(endTime).padStart(2, '0')}.000\n`;
+      vttContent += `${this.formatVttTime(startTime)} --> ${this.formatVttTime(endTime)}\n`;
       vttContent += `${script.narration}\n\n`;
     });
 
     return vttContent;
+  }
+
+  /**
+   * Format seconds to VTT time format (HH:MM:SS.mmm)
+   */
+  private formatVttTime(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}.000`;
   }
 
   /**

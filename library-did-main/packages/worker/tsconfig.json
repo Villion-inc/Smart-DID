@@ -3,9 +3,10 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["node", "jest"]
+    "types": ["node", "jest"],
+    "resolveJsonModule": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/**/*.json"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"],
   "references": [
     { "path": "../shared" }

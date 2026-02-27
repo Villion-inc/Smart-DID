@@ -1,6 +1,9 @@
 import axios, { AxiosInstance } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (basePath ? `${basePath}/api` : 'http://localhost:3001/api');
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -22,7 +25,7 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('auth_token');
-      window.location.href = '/admin/login';
+      window.location.href = (basePath || '') + '/admin/login';
     }
     return Promise.reject(error);
   }

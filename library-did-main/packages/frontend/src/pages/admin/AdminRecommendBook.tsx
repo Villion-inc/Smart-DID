@@ -1,161 +1,180 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { AdminLayout } from './AdminLayout';
+import { searchBooksWithVideo } from '../../api/did.api';
+import { useAdminStore } from '../../stores/adminStore';
+import type { SearchResultWithVideo } from '../../api/did.api';
 
-const SECTION_TITLE = 'text-[18px] font-bold leading-tight text-black';
-const INPUT_BOX = 'w-full rounded-[30px] border border-[#E8E8E8] bg-[#FAF9F9] px-4 py-3 text-[15px]';
-const INPUT_BOX_TALL = 'w-full rounded-[30px] border border-[#E8E8E8] bg-[#FAF9F9] px-4 py-3 text-[15px] min-h-[80px]';
-
-const AGE_OPTIONS = ['4-6', '7-9', '10-12', '13-15', '전체'];
-const ZONE_COLORS = ['YELLOW', 'RED', 'BLUE', 'GREEN', 'ORANGE'];
-
+/**
+ * 추천 도서 등록 - ALPAS에서 검색하여 영상 생성 요청
+ */
 export function AdminRecommendBook() {
-  const navigate = useNavigate();
-  const [title, setTitle] = useState('');
-  const [ageGroup, setAgeGroup] = useState('4-6');
-  const [question, setQuestion] = useState('');
-  const [tags, setTags] = useState('');
-  const [coverEmoji, setCoverEmoji] = useState('📒');
-  const [zoneColor, setZoneColor] = useState('YELLOW');
-  const [shelf, setShelf] = useState('1');
-  const [row, setRow] = useState('1');
-  const [submitting, setSubmitting] = useState(false);
+  const { requestVideoGeneration } = useAdminStore();
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResultWithVideo[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [submitting, setSubmitting] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    setMessage(null);
     try {
-      // TODO: API 연동 - 추천도서 등록
-      await new Promise((r) => setTimeout(r, 500));
-      alert('등록 기능은 백엔드 API 연동 후 사용 가능합니다.');
-      navigate('/admin/dashboard');
+      const results = await searchBooksWithVideo(searchQuery.trim(), 10);
+      setSearchResults(results);
+      if (results.length === 0) {
+        setMessage({ type: 'error', text: '검색 결과가 없습니다.' });
+      }
     } catch (err) {
-      console.error(err);
+      setMessage({ type: 'error', text: '검색 중 오류가 발생했습니다.' });
     } finally {
-      setSubmitting(false);
+      setSearching(false);
+    }
+  };
+
+  const handleRequestVideo = async (book: SearchResultWithVideo) => {
+    setSubmitting(book.id);
+    setMessage(null);
+    try {
+      // 책 정보를 함께 전달하여 캐시 미스 시에도 정확한 정보 사용
+      await requestVideoGeneration(book.id, {
+        title: book.title,
+        author: book.author,
+      });
+      setMessage({ type: 'success', text: `"${book.title}" 영상 생성 요청 완료!` });
+      // 검색 결과 업데이트
+      setSearchResults((prev) =>
+        prev.map((b) =>
+          b.id === book.id ? { ...b, videoStatus: 'QUEUED', hasVideo: false } : b
+        )
+      );
+    } catch (err) {
+      setMessage({ type: 'error', text: '영상 생성 요청에 실패했습니다.' });
+    } finally {
+      setSubmitting(null);
     }
   };
 
   return (
-    <AdminLayout title="BOOK MATE 관리자">
-      <div className="px-4 pb-8 pt-5" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-        <div className="rounded-[30px] border border-black bg-white p-4">
-          <h2 className={`mb-1 ${SECTION_TITLE}`}>추천도서 업로드</h2>
-          <p className="mb-4 text-base font-bold text-black">
-            등록하면 유저 메인(추천)에 바로 나타나요.
+    <AdminLayout title="도서 등록">
+      <div className="flex flex-1 flex-col gap-4 overflow-auto px-4 py-4">
+        {/* 검색 */}
+        <div
+          className="rounded-2xl p-4"
+          style={{ background: 'rgba(255,255,255,0.9)' }}
+        >
+          <h2 className="mb-3 text-base font-bold text-gray-800">
+            도서 검색
+          </h2>
+          <p className="mb-3 text-sm text-gray-500">
+            ALPAS에서 도서를 검색하여 영상 생성을 요청하세요.
           </p>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className={`mb-1 block ${SECTION_TITLE}`}>제목</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="새로운 책 제목"
-                className={`h-11 ${INPUT_BOX}`}
-              />
-            </div>
-
-            <div>
-              <label className={`mb-1 block ${SECTION_TITLE}`}>연령대</label>
-              <div className="relative">
-                <select
-                  value={ageGroup}
-                  onChange={(e) => setAgeGroup(e.target.value)}
-                  className="h-11 w-full appearance-none rounded-[30px] border border-[#E8E8E8] bg-[#FAF9F9] pl-4 pr-10 text-[15px] text-black"
-                >
-                  {AGE_OPTIONS.map((age) => (
-                    <option key={age} value={age}>{age}</option>
-                  ))}
-                </select>
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-black text-xs">▼</span>
-              </div>
-            </div>
-
-            <div>
-              <label className={`mb-1 block ${SECTION_TITLE}`}>질문 (자막)</label>
-              <textarea
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="이 다음엔 무슨 일이 생길까?"
-                className={INPUT_BOX_TALL}
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <label className={`mb-1 block ${SECTION_TITLE}`}>태그</label>
-              <input
-                type="text"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                placeholder="귀여움, 모험"
-                className={`h-11 ${INPUT_BOX}`}
-              />
-            </div>
-
-            <div>
-              <label className={`mb-1 block ${SECTION_TITLE}`}>커버 (이모지)</label>
-              <input
-                type="text"
-                value={coverEmoji}
-                onChange={(e) => setCoverEmoji(e.target.value)}
-                placeholder="📒"
-                className={`h-11 ${INPUT_BOX}`}
-              />
-            </div>
-
-            <div>
-              <label className={`mb-1 block ${SECTION_TITLE}`}>존 생상</label>
-              <div className="relative">
-                <select
-                  value={zoneColor}
-                  onChange={(e) => setZoneColor(e.target.value)}
-                  className="h-11 w-full appearance-none rounded-[30px] border border-[#E8E8E8] bg-[#FAF9F9] pl-4 pr-10 text-[15px] text-black"
-                >
-                  {ZONE_COLORS.map((color) => (
-                    <option key={color} value={color}>{color}</option>
-                  ))}
-                </select>
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-black text-xs">▼</span>
-              </div>
-            </div>
-
-            <div>
-              <label className={`mb-1 block ${SECTION_TITLE}`}>책장 / 줄</label>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  value={shelf}
-                  onChange={(e) => setShelf(e.target.value)}
-                  placeholder="1"
-                  className={`h-11 ${INPUT_BOX}`}
-                />
-                <input
-                  type="text"
-                  value={row}
-                  onChange={(e) => setRow(e.target.value)}
-                  placeholder="1"
-                  className={`h-11 ${INPUT_BOX}`}
-                />
-              </div>
-            </div>
-
-            <p className="text-xs leading-snug text-[#FF0000]">
-              실제 서비스에서는: 사용자/단말 ID, 세션, 도서 ISBN, 생성 상태 (성공/실패), API 응답 시간도 함께 저장 가능
-            </p>
-
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="도서 제목 검색"
+              className="h-11 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm outline-none focus:border-gray-400 focus:bg-white"
+            />
             <button
-              type="submit"
-              disabled={submitting}
-              className="flex h-14 w-full items-center justify-center rounded-[40px] bg-black text-base font-bold text-white shadow"
-              style={{ boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)' }}
+              type="button"
+              onClick={handleSearch}
+              disabled={searching}
+              className="h-11 shrink-0 rounded-xl bg-gray-800 px-5 text-sm font-medium text-white disabled:opacity-50"
             >
-              📒 등록하기 (메인에 노출)
+              {searching ? '검색중...' : '검색'}
             </button>
-          </form>
+          </div>
         </div>
+
+        {/* 메시지 */}
+        {message && (
+          <div
+            className={`rounded-xl px-4 py-3 text-sm ${
+              message.type === 'success'
+                ? 'bg-green-50 text-green-700'
+                : 'bg-red-50 text-red-700'
+            }`}
+          >
+            {message.text}
+          </div>
+        )}
+
+        {/* 검색 결과 */}
+        {searchResults.length > 0 && (
+          <div
+            className="flex-1 rounded-2xl p-4"
+            style={{ background: 'rgba(255,255,255,0.9)' }}
+          >
+            <h2 className="mb-3 text-base font-bold text-gray-800">
+              검색 결과 ({searchResults.length}건)
+            </h2>
+            <div className="space-y-2">
+              {searchResults.map((book) => (
+                <div
+                  key={book.id}
+                  className="flex items-center gap-3 rounded-xl bg-gray-50 p-3"
+                >
+                  {/* 표지 */}
+                  <div
+                    className="h-16 w-12 shrink-0 rounded-lg"
+                    style={{
+                      background: book.coverImageUrl
+                        ? `url(${book.coverImageUrl}) center/cover no-repeat`
+                        : '#E0E0E0',
+                    }}
+                  />
+                  {/* 정보 */}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-gray-800">
+                      {book.title}
+                    </p>
+                    <p className="truncate text-xs text-gray-500">{book.author}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      {book.hasVideo ? (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                          영상 있음
+                        </span>
+                      ) : book.videoStatus === 'QUEUED' || book.videoStatus === 'GENERATING' ? (
+                        <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700">
+                          {book.videoStatus === 'QUEUED' ? '대기중' : '생성중'}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                          영상 없음
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* 버튼 */}
+                  <button
+                    type="button"
+                    onClick={() => handleRequestVideo(book)}
+                    disabled={submitting === book.id || book.hasVideo || book.videoStatus === 'QUEUED' || book.videoStatus === 'GENERATING'}
+                    className="shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white disabled:bg-gray-300 disabled:text-gray-500"
+                  >
+                    {submitting === book.id ? '요청중...' : book.hasVideo ? '완료' : '영상 생성'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 안내 */}
+        {searchResults.length === 0 && !searching && (
+          <div
+            className="flex flex-1 items-center justify-center rounded-2xl"
+            style={{ background: 'rgba(255,255,255,0.9)' }}
+          >
+            <p className="text-sm text-gray-400">
+              도서를 검색하여 영상 생성을 요청하세요.
+            </p>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );
