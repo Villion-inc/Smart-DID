@@ -1,284 +1,270 @@
 # Entity Relationship Diagram
 
-## Database Schema
+> **마지막 업데이트**: 2026-02-28
 
-### Book
+## 데이터베이스 개요
 
-Represents a library book.
+- **DBMS**: SQLite (개발), PostgreSQL (운영 권장)
+- **ORM**: Prisma
+- **책 정보**: ALPAS API에서 실시간 조회 (별도 테이블 없음)
 
-| Field | Type | Description | Constraints |
-|-------|------|-------------|-------------|
-| bookId | string | Primary key (ISBN or internal ID) | PK, NOT NULL |
-| title | string | Book title | NOT NULL |
-| author | string | Book author | NOT NULL |
-| summary | string | Book summary/description | NOT NULL |
-| genre | string | Book genre/category | NOT NULL |
-| shelfCode | string | Physical shelf location | NOT NULL |
-| coverImageUrl | string | URL to cover image | NULLABLE |
-| publishedYear | number | Year of publication | NULLABLE |
-| publisher | string | Publisher name | NULLABLE |
-| createdAt | Date | Record creation timestamp | NOT NULL |
-| updatedAt | Date | Record update timestamp | NULLABLE |
-
-**Indexes:**
-- Primary: `bookId`
-- Index: `title` (for text search)
-- Index: `author` (for author search)
-- Index: `genre` (for filtering)
-
----
+## 테이블 스키마
 
 ### VideoRecord
 
-Represents video generation status and metadata for a book.
+영상 생성 상태 및 메타데이터 (책 정보 캐시 포함)
 
-| Field | Type | Description | Constraints |
-|-------|------|-------------|-------------|
-| bookId | string | Foreign key to Book | PK, FK, NOT NULL |
-| status | enum | Video status | NOT NULL |
-| videoUrl | string | URL to generated video | NULLABLE |
-| subtitleUrl | string | URL to subtitle file (.vtt) | NULLABLE |
-| requestCount | number | Total number of requests | NOT NULL, DEFAULT 0 |
-| lastRequestedAt | Date | Timestamp of last request | NULLABLE |
-| retryCount | number | Number of generation retries | NOT NULL, DEFAULT 0 |
-| rankingScore | number | Calculated ranking score | NOT NULL, DEFAULT 0 |
-| createdAt | Date | Record creation timestamp | NOT NULL |
-| updatedAt | Date | Record update timestamp | NOT NULL |
-| expiresAt | Date | Video expiration date | NULLABLE |
-| errorMessage | string | Error details if failed | NULLABLE |
+| 필드 | 타입 | 설명 | 제약조건 |
+|------|------|------|----------|
+| bookId | String | 책 ID (ALPAS 기준) | PK |
+| status | String | 영상 상태 | DEFAULT "NONE" |
+| requestCount | Int | 요청 횟수 | DEFAULT 0 |
+| lastRequestedAt | DateTime? | 마지막 요청 시간 | NULLABLE |
+| retryCount | Int | 재시도 횟수 | DEFAULT 0 |
+| rankingScore | Float | 랭킹 점수 | DEFAULT 0 |
+| expiresAt | DateTime? | 만료 일시 | NULLABLE |
+| videoUrl | String? | 영상 URL | NULLABLE |
+| subtitleUrl | String? | 자막 URL (.vtt) | NULLABLE |
+| errorMessage | String? | 오류 메시지 | NULLABLE |
+| createdAt | DateTime | 생성 시간 | DEFAULT now() |
+| updatedAt | DateTime | 수정 시간 | @updatedAt |
+| title | String? | 책 제목 (캐시) | NULLABLE |
+| author | String? | 저자 (캐시) | NULLABLE |
+| publisher | String? | 출판사 (캐시) | NULLABLE |
+| coverImageUrl | String? | 표지 URL (캐시) | NULLABLE |
+| summary | String? | 요약 (캐시) | NULLABLE |
+| category | String? | 카테고리 (캐시) | NULLABLE |
 
-**Enums:**
-- `status`: NONE, QUEUED, GENERATING, READY, FAILED
-
-**Indexes:**
-- Primary: `bookId`
-- Index: `status` (for filtering)
-- Index: `rankingScore` (for sorting)
-- Foreign Key: `bookId` → `Book.bookId`
-
-**Relationships:**
-- One-to-One with Book (one video per book)
-
----
-
-### User
-
-Represents admin users.
-
-| Field | Type | Description | Constraints |
-|-------|------|-------------|-------------|
-| id | string | Primary key (UUID) | PK, NOT NULL |
-| username | string | Username for login | UNIQUE, NOT NULL |
-| passwordHash | string | Bcrypt hashed password | NOT NULL |
-| role | enum | User role | NOT NULL |
-| createdAt | Date | Account creation timestamp | NOT NULL |
-| updatedAt | Date | Account update timestamp | NULLABLE |
-
-**Enums:**
-- `role`: admin
-
-**Indexes:**
-- Primary: `id`
-- Unique: `username`
+**Status 값:**
+- `NONE`: 영상 없음
+- `QUEUED`: 생성 대기 중
+- `GENERATING`: 생성 중
+- `READY`: 완료
+- `FAILED`: 실패
 
 ---
 
-## Relationships
+### AdminUser
 
-```
-┌─────────────┐         ┌──────────────┐
-│    Book     │         │ VideoRecord  │
-│─────────────│         │──────────────│
-│ bookId (PK) │◄───────│ bookId (PK,FK)│
-│ title       │  1:1    │ status       │
-│ author      │         │ videoUrl     │
-│ summary     │         │ rankingScore │
-│ genre       │         │ requestCount │
-│ shelfCode   │         │ expiresAt    │
-└─────────────┘         └──────────────┘
+관리자 계정
 
-┌─────────────┐
-│    User     │
-│─────────────│
-│ id (PK)     │
-│ username    │
-│ passwordHash│
-│ role        │
-└─────────────┘
-```
+| 필드 | 타입 | 설명 | 제약조건 |
+|------|------|------|----------|
+| id | String | UUID | PK |
+| username | String | 사용자명 | UNIQUE |
+| passwordHash | String | 암호화된 비밀번호 | |
+| role | String | 역할 | DEFAULT "admin" |
+| createdAt | DateTime | 생성 시간 | DEFAULT now() |
+| updatedAt | DateTime | 수정 시간 | @updatedAt |
 
-## Visual ERD
+---
+
+### ShelfMap
+
+책 위치 정보 (서가 맵)
+
+| 필드 | 타입 | 설명 | 제약조건 |
+|------|------|------|----------|
+| id | String | UUID | PK |
+| bookId | String | 책 ID | UNIQUE |
+| shelfCode | String | 서가 코드 | INDEX |
+| mapX | Float | X 좌표 | |
+| mapY | Float | Y 좌표 | |
+| createdAt | DateTime | 생성 시간 | DEFAULT now() |
+| updatedAt | DateTime | 수정 시간 | @updatedAt |
+
+---
+
+### Notification
+
+시스템 알림
+
+| 필드 | 타입 | 설명 | 제약조건 |
+|------|------|------|----------|
+| id | String | UUID | PK |
+| type | String | 알림 유형 | |
+| message | String | 알림 내용 | |
+| isRead | Boolean | 읽음 여부 | DEFAULT false |
+| createdAt | DateTime | 생성 시간 | DEFAULT now() |
+
+---
+
+## ERD 다이어그램
 
 ```mermaid
 erDiagram
-    Book ||--o| VideoRecord : "has"
-
-    Book {
-        string bookId PK
-        string title
-        string author
-        string summary
-        string genre
-        string shelfCode
-        string coverImageUrl
-        number publishedYear
-        string publisher
-        Date createdAt
-        Date updatedAt
-    }
-
     VideoRecord {
-        string bookId PK,FK
-        enum status
+        string bookId PK
+        string status
+        int requestCount
+        datetime lastRequestedAt
+        int retryCount
+        float rankingScore
+        datetime expiresAt
         string videoUrl
         string subtitleUrl
-        number requestCount
-        Date lastRequestedAt
-        number retryCount
-        number rankingScore
-        Date createdAt
-        Date updatedAt
-        Date expiresAt
         string errorMessage
+        datetime createdAt
+        datetime updatedAt
+        string title
+        string author
+        string publisher
+        string coverImageUrl
+        string summary
+        string category
     }
 
-    User {
+    AdminUser {
         string id PK
         string username UK
         string passwordHash
-        enum role
-        Date createdAt
-        Date updatedAt
+        string role
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    ShelfMap {
+        string id PK
+        string bookId UK
+        string shelfCode
+        float mapX
+        float mapY
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    Notification {
+        string id PK
+        string type
+        string message
+        boolean isRead
+        datetime createdAt
     }
 ```
 
-## Calculated Fields
+## 설계 특징
 
-### rankingScore
+### 책 정보 캐싱
 
-Calculated using:
+VideoRecord에 책 정보(title, author 등)를 캐싱하는 이유:
+- ALPAS API 장애 시에도 기존 영상 정보 표시 가능
+- 영상 생성 시점의 책 정보 보존
+- API 호출 횟수 감소
+
+### 랭킹 점수 계산
 
 ```javascript
 rankingScore = requestCount + (recent7DayRequests × 1.5)
 ```
 
-Where:
-- `requestCount`: Total number of video requests
-- `recent7DayRequests`: Requests in the last 7 days
+### 영상 만료 관리 (LRU Cache)
 
-This field is updated:
-- When a video is requested (user or admin)
-- When a video is marked as READY
-- Periodically by a background job (recommended)
+- 기본 만료: 90일
+- 만료 기준: `expiresAt`, `lastRequestedAt`, `requestCount`
+- 관리자가 수동 연장/삭제 가능
 
-### expiresAt
+## Prisma 스키마
 
-Default calculation:
+```prisma
+generator client {
+  provider = "prisma-client-js"
+}
 
-```javascript
-expiresAt = createdAt + VIDEO_DEFAULT_EXPIRY_DAYS (90 days)
-```
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
 
-Can be manually adjusted by admin via API.
+model AdminUser {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("admin")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-## Data Migration Notes
+  @@map("admin_users")
+}
 
-When migrating from in-memory to persistent database:
+model VideoRecord {
+  bookId          String    @id
+  status          String    @default("NONE")
+  requestCount    Int       @default(0)
+  lastRequestedAt DateTime?
+  retryCount      Int       @default(0)
+  rankingScore    Float     @default(0)
+  expiresAt       DateTime?
+  videoUrl        String?
+  subtitleUrl     String?
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  title           String?
+  author          String?
+  publisher       String?
+  coverImageUrl   String?
+  summary         String?
+  category        String?
 
-1. Add proper database constraints (PRIMARY KEY, FOREIGN KEY, UNIQUE, NOT NULL)
-2. Add indexes for performance:
-   - `Book(title)` for text search
-   - `Book(genre)` for filtering
-   - `VideoRecord(status)` for filtering
-   - `VideoRecord(rankingScore)` for sorting
-3. Consider partitioning `VideoRecord` by `createdAt` for scalability
-4. Set up cascading deletes: When a Book is deleted, delete associated VideoRecord
-5. Add database triggers for `updatedAt` auto-update
-6. Implement soft deletes if needed (add `deletedAt` field)
+  @@map("video_records")
+}
 
-## Sample Data
+model ShelfMap {
+  id         String   @id @default(uuid())
+  bookId     String   @unique
+  shelfCode  String
+  mapX       Float
+  mapY       Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-### Book Sample
+  @@index([shelfCode])
+  @@map("shelf_maps")
+}
 
-```json
-{
-  "bookId": "ISBN-001",
-  "title": "별을 헤아리는 아이",
-  "author": "김동화",
-  "summary": "밤하늘의 별을 세며 꿈을 키워가는 소년의 이야기입니다...",
-  "genre": "과학동화",
-  "shelfCode": "A-01-05",
-  "createdAt": "2024-01-01T00:00:00.000Z"
+model Notification {
+  id        String   @id @default(uuid())
+  type      String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
 }
 ```
 
-### VideoRecord Sample
+## 샘플 데이터
+
+### VideoRecord
 
 ```json
 {
-  "bookId": "ISBN-001",
+  "bookId": "70007968",
   "status": "READY",
-  "videoUrl": "/videos/ISBN-001.mp4",
-  "subtitleUrl": "/videos/ISBN-001.vtt",
   "requestCount": 15,
-  "lastRequestedAt": "2024-01-15T10:30:00.000Z",
+  "lastRequestedAt": "2026-02-28T10:30:00.000Z",
   "retryCount": 0,
   "rankingScore": 42.5,
-  "createdAt": "2024-01-01T00:00:00.000Z",
-  "updatedAt": "2024-01-15T10:30:00.000Z",
-  "expiresAt": "2024-04-01T00:00:00.000Z"
+  "expiresAt": "2026-05-28T00:00:00.000Z",
+  "videoUrl": "/api/videos/70007968-1772221734134.mp4",
+  "subtitleUrl": "/api/videos/70007968-1772221734134.vtt",
+  "title": "별을 헤아리는 아이",
+  "author": "김동화",
+  "publisher": "아이북스",
+  "coverImageUrl": "https://alpas.example.com/covers/70007968.jpg",
+  "summary": "밤하늘의 별을 세며 꿈을 키워가는 소년의 이야기",
+  "category": "과학동화"
 }
 ```
 
-### User Sample
+### AdminUser
 
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "username": "admin",
   "passwordHash": "$2b$10$...",
-  "role": "admin",
-  "createdAt": "2024-01-01T00:00:00.000Z"
+  "role": "admin"
 }
 ```
-
-## Future Enhancements
-
-Potential schema additions:
-
-1. **ViewHistory**: Track individual video views
-   ```
-   - userId (optional, for tracking)
-   - bookId (FK)
-   - viewedAt
-   - duration (how long watched)
-   ```
-
-2. **BookCategory**: Many-to-many for multiple genres
-   ```
-   - bookId (FK)
-   - categoryId (FK)
-   ```
-
-3. **UserFavorites**: Track user favorites
-   ```
-   - userId (FK)
-   - bookId (FK)
-   - favoritedAt
-   ```
-
-4. **VideoAnalytics**: Detailed analytics
-   ```
-   - videoId (FK)
-   - metric (views, completion_rate, etc.)
-   - value
-   - timestamp
-   ```
-
-5. **AuditLog**: Track admin actions
-   ```
-   - userId (FK)
-   - action (create, update, delete)
-   - resource (book, video)
-   - timestamp
-   ```

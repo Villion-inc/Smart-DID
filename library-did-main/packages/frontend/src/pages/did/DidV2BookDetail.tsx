@@ -11,8 +11,8 @@ const apiOrigin =
 /**
  * 책 미리보기 (키오스크 세로 화면)
  * - 책 정보 표시 (표지, 제목, 저자, 출판사, 줄거리 등)
- * - 영상이 있으면 재생, 없으면 "영상 없음" 표시
- * - 영상 생성 요청은 관리자 페이지에서만 가능
+ * - 영상이 있으면 자동 재생, 없으면 "영상 없음" 표시
+ * - 영상 종료 시 다시보기 버튼 표시
  */
 export function DidV2BookDetail() {
   const { bookId } = useParams<{ bookId: string }>();
@@ -22,6 +22,7 @@ export function DidV2BookDetail() {
   const [videoStatus, setVideoStatus] = useState<
     'NONE' | 'QUEUED' | 'GENERATING' | 'READY' | 'FAILED'
   >('NONE');
+  const [videoEnded, setVideoEnded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -52,6 +53,24 @@ export function DidV2BookDetail() {
     checkVideoStatus();
   }, [bookId]);
 
+  // 영상 자동 재생
+  useEffect(() => {
+    if (videoRef.current && videoUrl && videoStatus === 'READY') {
+      videoRef.current.play().catch((e) => {
+        console.log('Autoplay blocked:', e);
+      });
+    }
+  }, [videoUrl, videoStatus]);
+
+  // 다시보기 핸들러
+  const handleReplay = () => {
+    if (videoRef.current) {
+      setVideoEnded(false);
+      videoRef.current.currentTime = 0;
+      videoRef.current.play();
+    }
+  };
+
   const resolvedVideoUrl = videoUrl?.startsWith('http')
     ? videoUrl
     : videoUrl?.startsWith('/')
@@ -73,13 +92,36 @@ export function DidV2BookDetail() {
           }}
         >
           {resolvedVideoUrl && videoStatus === 'READY' ? (
-            <video
-              ref={videoRef}
-              src={resolvedVideoUrl}
-              controls
-              className="h-full w-full object-contain"
-              playsInline
-            />
+            <>
+              <video
+                ref={videoRef}
+                src={resolvedVideoUrl}
+                className="h-full w-full object-contain"
+                playsInline
+                autoPlay
+                muted={false}
+                onEnded={() => setVideoEnded(true)}
+                onPlay={() => setVideoEnded(false)}
+              />
+              {/* 영상 종료 시 다시보기 오버레이 */}
+              {videoEnded && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                  <button
+                    type="button"
+                    onClick={handleReplay}
+                    className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform active:scale-90"
+                  >
+                    <svg 
+                      className="h-7 w-7 translate-x-0.5 text-gray-800" 
+                      fill="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white">
               {videoStatus === 'QUEUED' || videoStatus === 'GENERATING' ? (

@@ -1,257 +1,156 @@
-# Smart DID Video Service - Documentation Index
+# Smart DID Video Service - 문서 인덱스
 
-Quick reference guide to all project documentation.
+> **마지막 업데이트**: 2026-02-28
 
-## 🚀 Getting Started (Start Here!)
+프로젝트 문서 빠른 참조 가이드입니다.
 
-1. **[PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md)** ⭐
-   - Complete project overview
-   - What's included
-   - Quick start commands
-   - Success checklist
+## 처음 오셨나요? (Start Here!)
 
-2. **[QUICKSTART.md](./QUICKSTART.md)** ⭐
-   - 5-minute setup guide
-   - Step-by-step installation
-   - First-time use instructions
-   - Common troubleshooting
+1. **[README.md](./README.md)** - 프로젝트 개요, 기술 스택, 구조
+2. **[QUICKSTART.md](./QUICKSTART.md)** - 5분 안에 실행하기
+3. **[docs/API.md](./docs/API.md)** - API 레퍼런스
 
-3. **[README.md](./README.md)**
-   - Main project documentation
-   - Architecture overview
-   - Features and usage
-   - Configuration guide
+## 문서 목록
 
-## 👨‍💻 Development
+### 프로젝트 이해
 
-4. **[DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md)**
-   - Daily development workflow
-   - Adding new features
-   - Code style guide
-   - Testing guide
-   - Debugging tips
-   - Best practices
+| 문서 | 설명 |
+|------|------|
+| [README.md](./README.md) | 프로젝트 개요, 기술 스택, 구조 |
+| [QUICKSTART.md](./QUICKSTART.md) | 5분 빠른 시작 가이드 |
+| [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) | 상세 파일 구조 |
+| [개발_기록.md](../개발_기록.md) | 개발 변경 이력 (작업 1~25) |
 
-5. **[PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)**
-   - Complete file structure
-   - Package organization
-   - Technology stack
-   - Build process
+### API & 데이터베이스
 
-## 📚 API & Database
+| 문서 | 설명 |
+|------|------|
+| [docs/API.md](./docs/API.md) | **전체 API 레퍼런스** (DID, Admin, Internal) |
+| [docs/ERD.md](./docs/ERD.md) | 데이터베이스 스키마 |
+| [docs/ALPAS_데이터_정리.md](./docs/ALPAS_데이터_정리.md) | ALPAS API 연동 정보 |
 
-6. **[docs/API.md](./docs/API.md)**
-   - Complete API reference
-   - All endpoints documented
-   - Request/response examples
-   - Error codes
-   - cURL examples
+### 개발 & 배포
 
-7. **[docs/ERD.md](./docs/ERD.md)**
-   - Database schema
-   - Entity relationships
-   - Field descriptions
-   - Sample data
-   - Migration notes
+| 문서 | 설명 |
+|------|------|
+| [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md) | 개발 워크플로우, 코드 스타일 |
+| [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) | 배포 가이드 (Docker, 도서관 서버) |
 
-## 🚢 Deployment
+## 역할별 가이드
 
-8. **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)**
-   - Production deployment
-   - Docker setup
-   - Manual deployment
-   - Database migration
-   - Monitoring & logging
-   - Security checklist
-   - Backup & recovery
+### 신규 개발자
 
-## 📖 Quick Reference
+1. [README.md](./README.md) - 프로젝트 이해
+2. [QUICKSTART.md](./QUICKSTART.md) - 로컬 실행
+3. [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md) - 개발 시작
 
-### For New Developers
+### API 연동 개발자
 
-Start with these in order:
-1. [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md) - Understand what was built
-2. [QUICKSTART.md](./QUICKSTART.md) - Get it running
-3. [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md) - Start coding
+1. [docs/API.md](./docs/API.md) - API 레퍼런스
+2. [docs/ERD.md](./docs/ERD.md) - 데이터 구조
 
-### For API Integration
+### DevOps / 배포 담당자
 
-1. [docs/API.md](./docs/API.md) - API documentation
-2. [README.md](./README.md) - Authentication guide
+1. [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) - 배포 가이드
+2. [README.md](./README.md) - 환경 변수 설정
 
-### For DevOps/Deployment
+## 주요 코드 위치
 
-1. [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) - Deployment guide
-2. [docker-compose.yml](./docker-compose.yml) - Docker configuration
+### Frontend (React)
 
-### For Database Work
-
-1. [docs/ERD.md](./docs/ERD.md) - Database schema
-2. [packages/backend/src/db/](./packages/backend/src/db/) - Database code
-
-## 📂 File Locations
-
-### Configuration Files
-- `.env.example` - Environment template
-- `package.json` - Root dependencies
-- `tsconfig.json` - TypeScript config
-- `.eslintrc.json` - Linting rules
-- `.prettierrc.json` - Code formatting
-- `docker-compose.yml` - Docker services
-
-### Source Code
-- `packages/shared/src/` - Shared types and utils
-- `packages/backend/src/` - Backend API
-- `packages/frontend/src/` - React app
-- `packages/worker/src/` - Video worker
-
-### Tests
-- `packages/backend/src/__tests__/` - Backend tests
-- `packages/shared/src/__tests__/` - Shared tests
-- `packages/worker/src/__tests__/` - Worker tests
-
-### Docker
-- `Dockerfile.backend` - Backend container
-- `Dockerfile.frontend` - Frontend container
-- `Dockerfile.worker` - Worker container
-- `nginx.conf` - Nginx configuration
-
-## 🔍 Find Documentation By Topic
-
-### Authentication & Security
-- **Admin Login**: [docs/API.md](./docs/API.md#authentication)
-- **JWT Setup**: [README.md](./README.md#-configuration)
-- **Security**: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#security)
-
-### Books
-- **Search Books**: [docs/API.md](./docs/API.md#search-books)
-- **Book Schema**: [docs/ERD.md](./docs/ERD.md#book)
-- **Book Service**: [packages/backend/src/services/book.service.ts](./packages/backend/src/services/book.service.ts)
-
-### Videos
-- **Video Generation**: [README.md](./README.md#-video-generation)
-- **Video State Machine**: [README.md](./README.md#-video-state-machine)
-- **Video API**: [docs/API.md](./docs/API.md#videos)
-- **Video Schema**: [docs/ERD.md](./docs/ERD.md#videorecord)
-- **Worker Logic**: [packages/worker/src/services/video-generator.service.ts](./packages/worker/src/services/video-generator.service.ts)
-
-### Ranking
-- **Ranking Algorithm**: [README.md](./README.md#-ranking-algorithm)
-- **Recommendations API**: [docs/API.md](./docs/API.md#get-ranked-recommendations)
-- **Ranking Utils**: [packages/shared/src/utils/ranking.utils.ts](./packages/shared/src/utils/ranking.utils.ts)
-
-### Queue & Workers
-- **Queue Setup**: [packages/backend/src/queue/index.ts](./packages/backend/src/queue/index.ts)
-- **Worker**: [packages/worker/src/worker.ts](./packages/worker/src/worker.ts)
-- **BullMQ Config**: [README.md](./README.md#-architecture)
-
-### Veo3.1 Integration
-- **Prompt Generation**: [packages/worker/src/services/prompt.service.ts](./packages/worker/src/services/prompt.service.ts)
-- **Veo Service**: [packages/worker/src/services/veo.service.ts](./packages/worker/src/services/veo.service.ts)
-- **Video Constants**: [packages/shared/src/constants/video.constants.ts](./packages/shared/src/constants/video.constants.ts)
-
-### Frontend
-- **Search Page**: [packages/frontend/src/pages/SearchPage.tsx](./packages/frontend/src/pages/SearchPage.tsx)
-- **Book Detail**: [packages/frontend/src/pages/BookDetailPage.tsx](./packages/frontend/src/pages/BookDetailPage.tsx)
-- **Admin Dashboard**: [packages/frontend/src/pages/admin/AdminDashboard.tsx](./packages/frontend/src/pages/admin/AdminDashboard.tsx)
-- **API Client**: [packages/frontend/src/api/](./packages/frontend/src/api/)
-
-### Testing
-- **Testing Guide**: [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md#testing)
-- **Backend Tests**: [packages/backend/src/__tests__/](./packages/backend/src/__tests__/)
-- **Jest Config**: [packages/backend/jest.config.js](./packages/backend/jest.config.js)
-
-### Deployment
-- **Docker Deployment**: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#docker-deployment)
-- **Manual Deployment**: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#manual-deployment)
-- **Environment Setup**: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#environment-setup)
-
-## 💡 Common Questions
-
-**Q: How do I start the project?**
-A: See [QUICKSTART.md](./QUICKSTART.md)
-
-**Q: How do I add a new API endpoint?**
-A: See [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md#adding-a-new-api-endpoint)
-
-**Q: What's the database schema?**
-A: See [docs/ERD.md](./docs/ERD.md)
-
-**Q: How does video generation work?**
-A: See [README.md](./README.md#-video-generation)
-
-**Q: How do I deploy to production?**
-A: See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)
-
-**Q: Where are the API endpoints?**
-A: See [docs/API.md](./docs/API.md)
-
-**Q: How do I run tests?**
-A: See [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md#testing)
-
-**Q: What technologies are used?**
-A: See [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md#technology-stack)
-
-**Q: How do I add a new page to the frontend?**
-A: See [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md#adding-a-new-page)
-
-**Q: How does the ranking system work?**
-A: See [README.md](./README.md#-ranking-algorithm)
-
-## 🎯 Quick Commands
-
-```bash
-# Setup
-npm install
-cp .env.example .env
-
-# Development
-npm run dev              # All services
-npm run dev:backend      # Backend only
-npm run dev:frontend     # Frontend only
-npm run dev:worker       # Worker only
-
-# Testing
-npm test                 # All tests
-npm test --workspace=@smart-did/backend
-
-# Production
-npm run build            # Build all
-docker-compose up -d     # Deploy
-
-# Code Quality
-npm run lint             # Lint
-npm run format           # Format
+```
+packages/frontend/src/
+├── pages/did/           # DID 키오스크 UI
+│   ├── DidV2Home.tsx    # 메인 화면
+│   ├── DidV2BookDetail.tsx  # 책 상세 + 영상 재생
+│   └── DidV2Location.tsx    # 위치 안내
+├── pages/admin/         # 관리자 대시보드
+└── api/                 # API 클라이언트
 ```
 
-## 📊 Project Stats
+### Backend (Fastify)
 
-- **Total Files**: ~60 TypeScript/React files
-- **Lines of Code**: ~5,000
-- **Packages**: 4 (shared, backend, frontend, worker)
-- **API Endpoints**: 10+
-- **Test Cases**: 15+
-- **Documentation**: 8 guides
+```
+packages/backend/src/
+├── routes/              # API 라우트 정의
+│   ├── did.routes.ts    # DID 공개 API
+│   ├── admin.routes.ts  # 관리자 API
+│   └── internal.routes.ts   # Worker 콜백
+├── controllers/         # 요청 처리
+├── services/            # 비즈니스 로직
+│   └── alpas-real.service.ts  # ALPAS 연동
+└── repositories/        # 데이터 접근
+```
 
-## 📞 Need Help?
+### Worker (영상 생성)
 
-1. Check this index for relevant documentation
-2. Search documentation files for keywords
-3. Review example code in test files
-4. Check troubleshooting sections in guides
+```
+packages/worker/src/
+├── pipeline/            # Pipeline V2
+│   ├── orchestrator.ts  # 파이프라인 오케스트레이터
+│   ├── grounding/       # 책 정보 수집
+│   ├── style/           # 스타일 결정
+│   └── planning/        # 장면 계획
+├── services/            # 외부 API 연동
+│   ├── gemini-client.ts # Gemini API
+│   └── veo31-client.ts  # Veo 3.1 API
+└── qc/                  # 품질 검증
+```
 
-## 🗂️ All Documentation Files
+## 빠른 명령어
 
-1. [INDEX.md](./INDEX.md) - This file
-2. [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md) - Project overview
-3. [README.md](./README.md) - Main documentation
-4. [QUICKSTART.md](./QUICKSTART.md) - Quick start guide
-5. [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md) - Developer guide
-6. [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) - File structure
-7. [docs/API.md](./docs/API.md) - API reference
-8. [docs/ERD.md](./docs/ERD.md) - Database schema
-9. [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) - Deployment guide
+```bash
+# 설치
+npm install
 
----
+# 개발 서버 (전체)
+npm run dev
 
-**Start here**: [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md) → [QUICKSTART.md](./QUICKSTART.md) → [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md)
+# 개별 실행
+npm run dev:backend
+npm run dev:frontend
+npm run dev:worker
+
+# 빌드
+npm run build
+
+# 테스트
+npm test
+
+# DB 마이그레이션
+cd packages/backend && npm run prisma:migrate:deploy
+```
+
+## 환경 변수 요약
+
+| 변수 | 용도 |
+|------|------|
+| `DATABASE_URL` | Prisma DB 연결 |
+| `JWT_SECRET` | 관리자 인증 |
+| `INTERNAL_API_SECRET` | Worker↔Backend 통신 |
+| `REDIS_HOST/PORT` | BullMQ 큐 |
+| `BACKEND_URL` | Worker 콜백 대상 |
+| `GEMINI_API_KEY` | 텍스트 생성 |
+| `OPENAI_API_KEY` | Sora 영상 생성 |
+| `VEO_API_KEY` | Veo 영상 생성 |
+
+## FAQ
+
+**Q: 프로젝트를 처음 받았는데 어디서부터 봐야 하나요?**  
+A: [QUICKSTART.md](./QUICKSTART.md) → [README.md](./README.md) → [docs/API.md](./docs/API.md)
+
+**Q: API 엔드포인트는 어디서 확인하나요?**  
+A: [docs/API.md](./docs/API.md) 또는 http://localhost:3001/documentation (Swagger)
+
+**Q: 영상 생성은 어떻게 동작하나요?**  
+A: [README.md](./README.md)의 "영상 생성 흐름" 섹션 참고
+
+**Q: 배포는 어떻게 하나요?**  
+A: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) 참고
+
+**Q: 최근 변경 사항은?**  
+A: [개발_기록.md](../개발_기록.md) 참고
+
+## 연락처
+
+- 프로젝트: GenTA / Villion Inc.

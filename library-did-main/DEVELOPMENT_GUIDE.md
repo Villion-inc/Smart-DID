@@ -1,105 +1,74 @@
 # Development Guide
 
-Complete guide for developers working on the Smart DID Video Service.
+> **마지막 업데이트**: 2026-02-28
 
-## Getting Started
+Smart DID Video Service 개발 가이드입니다.
 
-### Prerequisites
+## 개발 환경 설정
+
+### 사전 요구사항
 
 - Node.js 18+
-- npm 9+
 - Redis
+- FFmpeg (영상 병합용)
 - Git
-- Code editor (VS Code recommended)
 
-### First Time Setup
+### 최초 설정
 
 ```bash
-# 1. Install dependencies
+# 1. 의존성 설치
 npm install
 
-# 2. Set up environment
+# 2. 환경 변수 설정
 cp .env.example .env
-# Edit .env with your settings
+# .env 파일 편집
 
-# 3. Start Redis
-redis-server
+# 3. DB 초기화
+cd packages/backend
+npm run prisma:migrate:deploy
+npm run prisma:generate
+cd ../..
 
-# 4. Run in development mode
+# 4. Redis 실행
+docker run -d -p 6379:6379 redis:alpine
+
+# 5. 개발 서버 실행
 npm run dev
 ```
 
-## Development Workflow
+## 일상 개발
 
-### Daily Development
+### 서비스 실행
 
 ```bash
-# Start all services
+# 전체 실행 (권장)
 npm run dev
 
-# Or individually
-npm run dev:backend
-npm run dev:frontend
-npm run dev:worker
+# 개별 실행
+npm run dev:backend   # Backend (포트 3001)
+npm run dev:frontend  # Frontend (포트 5173)
+npm run dev:worker    # Worker
 ```
 
-### Making Changes
+### 접속 URL
 
-1. **Create a feature branch**:
-```bash
-git checkout -b feature/your-feature-name
-```
+| 서비스 | URL |
+|--------|-----|
+| DID 메인 | http://localhost:5173/did |
+| 관리자 | http://localhost:5173/admin/login |
+| API 문서 | http://localhost:3001/documentation |
 
-2. **Make your changes**
-
-3. **Run tests**:
-```bash
-npm test
-```
-
-4. **Lint and format**:
-```bash
-npm run lint
-npm run format
-```
-
-5. **Commit and push**:
-```bash
-git add .
-git commit -m "feat: your feature description"
-git push origin feature/your-feature-name
-```
-
-## Project Architecture
-
-### Monorepo Structure
-
-This project uses npm workspaces:
+## 프로젝트 구조
 
 ```
 packages/
-├── shared/    # Shared types, utils
-├── backend/   # API server
-├── frontend/  # React app
-└── worker/    # Video generation
+├── shared/    # 공유 타입
+├── backend/   # Fastify API
+├── frontend/  # React SPA
+└── worker/    # 영상 생성 워커
 ```
 
-### Adding Dependencies
-
-```bash
-# To a specific package
-npm install axios --workspace=@smart-did/backend
-
-# To root (dev dependencies)
-npm install -D prettier
-
-# To all packages
-npm install lodash --workspaces
-```
-
-### Inter-Package Dependencies
-
-Packages can reference each other:
+### 패키지 간 의존성
 
 ```json
 {
@@ -109,538 +78,224 @@ Packages can reference each other:
 }
 ```
 
-## Backend Development
+### 의존성 추가
 
-### Adding a New API Endpoint
+```bash
+# 특정 패키지에 추가
+npm install axios --workspace=@smart-did/backend
 
-1. **Create route handler** in `packages/backend/src/routes/`:
-
-```typescript
-// packages/backend/src/routes/book.routes.ts
-router.get('/books/:id/reviews', async (req, res, next) => {
-  try {
-    const reviews = await bookService.getReviews(req.params.id);
-    res.json({ success: true, data: reviews });
-  } catch (error) {
-    next(error);
-  }
-});
+# 루트에 추가 (dev)
+npm install -D prettier
 ```
 
-2. **Add service method** in `packages/backend/src/services/`:
+## Backend 개발
+
+### API 엔드포인트 추가
+
+1. **라우트 정의** (`routes/*.routes.ts`):
 
 ```typescript
-// packages/backend/src/services/book.service.ts
-async getReviews(bookId: string): Promise<Review[]> {
-  // Implementation
+fastify.get('/did/new-endpoint', controller.handler.bind(controller));
+```
+
+2. **컨트롤러 구현** (`controllers/*.controller.ts`):
+
+```typescript
+async handler(request: FastifyRequest, reply: FastifyReply) {
+  const result = await this.service.doSomething();
+  return reply.send({ success: true, data: result });
 }
 ```
 
-3. **Add types** in `packages/shared/src/types/`:
+3. **서비스 로직** (`services/*.service.ts`):
 
 ```typescript
-// packages/shared/src/types/book.types.ts
-export interface Review {
-  id: string;
-  bookId: string;
-  rating: number;
-  comment: string;
+async doSomething(): Promise<SomeType> {
+  // 비즈니스 로직
 }
 ```
 
-4. **Write tests**:
+### DB 스키마 변경
 
-```typescript
-// packages/backend/src/__tests__/book.service.test.ts
-describe('getReviews', () => {
-  it('should return reviews for a book', async () => {
-    // Test implementation
-  });
-});
+```bash
+cd packages/backend
+
+# 스키마 수정 후
+npm run prisma:migrate:deploy
+npm run prisma:generate
 ```
 
-### Database Operations
+## Frontend 개발
 
-Currently using in-memory database. To add a new model:
+### 페이지 추가
 
-```typescript
-// packages/backend/src/db/index.ts
-export class InMemoryDB {
-  private reviews: Map<string, Review> = new Map();
+1. **페이지 컴포넌트** (`pages/*.tsx`):
 
-  async getReviews(bookId: string): Promise<Review[]> {
-    return Array.from(this.reviews.values())
-      .filter(r => r.bookId === bookId);
-  }
+```tsx
+export function NewPage() {
+  return <div>New Page</div>;
 }
 ```
 
-### Middleware
+2. **라우트 등록** (`App.tsx`):
 
-Add middleware in `packages/backend/src/middleware/`:
+```tsx
+<Route path="/new-page" element={<NewPage />} />
+```
+
+### API 호출
 
 ```typescript
-// packages/backend/src/middleware/rate-limit.middleware.ts
-export function rateLimitMiddleware(req, res, next) {
-  // Rate limiting logic
+// api/*.api.ts
+export async function fetchData(): Promise<DataType> {
+  const response = await apiClient.get('/endpoint');
+  return response.data.data;
 }
 ```
 
-Apply to routes:
+### 상태 관리 (Zustand)
 
 ```typescript
-app.use('/api', rateLimitMiddleware);
-```
-
-## Frontend Development
-
-### Adding a New Page
-
-1. **Create page component**:
-
-```typescript
-// packages/frontend/src/pages/ReviewsPage.tsx
-export function ReviewsPage() {
-  const [reviews, setReviews] = useState([]);
-
-  useEffect(() => {
-    loadReviews();
-  }, []);
-
-  return (
-    <div>
-      {/* UI */}
-    </div>
-  );
-}
-```
-
-2. **Add API call**:
-
-```typescript
-// packages/frontend/src/api/book.api.ts
-export const bookApi = {
-  async getReviews(bookId: string): Promise<Review[]> {
-    const response = await apiClient.get(`/books/${bookId}/reviews`);
-    return response.data.data;
-  },
-};
-```
-
-3. **Add route**:
-
-```typescript
-// packages/frontend/src/App.tsx
-<Route path="/books/:id/reviews" element={<ReviewsPage />} />
-```
-
-### State Management
-
-Using Zustand for state:
-
-```typescript
-// packages/frontend/src/stores/reviewStore.ts
+// stores/*.ts
 import { create } from 'zustand';
 
-interface ReviewState {
-  reviews: Review[];
-  loading: boolean;
-  fetchReviews: (bookId: string) => Promise<void>;
+interface State {
+  data: DataType | null;
+  fetchData: () => Promise<void>;
 }
 
-export const useReviewStore = create<ReviewState>((set) => ({
-  reviews: [],
-  loading: false,
-  fetchReviews: async (bookId: string) => {
-    set({ loading: true });
-    const reviews = await bookApi.getReviews(bookId);
-    set({ reviews, loading: false });
+export const useStore = create<State>((set) => ({
+  data: null,
+  fetchData: async () => {
+    const data = await fetchData();
+    set({ data });
   },
 }));
 ```
 
-### Styling
+## Worker 개발
 
-Use inline styles or CSS modules:
+### Pipeline V2 흐름
 
-```tsx
-// Inline styles
-<div style={{ padding: '1rem', backgroundColor: '#f5f5f5' }}>
-  Content
-</div>
-
-// CSS classes
-<div className="container">
-  Content
-</div>
+```
+1. Book Grounding    → 책 정보 수집
+2. Style Bible       → 스타일 결정
+3. Scene Planning    → 장면 계획
+4. Video Generation  → Veo/Sora 영상 생성
+5. Subtitle Gen      → VTT 자막 생성
+6. Assembly          → FFmpeg 병합
+7. Storage & Callback → 저장 + Backend 콜백
 ```
 
-## Worker Development
-
-### Video Generation Pipeline
-
-The worker processes jobs in this order:
-
-1. **Receive job** from queue
-2. **Validate content** safety
-3. **Generate prompts** for 3 scenes
-4. **Call Veo3.1** for each scene
-5. **Validate output** with safety filter
-6. **Merge scenes** into single video
-7. **Generate subtitles**
-8. **Store files**
-9. **Update database**
-
-### Adding Custom Processing
+### 새 서비스 추가
 
 ```typescript
-// packages/worker/src/services/video-generator.service.ts
-async generateVideo(jobData: VideoJobData): Promise<GenerationResult> {
-  // 1. Your custom pre-processing
-  await this.customPreProcess(jobData);
-
-  // 2. Generate scenes
-  const scenes = promptService.generateAllScenes(...);
-
-  // 3. Your custom post-processing
-  await this.customPostProcess(scenes);
-
-  return result;
+// services/new-client.ts
+export class NewClient {
+  async doSomething(): Promise<Result> {
+    // 구현
+  }
 }
 ```
 
-### Integrating with Veo3.1
-
-Replace mock implementation in `packages/worker/src/services/veo.service.ts`:
-
-```typescript
-async generateScene(scene: VideoScene): Promise<string> {
-  const response = await this.client.post('/generate', {
-    prompt: scene.prompt,
-    duration: scene.duration,
-    subtitles: scene.subtitleText,
-    safetyFilter: 'strict',
-  });
-
-  return response.data.videoUrl;
-}
-```
-
-## Testing
-
-### Unit Tests
-
-```typescript
-// Example test
-describe('VideoService', () => {
-  beforeEach(async () => {
-    await db.clear();
-  });
-
-  it('should create video record', async () => {
-    const record = await videoService.getVideoRecord('TEST-001');
-    expect(record.status).toBe(VideoStatus.NONE);
-  });
-});
-```
-
-### Integration Tests
-
-```typescript
-// Example API test
-describe('POST /api/books/:id/video', () => {
-  it('should queue video generation', async () => {
-    const response = await request(app)
-      .post('/api/books/TEST-001/video')
-      .expect(200);
-
-    expect(response.body.data.status).toBe('QUEUED');
-  });
-});
-```
-
-### Running Tests
-
-```bash
-# All tests
-npm test
-
-# Watch mode
-npm test -- --watch
-
-# Coverage
-npm test -- --coverage
-
-# Specific package
-npm test --workspace=@smart-did/backend
-```
-
-## Code Style
+## 코드 스타일
 
 ### TypeScript
 
-- Use strict mode
-- Define explicit return types
-- Use interfaces over types for objects
-- Avoid `any`, use `unknown` when needed
+- strict 모드 사용
+- 명시적 반환 타입
+- `any` 대신 `unknown` 사용
 
 ```typescript
 // Good
-interface Book {
-  id: string;
-  title: string;
-}
-
 async function getBook(id: string): Promise<Book> {
   // ...
 }
 
-// Avoid
+// Bad
 function getBook(id) {
   // ...
 }
 ```
 
-### Naming Conventions
+### 네이밍 규칙
 
-- **Files**: `kebab-case.ts`
-- **Components**: `PascalCase.tsx`
-- **Functions**: `camelCase()`
-- **Constants**: `UPPER_SNAKE_CASE`
-- **Interfaces**: `PascalCase`
+| 대상 | 규칙 | 예시 |
+|------|------|------|
+| 파일 | kebab-case | `book-detail.tsx` |
+| 컴포넌트 | PascalCase | `BookDetail` |
+| 함수 | camelCase | `getBookDetail` |
+| 상수 | UPPER_SNAKE | `MAX_RETRIES` |
 
-### Imports
+## 디버깅
 
-Order imports:
-
-```typescript
-// 1. Node modules
-import express from 'express';
-import axios from 'axios';
-
-// 2. Shared package
-import { Book, VideoStatus } from '@smart-did/shared';
-
-// 3. Local imports
-import { db } from '../db';
-import { logger } from '../config/logger';
-```
-
-## Debugging
-
-### Backend Debugging
-
-VS Code launch configuration (`.vscode/launch.json`):
-
-```json
-{
-  "type": "node",
-  "request": "launch",
-  "name": "Debug Backend",
-  "runtimeExecutable": "npm",
-  "runtimeArgs": ["run", "dev:backend"],
-  "skipFiles": ["<node_internals>/**"]
-}
-```
-
-### Frontend Debugging
-
-Use React DevTools browser extension and console.log:
+### Backend 로그
 
 ```typescript
-console.log('Book data:', book);
-console.error('Error:', error);
+fastify.log.info('Processing request', { bookId });
+fastify.log.error('Error occurred', { error: err.message });
 ```
 
-### Worker Debugging
-
-Add logging:
+### Worker 로그
 
 ```typescript
-logger.info('Processing job', { jobId: job.id, bookId: job.data.bookId });
-logger.error('Generation failed', { error: error.message });
+console.log('[Worker] Processing job', { jobId, bookId });
 ```
 
-View logs:
-```bash
-tail -f packages/worker/logs/worker-combined.log
+### 환경 변수 확인
+
+Worker 기동 시 키 로드 상태가 로그에 출력됩니다:
+```
+GEMINI_API_KEY: set
+OPENAI_API_KEY: NOT SET
+VEO_API_KEY: set
 ```
 
-## Common Tasks
-
-### Adding a New Video Scene
-
-1. Update constants:
-```typescript
-// packages/shared/src/constants/video.constants.ts
-export const VIDEO_CONSTANTS = {
-  SCENE_COUNT: 4, // Changed from 3
-  // ...
-};
-```
-
-2. Add prompt generator:
-```typescript
-// packages/worker/src/services/prompt.service.ts
-generateScene4Prompt(title: string): VideoScene {
-  // Implementation
-}
-```
-
-3. Update generation:
-```typescript
-// packages/worker/src/services/prompt.service.ts
-generateAllScenes(...): VideoScene[] {
-  return [
-    this.generateScene1Prompt(...),
-    this.generateScene2Prompt(...),
-    this.generateScene3Prompt(...),
-    this.generateScene4Prompt(...), // New
-  ];
-}
-```
-
-### Changing Video Expiry Default
-
-```typescript
-// .env
-VIDEO_DEFAULT_EXPIRY_DAYS=120
-```
-
-Or in code:
-```typescript
-// packages/backend/src/config/index.ts
-video: {
-  defaultExpiryDays: 120,
-}
-```
-
-### Adding a New User Role
-
-1. Add to enum:
-```typescript
-// packages/shared/src/types/user.types.ts
-export enum UserRole {
-  ADMIN = 'admin',
-  MODERATOR = 'moderator', // New
-}
-```
-
-2. Update middleware:
-```typescript
-// packages/backend/src/middleware/auth.middleware.ts
-export function moderatorMiddleware(req, res, next) {
-  if (!req.user || !['admin', 'moderator'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Insufficient permissions' });
-  }
-  next();
-}
-```
-
-## Environment Variables
-
-### Development
-
-```env
-NODE_ENV=development
-PORT=3000
-REDIS_HOST=localhost
-VEO_API_KEY=mock-key
-```
-
-### Production
-
-```env
-NODE_ENV=production
-PORT=3000
-REDIS_HOST=redis.production.internal
-VEO_API_KEY=real-api-key
-JWT_SECRET=strong-random-secret
-```
-
-### Accessing in Code
-
-```typescript
-import { config } from './config';
-
-const apiKey = config.veo.apiKey;
-```
-
-## Database Migration (Future)
-
-When migrating to PostgreSQL:
-
-1. **Install Prisma**:
-```bash
-npm install @prisma/client --workspace=@smart-did/backend
-npm install -D prisma --workspace=@smart-did/backend
-```
-
-2. **Initialize**:
-```bash
-cd packages/backend
-npx prisma init
-```
-
-3. **Create schema**:
-See `docs/ERD.md` for schema definition.
-
-4. **Migrate**:
-```bash
-npx prisma migrate dev --name init
-```
-
-5. **Update services** to use Prisma client instead of in-memory DB.
-
-## Troubleshooting
-
-### "Cannot find module '@smart-did/shared'"
+## 테스트
 
 ```bash
-# Rebuild shared package
+# 전체 테스트
+npm test
+
+# 특정 패키지
+npm test --workspace=@smart-did/backend
+
+# Watch 모드
+npm test -- --watch
+```
+
+## 트러블슈팅
+
+### "@smart-did/shared" 모듈 못 찾음
+
+```bash
 npm run build --workspace=@smart-did/shared
 ```
 
-### "Redis connection refused"
+### Redis 연결 실패
 
 ```bash
-# Check Redis status
+# Redis 상태 확인
 redis-cli ping
 
-# Start Redis
-redis-server
+# Redis 시작
+docker run -d -p 6379:6379 redis:alpine
 ```
 
-### Port conflicts
+### Prisma 오류
 
 ```bash
-# Change ports in .env
-PORT=3001  # Backend
-VITE_PORT=5174  # Frontend (in vite.config.ts)
+cd packages/backend
+npm run prisma:generate
 ```
 
-## Best Practices
+### Worker 콜백 401
 
-1. **Always write tests** for new features
-2. **Use TypeScript strictly** - avoid `any`
-3. **Log important events** using Winston
-4. **Handle errors properly** - use try/catch and error middleware
-5. **Validate inputs** - use express-validator
-6. **Keep services small** - single responsibility
-7. **Document complex logic** with comments
-8. **Use environment variables** for configuration
-9. **Follow naming conventions**
-10. **Review code before committing**
+Backend와 Worker의 `INTERNAL_API_SECRET` 값이 동일한지 확인
 
-## Resources
+## 관련 문서
 
-- [README.md](./README.md) - Project overview
-- [QUICKSTART.md](./QUICKSTART.md) - Quick start guide
-- [docs/API.md](./docs/API.md) - API documentation
-- [docs/ERD.md](./docs/ERD.md) - Database schema
-- [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) - Deployment guide
-- [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) - File structure
-
----
-
-Happy coding! 🚀
+- [README.md](./README.md) - 프로젝트 개요
+- [QUICKSTART.md](./QUICKSTART.md) - 빠른 시작
+- [docs/API.md](./docs/API.md) - API 레퍼런스
+- [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) - 파일 구조

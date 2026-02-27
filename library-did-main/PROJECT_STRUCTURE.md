@@ -1,330 +1,188 @@
 # Project Structure
 
-Complete file structure of the Smart DID Video Service project.
+> **마지막 업데이트**: 2026-02-28
+
+Smart DID Video Service 프로젝트의 파일 구조입니다.
 
 ```
-꿈샘-mvp/
-│
-├── packages/                           # Monorepo packages
+lib-mvp/
+├── library-did-main/
+│   ├── packages/
+│   │   ├── shared/                    # 공유 타입/유틸
+│   │   │   └── src/
+│   │   │       ├── types/             # 공통 타입 정의
+│   │   │       └── index.ts
+│   │   │
+│   │   ├── backend/                   # Fastify API Server
+│   │   │   ├── src/
+│   │   │   │   ├── config/            # 환경설정
+│   │   │   │   ├── routes/            # API 라우트
+│   │   │   │   │   ├── did.routes.ts      # DID 공개 API
+│   │   │   │   │   ├── admin.routes.ts    # 관리자 API
+│   │   │   │   │   ├── auth.routes.ts     # 인증 API
+│   │   │   │   │   ├── internal.routes.ts # Worker 콜백
+│   │   │   │   │   └── video.routes.ts    # 영상 파일 서빙
+│   │   │   │   ├── controllers/       # 요청 핸들러
+│   │   │   │   ├── services/          # 비즈니스 로직
+│   │   │   │   │   ├── alpas-real.service.ts  # ALPAS API 연동
+│   │   │   │   │   ├── queue.service.ts       # BullMQ 큐
+│   │   │   │   │   └── video.service.ts       # 영상 상태 관리
+│   │   │   │   ├── repositories/      # DB 접근 계층
+│   │   │   │   └── middleware/        # 인증 등
+│   │   │   ├── prisma/
+│   │   │   │   ├── schema.prisma      # DB 스키마
+│   │   │   │   └── dev.db             # SQLite DB (개발용)
+│   │   │   └── package.json
+│   │   │
+│   │   ├── frontend/                  # React SPA
+│   │   │   ├── src/
+│   │   │   │   ├── api/               # API 클라이언트
+│   │   │   │   │   ├── client.ts
+│   │   │   │   │   ├── did.api.ts
+│   │   │   │   │   └── admin.api.ts
+│   │   │   │   ├── pages/
+│   │   │   │   │   ├── did/           # DID 키오스크 UI
+│   │   │   │   │   │   ├── DidV2Home.tsx
+│   │   │   │   │   │   ├── DidV2BookDetail.tsx
+│   │   │   │   │   │   ├── DidV2Location.tsx
+│   │   │   │   │   │   └── DidV2Layout.tsx
+│   │   │   │   │   └── admin/         # 관리자 대시보드
+│   │   │   │   │       ├── Dashboard.tsx
+│   │   │   │   │       ├── Login.tsx
+│   │   │   │   │       └── AdminLayout.tsx
+│   │   │   │   ├── stores/            # Zustand 상태관리
+│   │   │   │   └── App.tsx
+│   │   │   └── package.json
+│   │   │
+│   │   └── worker/                    # 영상 생성 워커
+│   │       ├── src/
+│   │       │   ├── config/            # 환경설정
+│   │       │   ├── pipeline/          # Pipeline V2
+│   │       │   │   ├── orchestrator.ts    # 파이프라인 오케스트레이터
+│   │       │   │   ├── assemble.ts        # FFmpeg 병합
+│   │       │   │   ├── grounding/         # Book Grounding
+│   │       │   │   ├── style/             # Style Bible
+│   │       │   │   └── planning/          # Scene Planning
+│   │       │   ├── services/          # 외부 API 연동
+│   │       │   │   ├── gemini-client.ts
+│   │       │   │   ├── veo31-client.ts
+│   │       │   │   ├── sora-client.ts
+│   │       │   │   ├── backend-callback.service.ts
+│   │       │   │   └── storage*.ts
+│   │       │   ├── qc/                # 품질 검증
+│   │       │   │   ├── safetyGate.ts
+│   │       │   │   └── safetyKeywords.json
+│   │       │   ├── worker.ts          # BullMQ Worker
+│   │       │   └── index.ts
+│   │       ├── storage/videos/        # 생성된 영상 저장
+│   │       └── package.json
 │   │
-│   ├── shared/                         # Shared types and utilities
-│   │   ├── src/
-│   │   │   ├── types/
-│   │   │   │   ├── book.types.ts       # Book entity types
-│   │   │   │   ├── video.types.ts      # Video entity types
-│   │   │   │   ├── user.types.ts       # User/auth types
-│   │   │   │   └── api.types.ts        # API request/response types
-│   │   │   ├── constants/
-│   │   │   │   └── video.constants.ts  # Video generation constants
-│   │   │   ├── utils/
-│   │   │   │   ├── ranking.utils.ts    # Ranking calculation
-│   │   │   │   └── validation.utils.ts # Input validation
-│   │   │   ├── __tests__/
-│   │   │   │   └── validation.utils.test.ts
-│   │   │   └── index.ts                # Exports
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   └── jest.config.js
+│   ├── docs/                          # 문서
+│   │   ├── API.md                     # API 레퍼런스
+│   │   ├── ERD.md                     # DB 스키마
+│   │   ├── DEPLOYMENT.md              # 배포 가이드
+│   │   └── ALPAS_데이터_정리.md
 │   │
-│   ├── backend/                        # Backend API Server
-│   │   ├── src/
-│   │   │   ├── config/
-│   │   │   │   ├── index.ts            # Configuration loader
-│   │   │   │   └── logger.ts           # Winston logger setup
-│   │   │   ├── db/
-│   │   │   │   ├── index.ts            # In-memory database
-│   │   │   │   └── seed.ts             # Sample data seeder
-│   │   │   ├── middleware/
-│   │   │   │   ├── auth.middleware.ts  # JWT authentication
-│   │   │   │   └── error.middleware.ts # Error handling
-│   │   │   ├── routes/
-│   │   │   │   ├── auth.routes.ts      # POST /api/auth/login
-│   │   │   │   ├── book.routes.ts      # GET/POST /api/books/*
-│   │   │   │   ├── recommendation.routes.ts # GET /api/recommendations
-│   │   │   │   └── admin.routes.ts     # Admin endpoints
-│   │   │   ├── services/
-│   │   │   │   ├── auth.service.ts     # Authentication logic
-│   │   │   │   ├── book.service.ts     # Book management
-│   │   │   │   └── video.service.ts    # Video management
-│   │   │   ├── queue/
-│   │   │   │   └── index.ts            # BullMQ queue setup
-│   │   │   ├── __tests__/
-│   │   │   │   ├── auth.service.test.ts
-│   │   │   │   └── video.service.test.ts
-│   │   │   ├── app.ts                  # Express app setup
-│   │   │   └── index.ts                # Server entry point
-│   │   ├── logs/                       # Log files (gitignored)
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   └── jest.config.js
+│   ├── Dockerfile.backend
+│   ├── Dockerfile.frontend
+│   ├── Dockerfile.worker
+│   ├── docker-compose.yml
+│   ├── nginx.conf
 │   │
-│   ├── frontend/                       # React Frontend
-│   │   ├── src/
-│   │   │   ├── api/
-│   │   │   │   ├── client.ts           # Axios client setup
-│   │   │   │   ├── auth.api.ts         # Auth API calls
-│   │   │   │   ├── book.api.ts         # Book API calls
-│   │   │   │   ├── recommendation.api.ts
-│   │   │   │   └── admin.api.ts        # Admin API calls
-│   │   │   ├── stores/
-│   │   │   │   └── authStore.ts        # Zustand auth state
-│   │   │   ├── pages/
-│   │   │   │   ├── SearchPage.tsx      # Book search page
-│   │   │   │   ├── BookDetailPage.tsx  # Book detail + video
-│   │   │   │   ├── RecommendationsPage.tsx
-│   │   │   │   └── admin/
-│   │   │   │       ├── AdminLoginPage.tsx
-│   │   │   │       └── AdminDashboard.tsx
-│   │   │   ├── App.tsx                 # Main app component
-│   │   │   ├── main.tsx                # React entry point
-│   │   │   └── index.css               # Global styles
-│   │   ├── index.html
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   └── vite.config.ts
-│   │
-│   └── worker/                         # Video Generation Worker
-│       ├── src/
-│       │   ├── config/
-│       │   │   ├── index.ts            # Configuration loader
-│       │   │   └── logger.ts           # Winston logger setup
-│       │   ├── services/
-│       │   │   ├── prompt.service.ts   # Veo3.1 prompt generation
-│       │   │   ├── veo.service.ts      # Veo3.1 API client
-│       │   │   ├── storage.service.ts  # Video/subtitle storage
-│       │   │   └── video-generator.service.ts # Main orchestrator
-│       │   ├── __tests__/
-│       │   │   └── prompt.service.test.ts
-│       │   ├── worker.ts               # BullMQ worker setup
-│       │   └── index.ts                # Worker entry point
-│       ├── logs/                       # Log files (gitignored)
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── jest.config.js
+│   ├── README.md                      # 메인 문서
+│   ├── QUICKSTART.md                  # 빠른 시작
+│   ├── INDEX.md                       # 문서 인덱스
+│   ├── DEVELOPMENT_GUIDE.md           # 개발 가이드
+│   └── PROJECT_STRUCTURE.md           # 이 파일
 │
-├── docs/                               # Documentation
-│   ├── API.md                          # Complete API reference
-│   ├── ERD.md                          # Database schema
-│   └── DEPLOYMENT.md                   # Production deployment guide
-│
-├── storage/                            # Local video storage (gitignored)
-│   └── videos/                         # Generated videos
-│
-├── .env.example                        # Environment template
-├── .env                                # Environment config (gitignored)
-├── .gitignore                          # Git ignore rules
-├── .eslintrc.json                      # ESLint config
-├── .prettierrc.json                    # Prettier config
-│
-├── package.json                        # Root package (workspaces)
-├── tsconfig.json                       # Root TypeScript config
-│
-├── Dockerfile.backend                  # Backend Docker image
-├── Dockerfile.frontend                 # Frontend Docker image
-├── Dockerfile.worker                   # Worker Docker image
-├── docker-compose.yml                  # Docker Compose config
-├── nginx.conf                          # Nginx configuration
-│
-├── README.md                           # Main documentation
-├── QUICKSTART.md                       # Quick start guide
-└── PROJECT_STRUCTURE.md                # This file
+├── 개발_기록.md                        # 개발 변경 이력
+└── 아산도서관_개발_Final.md            # 기준 문서
 ```
 
-## Key Directories
-
-### `/packages/shared`
-Shared TypeScript types, constants, and utilities used across all packages.
-
-**Important files:**
-- `types/*.types.ts` - Type definitions for Book, Video, User, API
-- `constants/video.constants.ts` - Video generation constants
-- `utils/*.utils.ts` - Reusable utility functions
+## 핵심 디렉토리
 
 ### `/packages/backend`
-Express.js API server handling all HTTP requests.
 
-**Important files:**
-- `routes/*.routes.ts` - API endpoint definitions
-- `services/*.service.ts` - Business logic
-- `middleware/*.middleware.ts` - Auth and error handling
-- `db/index.ts` - Database layer (currently in-memory)
+Fastify 기반 API 서버
 
-**API Endpoints:**
-- `POST /api/auth/login` - Admin login
-- `GET /api/books` - Search books
-- `GET /api/books/:id` - Get book details
-- `GET /api/books/:id/video` - Get video status
-- `POST /api/books/:id/video` - Request video generation
-- `GET /api/recommendations` - Get ranked videos
-- `POST /api/admin/books/:id/video` - Admin pre-generate
+| 디렉토리/파일 | 설명 |
+|--------------|------|
+| `routes/` | API 라우트 정의 |
+| `controllers/` | 요청 핸들러 |
+| `services/` | 비즈니스 로직 (ALPAS 연동, 큐 관리 등) |
+| `repositories/` | DB 접근 계층 |
+| `prisma/` | Prisma 스키마 및 마이그레이션 |
 
 ### `/packages/frontend`
-React SPA built with Vite.
 
-**Important files:**
-- `pages/*.tsx` - Page components
-- `api/*.api.ts` - API client functions
-- `stores/*.ts` - State management (Zustand)
+React + Vite 기반 SPA
 
-**Routes:**
-- `/` - Search page
-- `/books/:id` - Book detail page
-- `/recommendations` - Recommendations page
-- `/admin/login` - Admin login
-- `/admin/dashboard` - Admin dashboard
+| 디렉토리 | 설명 |
+|---------|------|
+| `pages/did/` | DID 키오스크 UI (480px 뷰포트) |
+| `pages/admin/` | 관리자 대시보드 |
+| `api/` | API 클라이언트 |
+| `stores/` | Zustand 상태관리 |
 
 ### `/packages/worker`
-BullMQ worker for video generation.
 
-**Important files:**
-- `services/prompt.service.ts` - Generates Veo3.1 prompts
-- `services/veo.service.ts` - Calls Veo3.1 API
-- `services/video-generator.service.ts` - Orchestrates generation
-- `worker.ts` - BullMQ worker setup
+BullMQ 기반 영상 생성 워커
 
-**Process:**
-1. Receives job from queue
-2. Generates 3 scene prompts
-3. Calls Veo3.1 for each scene
-4. Validates safety
-5. Merges scenes
-6. Generates subtitles
-7. Stores video + subtitle files
-8. Updates database
+| 디렉토리 | 설명 |
+|---------|------|
+| `pipeline/` | Pipeline V2 (grounding/style/planning/assemble) |
+| `services/` | Gemini, Veo, Sora 클라이언트 |
+| `qc/` | 품질 검증 (Safety Gate 등) |
 
-## Technology Stack
+## 기술 스택
 
 ### Backend
-- **Runtime**: Node.js 18+
-- **Framework**: Express.js
-- **Language**: TypeScript
-- **Auth**: JWT (jsonwebtoken)
+- **Framework**: Fastify 5
+- **ORM**: Prisma (SQLite/PostgreSQL)
 - **Queue**: BullMQ + Redis
-- **Logging**: Winston
-- **Validation**: express-validator
+- **Auth**: JWT
 
 ### Frontend
 - **Framework**: React 18
-- **Build Tool**: Vite
-- **Language**: TypeScript
-- **Routing**: React Router v6
+- **Build**: Vite
 - **State**: Zustand
-- **HTTP Client**: Axios
+- **Style**: TailwindCSS
 
 ### Worker
 - **Queue**: BullMQ
-- **Video API**: Veo3.1
-- **Storage**: Local filesystem (configurable to S3)
+- **AI**: Gemini 2.0 Flash, Veo 3.1, Sora
+- **Video**: FFmpeg
 
-### DevOps
-- **Container**: Docker
-- **Orchestration**: Docker Compose
-- **Reverse Proxy**: Nginx
-- **Testing**: Jest
-- **Linting**: ESLint + Prettier
-
-## Development Workflow
+## 데이터 흐름
 
 ```
-┌─────────────┐
-│   Browser   │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Frontend   │ (React on port 5173)
-│   (Vite)    │
-└──────┬──────┘
-       │
-       │ HTTP /api
-       ▼
-┌─────────────┐     ┌──────────────┐
-│   Backend   │────▶│    Redis     │
-│  (Express)  │     │    (Queue)   │
-└──────┬──────┘     └──────┬───────┘
-       │                   │
-       │ DB Query          │ Dequeue
-       ▼                   ▼
-┌─────────────┐     ┌──────────────┐
-│  Database   │     │    Worker    │
-│ (In-Memory) │     │   (BullMQ)   │
-└─────────────┘     └──────┬───────┘
-                           │
-                           │ Generate Video
-                           ▼
-                    ┌──────────────┐
-                    │  Veo3.1 API  │
-                    └──────────────┘
+┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────────┐
+│  Frontend   │───▶│   Backend    │───▶│    Redis    │───▶│    Worker    │
+│  (React)    │    │  (Fastify)   │    │   (BullMQ)  │    │ (Pipeline V2)│
+└─────────────┘    └──────────────┘    └─────────────┘    └──────────────┘
+                          │                                       │
+                          ▼                                       ▼
+                   ┌──────────────┐                        ┌──────────────┐
+                   │    SQLite    │◀───────────────────────│   Storage    │
+                   │   (Prisma)   │      (Callback)        │  (Local/S3)  │
+                   └──────────────┘                        └──────────────┘
 ```
 
-## Configuration Files
+## 주요 파일
 
-- `.env` - Environment variables
-- `tsconfig.json` - TypeScript configuration
-- `.eslintrc.json` - Linting rules
-- `.prettierrc.json` - Code formatting
-- `docker-compose.yml` - Service orchestration
-- `nginx.conf` - Web server config
-- `package.json` - Dependencies and scripts
+| 파일 | 설명 |
+|------|------|
+| `backend/src/services/alpas-real.service.ts` | ALPAS 도서관 API 연동 |
+| `backend/src/routes/did.routes.ts` | DID 공개 API |
+| `worker/src/pipeline/orchestrator.ts` | Pipeline V2 오케스트레이터 |
+| `worker/src/worker.ts` | BullMQ Worker 진입점 |
+| `frontend/src/pages/did/DidV2BookDetail.tsx` | 책 상세 + 영상 재생 |
 
-## Build Output
+## 환경 설정
 
-When built (`npm run build`), each package creates a `dist/` directory:
-
-```
-packages/
-├── shared/dist/          # Compiled TypeScript
-├── backend/dist/         # Compiled server
-├── frontend/dist/        # Static HTML/CSS/JS
-└── worker/dist/          # Compiled worker
-```
-
-## Testing Structure
-
-Tests are colocated with source code in `__tests__/` directories:
-
-```
-src/
-├── services/
-│   ├── auth.service.ts
-│   └── __tests__/
-│       └── auth.service.test.ts
-```
-
-Run tests:
-```bash
-npm test                              # All packages
-npm test --workspace=@smart-did/backend  # Specific package
-```
-
-## Deployment Artifacts
-
-**Docker Images:**
-- `smart-did-backend:latest`
-- `smart-did-frontend:latest`
-- `smart-did-worker:latest`
-
-**Volumes:**
-- `redis_data` - Redis persistence
-- `./storage` - Local video storage
-
-## Code Organization Principles
-
-1. **Shared First**: Common types/utils in `/shared`
-2. **Service Layer**: Business logic isolated in services
-3. **Type Safety**: Full TypeScript coverage
-4. **API-First**: Backend exposes REST API
-5. **Stateless Backend**: Can scale horizontally
-6. **Queue-Based**: Async work via BullMQ
-7. **Microservices Ready**: Each package can run independently
-
----
-
-**Project Statistics:**
-
-- Total Packages: 4 (shared, backend, frontend, worker)
-- Total Source Files: ~50
-- Lines of Code: ~5000
-- API Endpoints: 10+
-- Test Cases: 15+
-- Docker Images: 3
+| 파일 | 설명 |
+|------|------|
+| `.env` | 환경 변수 (루트에 하나) |
+| `prisma/schema.prisma` | DB 스키마 |
+| `docker-compose.yml` | Docker 서비스 구성 |
+| `nginx.conf` | Nginx 설정 (/METIS 경로) |

@@ -1,127 +1,126 @@
 # Deployment Guide
 
-Production deployment instructions for Smart DID Video Service.
+> **마지막 업데이트**: 2026-02-28
 
-## Table of Contents
+Smart DID Video Service 배포 가이드입니다.
 
-- [Environment Setup](#environment-setup)
-- [Docker Deployment](#docker-deployment)
-- [Manual Deployment](#manual-deployment)
-- [Database Migration](#database-migration)
-- [Monitoring & Logging](#monitoring--logging)
-- [Scaling](#scaling)
-- [Security](#security)
-- [Backup & Recovery](#backup--recovery)
+## 목차
 
-## Environment Setup
+- [환경 설정](#환경-설정)
+- [Docker 배포](#docker-배포)
+- [수동 배포](#수동-배포)
+- [Nginx 설정](#nginx-설정)
+- [모니터링](#모니터링)
+- [보안](#보안)
+- [백업](#백업)
 
-### Required Infrastructure
+## 환경 설정
 
-- **Compute**: 2+ CPU cores, 4GB+ RAM
-- **Redis**: For queue management
-- **Database**: PostgreSQL 14+ or MongoDB 6+
-- **Storage**: S3-compatible storage for videos
-- **SSL Certificate**: For HTTPS
+### 필수 인프라
 
-### Environment Variables
+- **서버**: 2+ CPU, 4GB+ RAM
+- **Redis**: 큐 관리용
+- **FFmpeg**: 영상 병합용
+- **SSL 인증서**: HTTPS용
 
-Create `.env.production`:
+### 환경 변수
+
+`.env.production` 파일 생성:
 
 ```env
 # Environment
 NODE_ENV=production
 
 # Backend
-PORT=3000
+PORT=3001
 API_PREFIX=/api
 
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/smart_did
+# Database (SQLite 또는 PostgreSQL)
+DATABASE_URL=file:./prod.db
+# DATABASE_URL=postgresql://user:password@localhost:5432/smart_did
 
 # JWT
-JWT_SECRET=<generate-strong-random-secret>
+JWT_SECRET=<64자-이상-랜덤-문자열>
 JWT_EXPIRES_IN=3600
 
 # Redis
-REDIS_HOST=redis.production.internal
+REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=<redis-password>
 
-# Storage (S3)
-STORAGE_TYPE=s3
-AWS_ACCESS_KEY_ID=<aws-access-key>
-AWS_SECRET_ACCESS_KEY=<aws-secret-key>
-AWS_REGION=ap-northeast-2
-AWS_S3_BUCKET=smart-did-videos
+# Internal API (Backend-Worker 통신)
+INTERNAL_API_SECRET=<internal-secret>
+BACKEND_URL=http://localhost:3001
 
-# Veo3.1
-VEO_API_KEY=<production-veo-key>
-VEO_API_ENDPOINT=https://api.veo.example.com/v1
+# AI APIs
+GEMINI_API_KEY=<gemini-api-key>
+VEO_API_KEY=<veo-api-key>
+OPENAI_API_KEY=<openai-api-key>
+
+# ALPAS (도서관 API)
+ALPAS_API_URL=https://alpas.library.example.com/api
+ALPAS_API_KEY=<alpas-api-key>
 
 # Video Settings
 VIDEO_DEFAULT_EXPIRY_DAYS=90
 VIDEO_MAX_RETRIES=3
 
 # Worker
-WORKER_CONCURRENCY=4
+WORKER_CONCURRENCY=2
 
 # Admin
-ADMIN_USERNAME=<production-admin>
+ADMIN_USERNAME=admin
 ADMIN_PASSWORD=<strong-password>
-
-# ALPAS Integration
-ALPAS_API_URL=https://alpas.library.example.com/api
-ALPAS_API_KEY=<alpas-api-key>
 ```
 
-### Generate Secrets
+### 시크릿 생성
 
 ```bash
-# Generate JWT secret
+# JWT 시크릿
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 
-# Generate admin password hash
-node -e "const bcrypt = require('bcrypt'); bcrypt.hash('your-password', 10).then(console.log)"
+# Internal API 시크릿
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-## Docker Deployment
+## Docker 배포
 
-### Prerequisites
+### 사전 요구사항
 
 - Docker 20.10+
 - Docker Compose 2.0+
 
-### Build Images
+### 이미지 빌드
 
 ```bash
-# Build all images
+cd library-did-main
+
+# 전체 빌드
 docker-compose build
 
-# Or build individually
+# 개별 빌드
 docker build -f Dockerfile.backend -t smart-did-backend .
 docker build -f Dockerfile.frontend -t smart-did-frontend .
 docker build -f Dockerfile.worker -t smart-did-worker .
 ```
 
-### Deploy with Docker Compose
+### Docker Compose 실행
 
 ```bash
-# Start all services
+# 서비스 시작
 docker-compose up -d
 
-# View logs
+# 로그 확인
 docker-compose logs -f
 
-# Check status
+# 상태 확인
 docker-compose ps
 
-# Stop services
+# 서비스 중지
 docker-compose down
 ```
 
-### Production Docker Compose
-
-Create `docker-compose.prod.yml`:
+### docker-compose.yml
 
 ```yaml
 version: '3.8'
@@ -130,103 +129,145 @@ services:
   redis:
     image: redis:7-alpine
     restart: always
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --requirepass ${REDIS_PASSWORD}
-    networks:
-      - internal
 
   backend:
-    image: smart-did-backend:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
     restart: always
+    ports:
+      - "3001:3001"
     env_file: .env.production
     depends_on:
       - redis
-    networks:
-      - internal
-      - web
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`api.example.com`)"
+    volumes:
+      - ./packages/worker/storage:/app/packages/worker/storage
 
   worker:
-    image: smart-did-worker:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
     restart: always
     env_file: .env.production
     depends_on:
       - redis
       - backend
-    networks:
-      - internal
+    volumes:
+      - ./packages/worker/storage:/app/packages/worker/storage
 
   frontend:
-    image: smart-did-frontend:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
     restart: always
+    ports:
+      - "80:80"
     depends_on:
       - backend
-    networks:
-      - web
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.web.rule=Host(`library.example.com`)"
-
-networks:
-  internal:
-  web:
-    external: true
 
 volumes:
   redis_data:
 ```
 
-Deploy:
+## 수동 배포
+
+### 1. 서버 준비
 
 ```bash
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-## Manual Deployment
-
-### 1. Prepare Server
-
-```bash
-# Update system
+# 시스템 업데이트
 sudo apt update && sudo apt upgrade -y
 
-# Install Node.js 18
+# Node.js 18 설치
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 sudo apt install -y nodejs
 
-# Install Redis
+# Redis 설치
 sudo apt install -y redis-server
 sudo systemctl enable redis-server
 sudo systemctl start redis-server
 
-# Install nginx
+# FFmpeg 설치
+sudo apt install -y ffmpeg
+
+# Nginx 설치
 sudo apt install -y nginx
 ```
 
-### 2. Clone and Build
+### 2. 빌드
 
 ```bash
-# Clone repository
+# 저장소 클론
 git clone https://github.com/your-org/smart-did.git
-cd smart-did
+cd smart-did/library-did-main
 
-# Install dependencies
+# 의존성 설치
 npm install
 
-# Build all packages
+# 빌드
 npm run build
 ```
 
-### 3. Configure Nginx
+### 3. Systemd 서비스
 
-Create `/etc/nginx/sites-available/smart-did`:
+**Backend** (`/etc/systemd/system/smart-did-backend.service`):
+
+```ini
+[Unit]
+Description=Smart DID Backend API
+After=network.target redis.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/smart-did/library-did-main/packages/backend
+EnvironmentFile=/var/www/smart-did/.env.production
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Worker** (`/etc/systemd/system/smart-did-worker.service`):
+
+```ini
+[Unit]
+Description=Smart DID Video Worker
+After=network.target redis.service smart-did-backend.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/smart-did/library-did-main/packages/worker
+EnvironmentFile=/var/www/smart-did/.env.production
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+서비스 활성화:
+
+```bash
+sudo systemctl enable smart-did-backend smart-did-worker
+sudo systemctl start smart-did-backend smart-did-worker
+sudo systemctl status smart-did-backend smart-did-worker
+```
+
+## Nginx 설정
+
+`/etc/nginx/sites-available/smart-did`:
 
 ```nginx
 upstream backend {
-    server 127.0.0.1:3000;
+    server 127.0.0.1:3001;
 }
 
 server {
@@ -242,31 +283,42 @@ server {
     ssl_certificate /etc/letsencrypt/live/library.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/library.example.com/privkey.pem;
 
-    root /var/www/smart-did/frontend/dist;
+    # Frontend (정적 파일)
+    root /var/www/smart-did/library-did-main/packages/frontend/dist;
     index index.html;
 
+    # SPA 라우팅
     location / {
         try_files $uri $uri/ /index.html;
     }
 
+    # METIS 경로 (DID 키오스크)
+    location /METIS {
+        alias /var/www/smart-did/library-did-main/packages/frontend/dist;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API 프록시
     location /api {
         proxy_pass http://backend;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_cache_bypass $http_upgrade;
     }
 
-    location /videos {
-        alias /var/www/smart-did/storage/videos;
+    # 영상 파일 (캐싱)
+    location /api/videos {
+        proxy_pass http://backend;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
 }
 ```
 
-Enable site:
+활성화:
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/smart-did /etc/nginx/sites-enabled/
@@ -274,235 +326,54 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 4. Set Up Systemd Services
+## 모니터링
 
-**Backend Service** (`/etc/systemd/system/smart-did-backend.service`):
-
-```ini
-[Unit]
-Description=Smart DID Backend API
-After=network.target redis.service
-
-[Service]
-Type=simple
-User=www-data
-WorkingDirectory=/var/www/smart-did/packages/backend
-EnvironmentFile=/var/www/smart-did/.env.production
-ExecStart=/usr/bin/node dist/index.js
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**Worker Service** (`/etc/systemd/system/smart-did-worker.service`):
-
-```ini
-[Unit]
-Description=Smart DID Video Worker
-After=network.target redis.service smart-did-backend.service
-
-[Service]
-Type=simple
-User=www-data
-WorkingDirectory=/var/www/smart-did/packages/worker
-EnvironmentFile=/var/www/smart-did/.env.production
-ExecStart=/usr/bin/node dist/index.js
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
+### 헬스 체크
 
 ```bash
-sudo systemctl enable smart-did-backend smart-did-worker
-sudo systemctl start smart-did-backend smart-did-worker
-sudo systemctl status smart-did-backend smart-did-worker
+# Backend 상태
+curl http://localhost:3001/health
+
+# Redis 상태
+redis-cli ping
+
+# 큐 상태
+curl -H "Authorization: Bearer <token>" http://localhost:3001/api/admin/queue/status
 ```
 
-## Database Migration
-
-### From In-Memory to PostgreSQL
-
-1. **Install PostgreSQL**:
+### 로그 확인
 
 ```bash
-sudo apt install postgresql postgresql-contrib
+# Backend 로그
+journalctl -u smart-did-backend -f
+
+# Worker 로그
+journalctl -u smart-did-worker -f
+
+# Nginx 로그
+tail -f /var/log/nginx/access.log
+tail -f /var/log/nginx/error.log
 ```
 
-2. **Create Database**:
+### 주요 모니터링 지표
 
-```bash
-sudo -u postgres psql
-CREATE DATABASE smart_did;
-CREATE USER smart_did_user WITH PASSWORD 'secure_password';
-GRANT ALL PRIVILEGES ON DATABASE smart_did TO smart_did_user;
-\q
-```
+- 요청 처리량 (requests/sec)
+- 응답 시간 (latency)
+- 큐 길이 (waiting jobs)
+- 영상 생성 성공/실패율
+- Redis 메모리 사용량
 
-3. **Update Backend** to use PostgreSQL (example with Prisma):
-
-```bash
-cd packages/backend
-npm install @prisma/client prisma
-npx prisma init
-```
-
-4. **Create Schema** (`packages/backend/prisma/schema.prisma`):
-
-```prisma
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
-}
-
-model Book {
-  bookId        String   @id
-  title         String
-  author        String
-  summary       String
-  genre         String
-  shelfCode     String
-  createdAt     DateTime @default(now())
-  videoRecord   VideoRecord?
-}
-
-model VideoRecord {
-  bookId          String   @id
-  status          String
-  videoUrl        String?
-  subtitleUrl     String?
-  requestCount    Int      @default(0)
-  lastRequestedAt DateTime?
-  retryCount      Int      @default(0)
-  rankingScore    Float    @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  expiresAt       DateTime?
-  errorMessage    String?
-  book            Book     @relation(fields: [bookId], references: [bookId])
-}
-```
-
-5. **Run Migration**:
-
-```bash
-npx prisma migrate dev --name init
-```
-
-## Monitoring & Logging
-
-### Application Logs
-
-Logs are written to:
-- Backend: `/var/log/smart-did/backend/`
-- Worker: `/var/log/smart-did/worker/`
-
-Configure log rotation (`/etc/logrotate.d/smart-did`):
-
-```
-/var/log/smart-did/*/*.log {
-    daily
-    missingok
-    rotate 14
-    compress
-    delaycompress
-    notifempty
-    create 0644 www-data www-data
-}
-```
-
-### Monitoring Stack
-
-Use Prometheus + Grafana:
-
-1. **Install Prometheus**
-2. **Add metrics endpoint** to backend
-3. **Create Grafana dashboards**
-
-Key metrics to monitor:
-- Request rate
-- Response time
-- Error rate
-- Queue length
-- Video generation success/failure rate
-- Redis memory usage
-
-### Health Checks
-
-```bash
-# Backend health
-curl https://api.example.com/health
-
-# Worker status (via Redis)
-redis-cli -h localhost -p 6379 llen bull:video-generation:waiting
-```
-
-## Scaling
-
-### Horizontal Scaling
-
-**Backend API** (stateless):
-- Run multiple instances behind load balancer
-- Use session affinity if needed
-
-**Worker**:
-- Scale workers independently
-- Set `WORKER_CONCURRENCY` per worker
-- Workers auto-distribute via Redis queue
-
-### Vertical Scaling
-
-Adjust resources based on load:
-- CPU: For video processing
-- Memory: For queue processing
-- Redis: For queue storage
-
-### Auto-Scaling (Kubernetes)
-
-Example HPA:
-
-```yaml
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: smart-did-backend
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: smart-did-backend
-  minReplicas: 2
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-```
-
-## Security
+## 보안
 
 ### SSL/TLS
 
-Use Let's Encrypt:
-
 ```bash
+# Let's Encrypt 설치
 sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d library.example.com
 ```
 
-### Firewall
+### 방화벽
 
 ```bash
 sudo ufw allow 80/tcp
@@ -510,9 +381,7 @@ sudo ufw allow 443/tcp
 sudo ufw enable
 ```
 
-### Security Headers
-
-Add to nginx:
+### 보안 헤더 (Nginx)
 
 ```nginx
 add_header X-Frame-Options "SAMEORIGIN" always;
@@ -523,8 +392,6 @@ add_header Strict-Transport-Security "max-age=31536000" always;
 
 ### Rate Limiting
 
-Configure nginx rate limiting:
-
 ```nginx
 limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
 
@@ -534,50 +401,79 @@ location /api {
 }
 ```
 
-## Backup & Recovery
+## 백업
 
-### Database Backup
+### 데이터베이스
 
 ```bash
-# Automated daily backup
-0 2 * * * pg_dump smart_did | gzip > /backup/smart_did_$(date +\%Y\%m\%d).sql.gz
+# SQLite 백업
+cp /var/www/smart-did/library-did-main/packages/backend/prisma/prod.db /backup/
+
+# PostgreSQL 백업
+pg_dump smart_did | gzip > /backup/smart_did_$(date +%Y%m%d).sql.gz
 ```
 
-### Video Storage Backup
-
-If using S3, enable versioning and cross-region replication.
-
-### Redis Backup
+### 영상 파일
 
 ```bash
-# Enable RDB snapshots
+# 로컬 백업
+rsync -av /var/www/smart-did/library-did-main/packages/worker/storage/ /backup/videos/
+
+# S3 동기화 (운영 시)
+aws s3 sync /var/www/smart-did/storage/ s3://smart-did-backup/
+```
+
+### Redis
+
+```bash
+# RDB 스냅샷 설정
 redis-cli CONFIG SET save "900 1 300 10 60 10000"
 ```
 
-### Disaster Recovery Plan
+## 배포 체크리스트
 
-1. Database: Restore from latest backup
-2. Videos: Restore from S3/backup
-3. Code: Redeploy from Git
-4. Configuration: Restore from secrets manager
+- [ ] 환경 변수 설정 완료
+- [ ] 시크릿 생성 및 보안 저장
+- [ ] Redis 실행 확인
+- [ ] FFmpeg 설치 확인
+- [ ] DB 마이그레이션 완료
+- [ ] SSL 인증서 설치
+- [ ] 방화벽 설정
+- [ ] 헬스 체크 정상
+- [ ] 로그 로테이션 설정
+- [ ] 백업 자동화 설정
+- [ ] 모니터링 설정
 
----
+## 트러블슈팅
 
-## Production Checklist
+### Worker 콜백 실패
 
-- [ ] Environment variables configured
-- [ ] Secrets generated and secured
-- [ ] Database migrated and backed up
-- [ ] SSL/TLS certificates installed
-- [ ] Firewall configured
-- [ ] Monitoring set up
-- [ ] Log rotation configured
-- [ ] Backups automated
-- [ ] Health checks working
-- [ ] Rate limiting enabled
-- [ ] Error tracking configured
-- [ ] Documentation updated
+```bash
+# Backend와 Worker의 INTERNAL_API_SECRET 일치 확인
+# BACKEND_URL이 Worker에서 접근 가능한지 확인
+curl -X POST http://localhost:3001/api/internal/video-callback \
+  -H "X-Internal-Secret: <secret>" \
+  -H "Content-Type: application/json" \
+  -d '{"bookId":"test","status":"READY"}'
+```
 
----
+### 영상 생성 실패
 
-**Your production deployment is ready!** Monitor closely in the first few days and adjust resources as needed.
+```bash
+# FFmpeg 설치 확인
+ffmpeg -version
+
+# API 키 확인 (Worker 로그)
+journalctl -u smart-did-worker | grep "API_KEY"
+```
+
+### Redis 연결 실패
+
+```bash
+# Redis 상태 확인
+systemctl status redis-server
+redis-cli ping
+
+# 연결 테스트
+redis-cli -h localhost -p 6379 -a <password> ping
+```

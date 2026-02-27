@@ -1,24 +1,23 @@
 # API Documentation
 
-## Base URL
+> **마지막 업데이트**: 2026-02-28  
+> **Base URL**: `http://localhost:3001/api` (개발) 또는 `http://10.10.11.13/METIS/api` (운영)
 
-```
-http://localhost:3000/api
-```
+## 목차
 
-## Authentication
+- [인증](#인증)
+- [DID 공개 API](#did-공개-api)
+- [Admin API](#admin-api-인증-필요)
+- [Internal API](#internal-api-worker-전용)
+- [Video 파일 서빙](#video-파일-서빙)
+- [에러 응답](#에러-응답)
+- [테스트 예제](#테스트-예제)
 
-Most admin endpoints require JWT authentication. Include the token in the Authorization header:
+---
 
-```
-Authorization: Bearer <JWT_TOKEN>
-```
+## 인증
 
-## Endpoints
-
-### Authentication
-
-#### Login
+### 로그인
 
 ```http
 POST /api/auth/login
@@ -28,7 +27,7 @@ POST /api/auth/login
 ```json
 {
   "username": "admin",
-  "password": "changeme123"
+  "password": "your-password"
 }
 ```
 
@@ -43,7 +42,7 @@ POST /api/auth/login
 }
 ```
 
-**Error Response (401 Unauthorized):**
+**Error Response (401):**
 ```json
 {
   "success": false,
@@ -51,418 +50,523 @@ POST /api/auth/login
 }
 ```
 
----
-
-### Books
-
-#### Search Books
+### 현재 사용자 정보
 
 ```http
-GET /api/books?query={search}&genre={genre}&limit={limit}
+GET /api/auth/me
+Authorization: Bearer <JWT_TOKEN>
 ```
 
-**Query Parameters:**
-- `query` (optional): Search term for title or author
-- `genre` (optional): Filter by genre
-- `limit` (optional): Maximum results (default: 20, max: 100)
-- `offset` (optional): Pagination offset (default: 0)
-
 **Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "username": "admin",
+    "role": "admin"
+  }
+}
+```
+
+---
+
+## DID 공개 API
+
+> DID(Digital Information Display) 키오스크용 공개 API입니다.  
+> 인증 없이 접근 가능합니다.
+
+### 신착 도서 목록
+
+```http
+GET /api/did/new-arrivals
+```
+
+**Response:**
 ```json
 {
   "success": true,
   "data": [
     {
-      "bookId": "ISBN-001",
-      "title": "별을 헤아리는 아이",
-      "author": "김동화",
-      "summary": "밤하늘의 별을 세며 꿈을 키워가는 소년의 이야기입니다...",
-      "genre": "과학동화",
-      "shelfCode": "A-01-05",
-      "createdAt": "2024-01-01T00:00:00.000Z"
+      "bookId": "70007968",
+      "title": "어린왕자",
+      "author": "생텍쥐페리",
+      "coverImageUrl": "https://...",
+      "videoStatus": "READY"
     }
   ]
 }
 ```
 
-#### Get Book by ID
+### 사서 추천 도서
 
 ```http
-GET /api/books/:bookId
+GET /api/did/librarian-picks
+```
+
+### 연령대별 추천 도서
+
+```http
+GET /api/did/age/:group
 ```
 
 **Path Parameters:**
-- `bookId`: Book identifier (ISBN or internal ID)
+| 파라미터 | 설명 | 값 |
+|---------|------|-----|
+| `group` | 연령대 | `preschool` (유아), `elementary` (아동), `teen` (청소년) |
 
-**Response (200 OK):**
+### 도서 검색
+
+```http
+GET /api/did/search?q={keyword}&limit={limit}
+```
+
+**Query Parameters:**
+| 파라미터 | 필수 | 설명 | 기본값 |
+|---------|------|------|--------|
+| `q` | O | 검색 키워드 | - |
+| `limit` | X | 최대 결과 수 | 20 |
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "bookId": "70007968",
+      "title": "어린왕자",
+      "author": "생텍쥐페리",
+      "publisher": "문학동네",
+      "coverImageUrl": "https://...",
+      "videoStatus": "READY"
+    }
+  ]
+}
+```
+
+### 도서 상세 정보
+
+```http
+GET /api/did/books/:bookId
+```
+
+**Response:**
 ```json
 {
   "success": true,
   "data": {
-    "bookId": "ISBN-001",
-    "title": "별을 헤아리는 아이",
-    "author": "김동화",
-    "summary": "밤하늘의 별을 세며 꿈을 키워가는 소년의 이야기입니다...",
-    "genre": "과학동화",
+    "bookId": "70007968",
+    "title": "어린왕자",
+    "author": "생텍쥐페리",
+    "publisher": "문학동네",
+    "publishedYear": "2020",
+    "summary": "사막에 불시착한 비행사가 어린 왕자를 만나...",
+    "category": "문학",
+    "coverImageUrl": "https://...",
     "shelfCode": "A-01-05",
-    "createdAt": "2024-01-01T00:00:00.000Z"
+    "callNumber": "808.3-생833ㅇ",
+    "isbn": "9788937460470",
+    "isAvailable": true
   }
 }
 ```
 
-**Error Response (404 Not Found):**
-```json
-{
-  "success": false,
-  "error": "Book not found"
-}
-```
-
----
-
-### Videos
-
-#### Get Video Status
+### 영상 상태 조회
 
 ```http
-GET /api/books/:bookId/video
+GET /api/did/books/:bookId/video
 ```
 
-**Response (200 OK):**
+**Response:**
 ```json
 {
   "success": true,
   "data": {
     "status": "READY",
-    "requestCount": 15,
-    "rankingScore": 42.5,
-    "lastRequestedAt": "2024-01-15T10:30:00.000Z",
-    "videoUrl": "/videos/ISBN-001.mp4",
-    "subtitleUrl": "/videos/ISBN-001.vtt",
-    "expiresAt": "2024-04-15T00:00:00.000Z"
+    "videoUrl": "/api/videos/70007968-1234567890.mp4",
+    "subtitleUrl": "/api/videos/70007968-1234567890.vtt"
   }
 }
 ```
 
-**Status Values:**
-- `NONE`: No video exists
-- `QUEUED`: Video generation queued
-- `GENERATING`: Video being created
-- `READY`: Video available
-- `FAILED`: Generation failed
+**Status 값:**
+| 상태 | 설명 |
+|------|------|
+| `NONE` | 영상 없음 |
+| `QUEUED` | 생성 대기 중 |
+| `GENERATING` | 생성 중 |
+| `READY` | 영상 준비됨 |
+| `FAILED` | 생성 실패 |
 
-#### Request Video Generation (User)
+### 영상 생성 요청
 
 ```http
-POST /api/books/:bookId/video
+POST /api/did/books/:bookId/video/request
 ```
 
-**Request Body:**
+**Request Body (선택):**
 ```json
 {
-  "trigger": "user_request"
+  "title": "어린왕자",
+  "author": "생텍쥐페리",
+  "summary": "사막에 불시착한 비행사가..."
 }
 ```
 
-**Response - Video Ready (200 OK):**
-```json
-{
-  "success": true,
-  "data": {
-    "status": "READY",
-    "message": "Video is ready"
-  }
-}
-```
+> 책 정보를 함께 전달하면 캐시 미스 시에도 영상 생성이 가능합니다.
 
-**Response - Video Queued (200 OK):**
+**Response:**
 ```json
 {
   "success": true,
   "data": {
     "status": "QUEUED",
-    "message": "Video generation queued"
+    "message": "영상 생성이 요청되었습니다"
   }
 }
 ```
 
-**Response - In Progress (200 OK):**
+### 인기 영상 목록
+
+```http
+GET /api/did/videos/popular
+```
+
+---
+
+## Admin API (인증 필요)
+
+> 모든 Admin API는 JWT 토큰이 필요합니다.  
+> Header: `Authorization: Bearer <JWT_TOKEN>`
+
+### 대시보드 통계
+
+```http
+GET /api/admin/dashboard/stats
+```
+
+**Response:**
 ```json
 {
   "success": true,
   "data": {
-    "status": "GENERATING",
-    "message": "Video generation is in progress"
+    "totalVideos": 150,
+    "readyVideos": 120,
+    "queuedVideos": 10,
+    "failedVideos": 5,
+    "totalCost": 125.50,
+    "remainingBudget": 374.50
   }
 }
 ```
 
----
-
-### Recommendations
-
-#### Get Ranked Recommendations
+### 신착 도서 (관리자용)
 
 ```http
-GET /api/recommendations?type={type}&limit={limit}
+GET /api/admin/recommendations/new-arrivals
 ```
 
-**Query Parameters:**
-- `type` (optional): Filter type - `video`, `new_arrival`, `librarian_pick`, `bestseller`
-- `limit` (optional): Maximum results (default: 20, max: 50)
+### 사서 추천 도서 (관리자용)
 
-**Response (200 OK):**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "bookId": "ISBN-001",
-      "title": "별을 헤아리는 아이",
-      "author": "김동화",
-      "genre": "과학동화",
-      "coverImageUrl": "/images/ISBN-001.jpg",
-      "status": "READY",
-      "requestCount": 35,
-      "rankingScore": 70.4,
-      "videoUrl": "/videos/ISBN-001.mp4"
-    }
-  ]
-}
+```http
+GET /api/admin/recommendations/librarian-picks
 ```
 
-**Ranking Logic:**
-- Items sorted by `rankingScore` (descending)
-- `rankingScore = requestCount + (recent7DayRequests × 1.5)`
-- READY videos prioritized
-
----
-
-### Admin Endpoints
-
-All admin endpoints require authentication.
-
-#### Pre-Generate Video (Admin)
+### 영상 생성 요청 (관리자)
 
 ```http
 POST /api/admin/books/:bookId/video
 ```
 
-**Headers:**
-```
-Authorization: Bearer <JWT_TOKEN>
+> 관리자가 직접 영상 생성을 요청합니다. 높은 우선순위로 큐에 등록됩니다.
+
+### 영상 목록 조회
+
+```http
+GET /api/admin/videos
 ```
 
-**Request Body:**
-```json
-{
-  "trigger": "admin_seed"
-}
-```
+**Query Parameters:**
+| 파라미터 | 설명 |
+|---------|------|
+| `status` | 상태 필터 (NONE, QUEUED, GENERATING, READY, FAILED) |
+| `limit` | 최대 결과 수 |
+| `offset` | 페이지네이션 오프셋 |
 
-**Response (200 OK):**
-```json
-{
-  "success": true,
-  "data": {
-    "status": "QUEUED",
-    "message": "Admin pre-generation queued"
-  }
-}
-```
-
-#### Update Video Expiration
+### 영상 정보 수정
 
 ```http
 PATCH /api/admin/books/:bookId/video
 ```
 
-**Headers:**
-```
-Authorization: Bearer <JWT_TOKEN>
-```
-
 **Request Body:**
 ```json
 {
-  "expiresAt": "2026-03-01T00:00:00.000Z"
+  "expiresAt": "2026-06-01T00:00:00.000Z"
 }
 ```
 
-**Response (200 OK):**
+### 베스트셀러 시드
+
+```http
+POST /api/admin/seed/bestsellers
+```
+
+> 베스트셀러 도서들의 영상을 미리 생성합니다.
+
+### 연령대별 시드
+
+```http
+POST /api/admin/seed/age-group/:ageGroup
+```
+
+**Path Parameters:**
+| 파라미터 | 값 |
+|---------|-----|
+| `ageGroup` | `preschool`, `elementary`, `teen` |
+
+### 시드 상태 조회
+
+```http
+GET /api/admin/seed/status
+```
+
+### 큐 통계
+
+```http
+GET /api/admin/queue/stats
+```
+
+**Response:**
 ```json
 {
   "success": true,
   "data": {
-    "bookId": "ISBN-001",
-    "expiresAt": "2026-03-01T00:00:00.000Z"
+    "waiting": 5,
+    "active": 2,
+    "completed": 150,
+    "failed": 3
   }
 }
 ```
 
-#### Create Book (Admin)
+### 대기 작업 목록
 
 ```http
-POST /api/admin/books
+GET /api/admin/queue/waiting
 ```
 
-**Headers:**
+### 작업 취소
+
+```http
+DELETE /api/admin/queue/:bookId
 ```
-Authorization: Bearer <JWT_TOKEN>
+
+### 실패 작업 재시도
+
+```http
+POST /api/admin/queue/:bookId/retry
+```
+
+### 캐시 통계
+
+```http
+GET /api/admin/cache/stats
+```
+
+### 캐시 정리
+
+```http
+POST /api/admin/cache/cleanup
+```
+
+> LRU 기반으로 오래된 영상을 정리합니다.
+
+### 알림 목록
+
+```http
+GET /api/admin/notifications
+```
+
+### 알림 읽음 처리
+
+```http
+PATCH /api/admin/notifications/:id/read
+```
+
+### 모든 알림 읽음 처리
+
+```http
+POST /api/admin/notifications/mark-all-read
+```
+
+---
+
+## Internal API (Worker 전용)
+
+> Worker에서 Backend로 영상 생성 결과를 전달하는 내부 API입니다.  
+> Header: `X-Internal-Secret: <INTERNAL_API_SECRET>`
+
+### 영상 생성 콜백
+
+```http
+POST /api/internal/video-callback
+X-Internal-Secret: <INTERNAL_API_SECRET>
 ```
 
 **Request Body:**
 ```json
 {
-  "bookId": "ISBN-999",
-  "title": "새로운 책",
-  "author": "작가명",
-  "summary": "책 요약...",
-  "genre": "창작동화",
-  "shelfCode": "B-02-15"
+  "bookId": "70007968",
+  "status": "READY",
+  "videoUrl": "/api/videos/70007968-1234567890.mp4",
+  "subtitleUrl": "/api/videos/70007968-1234567890.vtt"
 }
 ```
 
-**Response (201 Created):**
+또는 실패 시:
+```json
+{
+  "bookId": "70007968",
+  "status": "FAILED",
+  "errorMessage": "Video generation timeout"
+}
+```
+
+**Response:**
 ```json
 {
   "success": true,
   "data": {
-    "bookId": "ISBN-999",
-    "title": "새로운 책",
-    "author": "작가명",
-    "summary": "책 요약...",
-    "genre": "창작동화",
-    "shelfCode": "B-02-15",
-    "createdAt": "2024-01-15T10:00:00.000Z"
+    "bookId": "70007968",
+    "status": "READY"
   }
 }
 ```
 
 ---
 
-## Error Responses
+## Video 파일 서빙
 
-### Standard Error Format
+### 영상/자막 파일 조회
+
+```http
+GET /api/videos/:filename
+```
+
+**예시:**
+- 영상: `GET /api/videos/70007968-1234567890.mp4`
+- 자막: `GET /api/videos/70007968-1234567890.vtt`
+
+**Content-Type:**
+| 확장자 | Content-Type |
+|--------|--------------|
+| `.mp4` | `video/mp4` |
+| `.vtt` | `text/vtt` |
+
+---
+
+## 에러 응답
+
+### 표준 에러 형식
 
 ```json
 {
   "success": false,
-  "error": "Error message here"
+  "error": "에러 메시지"
 }
 ```
 
-### HTTP Status Codes
+### HTTP 상태 코드
 
-- `200 OK`: Successful request
-- `201 Created`: Resource created successfully
-- `400 Bad Request`: Invalid request parameters
-- `401 Unauthorized`: Authentication required or failed
-- `403 Forbidden`: Insufficient permissions
-- `404 Not Found`: Resource not found
-- `409 Conflict`: Resource already exists
-- `500 Internal Server Error`: Server error
-
----
-
-## Rate Limiting
-
-Currently no rate limiting is implemented. For production:
-
-- Consider implementing rate limiting per IP/user
-- Recommended: 100 requests per 15 minutes for public endpoints
-- Recommended: 1000 requests per 15 minutes for authenticated endpoints
+| 코드 | 설명 |
+|------|------|
+| `200` | 성공 |
+| `201` | 생성 성공 |
+| `400` | 잘못된 요청 |
+| `401` | 인증 필요/실패 |
+| `403` | 권한 없음 |
+| `404` | 리소스 없음 |
+| `500` | 서버 에러 |
 
 ---
 
-## Webhooks (Future)
+## 테스트 예제
 
-Planned webhook support for video generation events:
+### cURL
 
-```json
-{
-  "event": "video.ready",
-  "bookId": "ISBN-001",
-  "videoUrl": "/videos/ISBN-001.mp4",
-  "timestamp": "2024-01-15T10:00:00.000Z"
-}
+```bash
+# 로그인
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"your-password"}'
+
+# 도서 검색 (DID)
+curl "http://localhost:3001/api/did/search?q=어린왕자&limit=5"
+
+# 도서 상세 (DID)
+curl http://localhost:3001/api/did/books/70007968
+
+# 영상 상태 조회
+curl http://localhost:3001/api/did/books/70007968/video
+
+# 영상 생성 요청
+curl -X POST http://localhost:3001/api/did/books/70007968/video/request \
+  -H "Content-Type: application/json" \
+  -d '{"title":"어린왕자","author":"생텍쥐페리"}'
+
+# 관리자: 대시보드 통계
+curl http://localhost:3001/api/admin/dashboard/stats \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# 관리자: 큐 상태
+curl http://localhost:3001/api/admin/queue/stats \
+  -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
----
-
-## OpenAPI/Swagger Specification
-
-A complete OpenAPI 3.0 specification is available at:
-
-```
-GET /api/docs
-```
-
-For Swagger UI:
-
-```
-GET /api/docs/ui
-```
-
----
-
-## SDK / Client Libraries
-
-Example usage with JavaScript/TypeScript:
+### JavaScript/TypeScript
 
 ```typescript
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: 'http://localhost:3001/api',
 });
 
-// Login
-const { data } = await api.post('/auth/login', {
+// 로그인
+const loginRes = await api.post('/auth/login', {
   username: 'admin',
-  password: 'changeme123',
+  password: 'your-password',
+});
+const token = loginRes.data.data.token;
+
+// 토큰 설정
+api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+// 도서 검색
+const books = await api.get('/did/search', { params: { q: '어린왕자' } });
+
+// 영상 생성 요청
+const videoReq = await api.post('/did/books/70007968/video/request', {
+  title: '어린왕자',
+  author: '생텍쥐페리',
 });
 
-// Set token
-api.defaults.headers.common['Authorization'] = `Bearer ${data.data.token}`;
-
-// Search books
-const books = await api.get('/books', { params: { query: '별' } });
-
-// Request video
-const video = await api.post('/books/ISBN-001/video');
+// 관리자: 큐 상태
+const queueStats = await api.get('/admin/queue/stats');
 ```
 
 ---
 
-## Testing
+## Swagger UI
 
-Example cURL commands for testing:
+서버 실행 후 Swagger UI에서 API 문서 확인:
+- http://localhost:3001/documentation
 
-```bash
-# Login
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"changeme123"}'
+---
 
-# Search books
-curl "http://localhost:3000/api/books?query=별&limit=5"
+## 관련 문서
 
-# Get book
-curl http://localhost:3000/api/books/ISBN-001
-
-# Get video status
-curl http://localhost:3000/api/books/ISBN-001/video
-
-# Request video
-curl -X POST http://localhost:3000/api/books/ISBN-001/video \
-  -H "Content-Type: application/json"
-
-# Get recommendations
-curl "http://localhost:3000/api/recommendations?type=video&limit=10"
-
-# Admin: Pre-generate video
-curl -X POST http://localhost:3000/api/admin/books/ISBN-001/video \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json"
-```
+- [README.md](../README.md) - 프로젝트 개요
+- [개발_기록.md](../../개발_기록.md) - 개발 변경 이력
+- [ERD.md](./ERD.md) - 데이터베이스 스키마
+- [DEPLOYMENT.md](./DEPLOYMENT.md) - 배포 가이드
