@@ -9,6 +9,10 @@ export interface VideoJobData {
   summary: string;
   trigger: 'user_request' | 'admin_seed';
   retryCount?: number;
+  // 추가 책 정보 (VideoRecord에 저장용)
+  publisher?: string;
+  coverImageUrl?: string;
+  category?: string;
 }
 import { videoRepository } from '../repositories/video.repository';
 import { notificationRepository } from '../repositories/notification.repository';
@@ -72,11 +76,33 @@ export class QueueService {
     }
 
     // 3. DB에 QUEUED 상태로 기록 (upsert로 동시 요청 시 unique 제약 오류 방지)
+    // 책 정보도 함께 저장하여 ALPAS API 없이도 표시 가능하도록
     const expiresAt = this.calculateExpiryDate();
     await videoRepository.upsert(
       bookId,
-      { bookId, status: 'QUEUED', expiresAt },
-      { status: 'QUEUED', lastRequestedAt: new Date(), errorMessage: null, expiresAt }
+      { 
+        bookId, 
+        status: 'QUEUED', 
+        expiresAt,
+        title: jobData.title,
+        author: jobData.author,
+        summary: jobData.summary,
+        publisher: jobData.publisher,
+        coverImageUrl: jobData.coverImageUrl,
+        category: jobData.category,
+      },
+      { 
+        status: 'QUEUED', 
+        lastRequestedAt: new Date(), 
+        errorMessage: null, 
+        expiresAt,
+        title: jobData.title,
+        author: jobData.author,
+        summary: jobData.summary,
+        publisher: jobData.publisher,
+        coverImageUrl: jobData.coverImageUrl,
+        category: jobData.category,
+      }
     );
 
     // 4. 큐에 작업 추가
@@ -193,17 +219,34 @@ export class QueueService {
 
   /**
    * 특정 작업 취소
+   * 큐에서 작업을 찾아 삭제하고, DB 상태도 업데이트
    */
   async cancelJob(bookId: string): Promise<boolean> {
+    // 1. 큐에서 작업 찾아서 삭제 시도
     const job = await this.findJobByBookId(bookId);
     if (job) {
-      await job.remove();
+      try {
+        await job.remove();
+      } catch (e) {
+        console.warn(`Failed to remove job from queue: ${e}`);
+      }
+    }
+
+    // 2. DB에서 QUEUED/GENERATING 상태인 경우 NONE으로 변경
+    const record = await videoRepository.findByBookId(bookId);
+    if (record && (record.status === 'QUEUED' || record.status === 'GENERATING')) {
       await videoRepository.update(bookId, {
         status: 'NONE',
         errorMessage: 'Cancelled by admin',
       });
       return true;
     }
+
+    // 큐에서 삭제했으면 성공
+    if (job) {
+      return true;
+    }
+
     return false;
   }
 

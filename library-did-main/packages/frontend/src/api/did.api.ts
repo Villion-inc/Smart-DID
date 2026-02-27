@@ -38,7 +38,7 @@ export interface PopularVideo {
  * DID API Client
  *
  * 새 DID 프론트(900×1600 북메이트 추천도서) ↔ 백엔드 연동.
- * baseURL = VITE_API_URL (예: http://localhost:3000/api). 모든 경로는 상대 경로.
+ * baseURL = VITE_API_URL (예: http://localhost:3001/api). 모든 경로는 상대 경로.
  *
  * 백엔드 flow:
  * - GET /did/new-arrivals, /did/age/:group, /did/search, /did/books/:bookId → alpasService (Mock/Real)
@@ -112,11 +112,16 @@ export const getVideoStatus = async (bookId: string): Promise<VideoStatusRespons
  * - If QUEUED/GENERATING: returns current status
  * - If NONE/FAILED: adds to queue and returns QUEUED status
  * @param bookId - Book identifier
+ * @param bookInfo - Optional book info (title, author, summary) to ensure correct video generation
  */
-export const requestVideo = async (bookId: string): Promise<VideoStatusResponse> => {
+export const requestVideo = async (
+  bookId: string,
+  bookInfo?: { title?: string; author?: string; summary?: string }
+): Promise<VideoStatusResponse> => {
   try {
     const response = await apiClient.post<ApiResponse<VideoStatusResponse>>(
-      `/did/books/${bookId}/video/request`
+      `/did/books/${bookId}/video/request`,
+      bookInfo || {}
     );
     return response.data.data ?? { bookId, status: 'QUEUED', videoUrl: null, message: '영상 생성 요청이 접수되었습니다.' };
   } catch (error) {

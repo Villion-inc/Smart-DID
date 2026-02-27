@@ -290,6 +290,23 @@ docker build -f Dockerfile.frontend -t smart-did-frontend .
 docker build -f Dockerfile.worker -t smart-did-worker .
 ```
 
+### 도서관 서버 배포 (10.10.11.13/METIS)
+
+도서관 측 서버에 **경로 접두어 `/METIS`** 로 서비스하는 경우를 위한 설정입니다.
+
+- **접속 URL**: `http://10.10.11.13/METIS` (DID 메인), `http://10.10.11.13/METIS/admin/login` (관리자)
+- **SSL**: 아산시 인증서는 도서관 측 리버스 프록시(nginx 등)에서 적용
+- **프론트 빌드**: Dockerfile.frontend 에서 `VITE_BASE_PATH=/METIS` 로 빌드하여 정적 파일을 `/usr/share/nginx/html/METIS` 에 배치
+- **nginx**: `location /METIS` 로 SPA 서빙, `location /METIS/api/` 로 백엔드 프록시
+
+로컬에서 동일 경로로 테스트하려면:
+
+```bash
+cd packages/frontend
+VITE_BASE_PATH=/METIS npm run build
+# 빌드 후 index.html 기준 경로가 /METIS/ 로 설정됨
+```
+
 ## API 문서
 
 서버 실행 후 Swagger UI에서 확인:

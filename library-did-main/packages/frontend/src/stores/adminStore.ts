@@ -16,7 +16,7 @@ interface AdminState {
   loadLibrarianPicks: () => Promise<void>;
 
   // Video management
-  requestVideoGeneration: (bookId: string) => Promise<void>;
+  requestVideoGeneration: (bookId: string, bookInfo?: { title?: string; author?: string }) => Promise<void>;
   loadVideos: (status?: VideoStatus) => Promise<void>;
   updateVideoExpiration: (bookId: string, expiresAt: string) => Promise<void>;
   updateVideoStatus: (bookId: string, status: VideoStatus) => Promise<void>;
@@ -56,10 +56,10 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
 
-  requestVideoGeneration: async (bookId: string) => {
+  requestVideoGeneration: async (bookId: string, bookInfo?: { title?: string; author?: string }) => {
     set({ isLoading: true, error: null });
     try {
-      await adminApi.requestVideoGeneration(bookId);
+      await adminApi.requestVideoGeneration(bookId, bookInfo);
       set({ isLoading: false });
       // Reload videos to show updated status
       await get().loadVideos();

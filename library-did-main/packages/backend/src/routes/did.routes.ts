@@ -24,7 +24,17 @@ export async function didRoutes(fastify: FastifyInstance) {
   fastify.get('/did/age/:group', didController.getBooksByAge.bind(didController));
 
   // Search books (with video status)
-  fastify.get('/did/search', didController.searchBooks.bind(didController));
+  fastify.get('/did/search', {
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          q: { type: 'string' },
+          limit: { type: 'string' }
+        }
+      }
+    }
+  }, didController.searchBooks.bind(didController));
 
   // =====================
   // Book Detail
@@ -45,7 +55,19 @@ export async function didRoutes(fastify: FastifyInstance) {
   // - If READY: returns video URL immediately
   // - If QUEUED/GENERATING: returns current status
   // - If NONE/FAILED: adds to queue and returns QUEUED status
-  fastify.post('/did/books/:bookId/video/request', didController.requestVideo.bind(didController));
+  // Body (optional): { title, author, summary } - 책 정보를 함께 전달하면 캐시 미스 시에도 사용
+  fastify.post('/did/books/:bookId/video/request', {
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          author: { type: 'string' },
+          summary: { type: 'string' },
+        },
+      },
+    },
+  }, didController.requestVideo.bind(didController));
 
   // Get popular videos (ranked by views)
   fastify.get('/did/videos/popular', didController.getPopularVideos.bind(didController));

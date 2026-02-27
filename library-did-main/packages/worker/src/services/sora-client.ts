@@ -42,6 +42,9 @@ export class SoraClient {
 
   /**
    * 텍스트 프롬프트로 영상 생성 (OpenAI Sora: create → poll → content)
+   * 
+   * Note: Sora API의 input_reference는 이미지 URL만 지원하며, base64는 지원하지 않음.
+   * 현재는 text-to-video 모드로만 동작 (키프레임 이미지는 프롬프트에 설명으로 포함)
    */
   async generateVideo(request: SoraVideoRequest): Promise<SoraVideoResult> {
     try {
@@ -52,15 +55,25 @@ export class SoraClient {
       const seconds = String(Math.min(12, Math.max(4, duration)) as 4 | 8 | 12);
       const size = SIZE_MAP[request.aspectRatio || '16:9'] || '1280x720';
 
+      // Build request body (text-to-video only)
+      // Sora API의 input_reference는 이미지 URL만 지원하므로 base64는 사용 불가
+      const body: Record<string, unknown> = {
+        model: 'sora-2',
+        prompt: request.prompt,
+        seconds,
+        size,
+      };
+
+      // input_reference는 이미지 URL이 있을 때만 사용 (현재 미지원)
+      if (request.imageUrl) {
+        body.input_reference = request.imageUrl;
+        logger.info('   이미지 참조 URL 사용');
+      }
+
       // 1) Create job: POST /v1/videos (공식 엔드포인트)
       const createRes = await axios.post(
         `${this.baseUrl}/videos`,
-        {
-          model: 'sora-2',
-          prompt: request.prompt,
-          seconds,
-          size,
-        },
+        body,
         {
           headers: {
             Authorization: `Bearer ${this.apiKey}`,
@@ -97,16 +110,20 @@ export class SoraClient {
 
   /**
    * 이미지 기반 영상 생성 (Image-to-Video)
-   * 현재는 텍스트만 전송; input_reference 사용 시 multipart/form-data 별도 구현 가능
+   * 
+   * Note: Sora API는 input_reference로 이미지 URL만 지원하며, base64 직접 전달은 불가.
+   * 현재는 키프레임 이미지 정보를 프롬프트에 포함하여 text-to-video로 생성.
+   * 향후 이미지를 S3/CDN에 업로드 후 URL로 전달하는 방식으로 개선 가능.
    */
   async generateVideoFromImage(
     imageBuffer: Buffer,
     prompt: string,
     duration: number = 8
   ): Promise<SoraVideoResult> {
+    // 현재는 이미지 없이 프롬프트만으로 생성 (text-to-video)
+    // 키프레임 스타일 정보는 이미 프롬프트에 포함되어 있음
     const result = await this.generateVideo({
       prompt,
-      imageBytesBase64: imageBuffer.toString('base64'),
       duration,
       aspectRatio: '16:9',
     });

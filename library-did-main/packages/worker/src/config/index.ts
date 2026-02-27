@@ -76,7 +76,7 @@ export const config = {
   },
 
   /** Backend 콜백 (영상 생성 완료/실패 시 DB 갱신). Backend와 동일한 .env의 INTERNAL_API_SECRET 사용 */
-  backendUrl: process.env.BACKEND_URL || 'http://localhost:3000',
+  backendUrl: process.env.BACKEND_URL || 'http://localhost:3001',
   internalApiSecret: process.env.INTERNAL_API_SECRET || process.env.JWT_SECRET || 'internal-secret',
 };
 

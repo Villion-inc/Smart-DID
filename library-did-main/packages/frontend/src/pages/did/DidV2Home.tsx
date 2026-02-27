@@ -3,71 +3,51 @@ import { DidV2Layout } from './DidV2Layout';
 import type { AgeGroup } from '../../types';
 
 /**
- * 연령 선택 - 누가 볼까요? (참고 디자인: 밝은 그라데이션, 둥근 카드, 이모지)
+ * 연령 선택 - 누가 볼까요? (키오스크 세로 화면)
+ * - 이모지 사용 가능 (DID 페이지)
  */
-const AGE_OPTIONS: { group: AgeGroup; emoji: string; label: string; sub: string }[] = [
-  {
-    group: 'preschool',
-    emoji: '👶',
-    label: '4-6세',
-    sub: '그림책 · 짧은 문장',
-  },
-  {
-    group: 'elementary',
-    emoji: '👧',
-    label: '7-9세',
-    sub: '호기심 · 질문형 자막',
-  },
-  {
-    group: 'teen',
-    emoji: '🤔',
-    label: '10-13세',
-    sub: '탐구 · 주제/키워드 강화',
-  },
+const AGE_OPTIONS: { group: AgeGroup; label: string; sub: string; emoji: string }[] = [
+  { group: 'preschool', label: '4-6세', sub: '그림책 · 짧은 문장', emoji: '🐣' },
+  { group: 'elementary', label: '7-9세', sub: '호기심 · 질문형 자막', emoji: '🌟' },
+  { group: 'teen', label: '10-13세', sub: '탐구 · 주제/키워드 강화', emoji: '🚀' },
 ];
 
 export function DidV2Home() {
   const navigate = useNavigate();
 
   return (
-    <DidV2Layout title="북메이트 추천도서">
-      <div
-        className="flex w-full max-w-[480px] flex-1 flex-col items-center justify-center px-4 py-6"
-        style={{ fontFamily: 'Pretendard, sans-serif' }}
-      >
-        <p className="mb-2 text-center text-2xl font-bold leading-snug text-gray-800">
+    <DidV2Layout>
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-8">
+        <p className="mb-3 text-center text-2xl font-bold text-gray-800">
           누가 볼까요?
         </p>
-        <p className="mb-8 text-center text-sm font-medium leading-snug text-gray-600">
+        <p className="mb-10 text-center text-base text-gray-600">
           연령을 선택하면 추천 영상과 문장이 맞춰져요.
         </p>
 
-        <div className="flex w-full flex-col items-center gap-4">
-          {AGE_OPTIONS.map(({ group, emoji, label, sub }) => (
+        <div className="flex w-full flex-col items-center gap-5">
+          {AGE_OPTIONS.map(({ group, label, sub, emoji }) => (
             <button
               key={group}
               type="button"
               onClick={() => navigate(`/did/age/${group}`)}
-              className="flex w-full max-w-[420px] items-center gap-4 rounded-3xl px-5 py-4 text-left transition active:scale-[0.98]"
+              className="flex w-full items-center gap-4 rounded-2xl px-5 py-5 text-left transition active:scale-[0.98]"
               style={{
-                background: 'linear-gradient(180deg, rgba(184, 230, 245, 0.85) 0%, rgba(168, 216, 234, 0.75) 100%)',
-                boxShadow: '0 2px 12px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(255,255,255,0.5) inset',
+                background: 'rgba(255,255,255,0.7)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
               }}
             >
-              <span className="text-4xl drop-shadow-sm" aria-hidden>
+              <div
+                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-3xl"
+                style={{ background: 'linear-gradient(180deg, #E8F4FC 0%, #D4EAD6 100%)' }}
+              >
                 {emoji}
-              </span>
-              <div className="flex flex-1 flex-col">
-                <span className="text-lg font-extrabold leading-tight text-gray-800 drop-shadow-sm">
-                  {label}
-                </span>
-                <span className="mt-0.5 text-sm font-medium text-gray-600">
-                  {sub}
-                </span>
               </div>
-              <span className="text-2xl font-bold text-gray-500" aria-hidden>
-                ›
-              </span>
+              <div className="flex flex-1 flex-col">
+                <span className="text-xl font-bold text-gray-800">{label}</span>
+                <span className="mt-1 text-sm text-gray-500">{sub}</span>
+              </div>
+              <span className="text-2xl text-gray-400">›</span>
             </button>
           ))}
         </div>

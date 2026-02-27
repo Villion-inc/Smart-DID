@@ -11,6 +11,14 @@ import fs from 'fs/promises';
 
 const execAsync = promisify(exec);
 
+// FFmpeg paths: prefer ffmpeg-full (has libass for subtitles), fallback to standard ffmpeg
+const FFMPEG_FULL_PATH = '/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg';
+const FFPROBE_FULL_PATH = '/opt/homebrew/opt/ffmpeg-full/bin/ffprobe';
+
+// Detect available FFmpeg path at runtime
+let ffmpegPath = 'ffmpeg';
+let ffprobePath = 'ffprobe';
+
 export class VideoAssembler {
   /**
    * Concat scene videos and burn subtitles (no title card).
@@ -107,7 +115,7 @@ export class VideoAssembler {
     const tempOutput = outputPath.replace('.mp4', '_concat.mp4');
 
     // FFmpeg concat command
-    const command = `ffmpeg -f concat -safe 0 -i "${concatListPath}" -c copy "${tempOutput}"`;
+    const command = `"${ffmpegPath}" -f concat -safe 0 -i "${concatListPath}" -c copy "${tempOutput}"`;
 
     await execAsync(command);
 
@@ -119,7 +127,7 @@ export class VideoAssembler {
 
   /**
    * Add subtitles to video
-   * Paths normalized to forward slashes for FFmpeg on Windows.
+   * FFmpeg subtitles filter requires special escaping for paths with colons, spaces, etc.
    */
   private async addSubtitles(
     videoPath: string,
@@ -128,10 +136,18 @@ export class VideoAssembler {
   ): Promise<string> {
     const tempOutput = outputPath.replace('.mp4', '_subtitled.mp4');
     const videoPathNorm = videoPath.replace(/\\/g, '/');
-    const subtitlePathNorm = subtitlePath.replace(/\\/g, '/');
     const outputNorm = tempOutput.replace(/\\/g, '/');
+    
+    // FFmpeg subtitles filter requires escaping: \ -> \\ , : -> \: , ' -> \'
+    const subtitlePathEscaped = subtitlePath
+      .replace(/\\/g, '/')
+      .replace(/\\/g, '\\\\')
+      .replace(/:/g, '\\:')
+      .replace(/'/g, "\\'");
 
-    const command = `ffmpeg -i "${videoPathNorm}" -vf "subtitles=${subtitlePathNorm}:force_style='FontName=Noto Sans KR,FontSize=22,PrimaryColour=&HFFFFFF&,OutlineColour=&H000000&,Outline=2,Shadow=1,MarginV=80'" -c:a copy "${outputNorm}"`;
+    // Subtitle style optimized for 720p video
+    // FontSize=18 (readable but not overwhelming), Bold=1, Outline=2, Shadow=1
+    const command = `"${ffmpegPath}" -i "${videoPathNorm}" -vf "subtitles='${subtitlePathEscaped}':force_style='FontSize=18,Bold=1,PrimaryColour=&HFFFFFF,OutlineColour=&H000000,BackColour=&H80000000,Outline=2,Shadow=1,BorderStyle=4,MarginV=30'" -c:a copy "${outputNorm}"`;
 
     await execAsync(command);
 
@@ -140,14 +156,42 @@ export class VideoAssembler {
 
   /**
    * Add title card overlay
+   * Uses system font or skips if unavailable
    */
   private async addTitleCard(
     videoPath: string,
     bookTitle: string,
     outputPath: string
   ): Promise<string> {
-    // Add text overlay for last 4 seconds (20-24s)
-    const command = `ffmpeg -i "${videoPath}" -vf "drawtext=text='${bookTitle}':fontfile=/path/to/font.ttf:fontsize=40:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,20,24)'" -c:a copy "${outputPath}"`;
+    const safeTitle = bookTitle.replace(/'/g, "\\'").replace(/"/g, '\\"');
+    
+    // Try common font paths (Linux/Docker, macOS, Windows)
+    const fontPaths = [
+      '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+      '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+      '/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc',
+      '/System/Library/Fonts/AppleSDGothicNeo.ttc',
+      'C:/Windows/Fonts/malgun.ttf',
+    ];
+
+    let fontFile = '';
+    for (const fp of fontPaths) {
+      try {
+        await fs.access(fp);
+        fontFile = fp;
+        break;
+      } catch {
+        continue;
+      }
+    }
+
+    if (!fontFile) {
+      console.warn('[Assembler] ⚠️  No suitable font found, skipping title card');
+      await fs.copyFile(videoPath, outputPath);
+      return outputPath;
+    }
+
+    const command = `"${ffmpegPath}" -i "${videoPath}" -vf "drawtext=text='${safeTitle}':fontfile='${fontFile}':fontsize=40:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,20,24)'" -c:a copy "${outputPath}"`;
 
     await execAsync(command);
 
@@ -155,11 +199,27 @@ export class VideoAssembler {
   }
 
   /**
-   * Check if FFmpeg is installed
+   * Check if FFmpeg is installed and set the correct path
+   * Prefers ffmpeg-full (has libass for subtitle burning)
    */
   private async checkFFmpeg(): Promise<boolean> {
+    // Try ffmpeg-full first (has libass for subtitles filter)
+    try {
+      await execAsync(`"${FFMPEG_FULL_PATH}" -version`);
+      ffmpegPath = FFMPEG_FULL_PATH;
+      ffprobePath = FFPROBE_FULL_PATH;
+      console.log('[Assembler] Using ffmpeg-full with libass support');
+      return true;
+    } catch {
+      // ffmpeg-full not available
+    }
+
+    // Fallback to standard ffmpeg
     try {
       await execAsync('ffmpeg -version');
+      ffmpegPath = 'ffmpeg';
+      ffprobePath = 'ffprobe';
+      console.log('[Assembler] Using standard ffmpeg (subtitle burning may fail without libass)');
       return true;
     } catch {
       return false;
@@ -192,7 +252,7 @@ export class VideoAssembler {
     fps: number;
     codec: string;
   }> {
-    const command = `ffprobe -v quiet -print_format json -show_streams "${videoPath}"`;
+    const command = `"${ffprobePath}" -v quiet -print_format json -show_streams "${videoPath}"`;
 
     const { stdout } = await execAsync(command);
     const data = JSON.parse(stdout);

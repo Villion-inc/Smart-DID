@@ -76,6 +76,8 @@ export class DidController {
    * GET /api/did/age/:group
    * Returns books filtered by age group
    * @param group - 'preschool' | 'elementary' | 'teen'
+   * 
+   * 영상이 준비된 책을 우선 표시하고, 나머지는 ALPAS 검색 결과로 채움
    */
   async getBooksByAge(
     request: FastifyRequest<{ Params: { group: string } }>,
@@ -93,17 +95,50 @@ export class DidController {
         });
       }
 
-      const books = await alpasService.getBooksByAgeGroup(group);
+      // 1. 영상이 준비된 책 먼저 가져오기 (최대 9개)
+      const readyVideos = await videoRepository.getReadyVideosOrderByRanking(9);
+      const readyBookIds = new Set(readyVideos.map((v) => v.bookId));
+      
+      // 영상이 있는 책들의 상세 정보 가져오기
+      const readyBooks = await Promise.all(
+        readyVideos.map(async (video) => {
+          const book = await alpasService.getBookDetail(video.bookId);
+          if (book) {
+            return {
+              id: book.id,
+              title: book.title,
+              author: book.author,
+              coverImageUrl: book.coverImageUrl,
+              shelfCode: book.shelfCode,
+              category: book.category,
+              hasVideo: true,
+            };
+          }
+          return null;
+        })
+      );
+      const validReadyBooks = readyBooks.filter((b) => b !== null);
 
-      // Return minimal fields optimized for DID UI
-      const didBooks = books.map((book) => ({
-        id: book.id,
-        title: book.title,
-        author: book.author,
-        coverImageUrl: book.coverImageUrl,
-        shelfCode: book.shelfCode,
-        category: book.category,
-      }));
+      // 2. ALPAS에서 연령별 도서 검색
+      const alpasBooks = await alpasService.getBooksByAgeGroup(group);
+      
+      // 3. 영상이 있는 책 제외하고 나머지로 채우기
+      const remainingSlots = 9 - validReadyBooks.length;
+      const additionalBooks = alpasBooks
+        .filter((book) => !readyBookIds.has(book.id))
+        .slice(0, remainingSlots)
+        .map((book) => ({
+          id: book.id,
+          title: book.title,
+          author: book.author,
+          coverImageUrl: book.coverImageUrl,
+          shelfCode: book.shelfCode,
+          category: book.category,
+          hasVideo: false,
+        }));
+
+      // 4. 영상 있는 책 먼저, 그 다음 ALPAS 검색 결과
+      const didBooks = [...validReadyBooks, ...additionalBooks];
 
       return reply.send({
         success: true,
@@ -120,6 +155,10 @@ export class DidController {
   /**
    * GET /api/did/books/:bookId
    * Returns detailed book information for DID detail view
+   * 
+   * 우선순위:
+   * 1. ALPAS API에서 조회
+   * 2. VideoRecord에 저장된 책 정보 사용 (ALPAS에서 못 찾을 경우)
    */
   async getBookDetail(
     request: FastifyRequest<{ Params: { bookId: string } }>,
@@ -127,33 +166,52 @@ export class DidController {
   ) {
     try {
       const { bookId } = request.params;
+      
+      // 1. ALPAS API에서 조회 시도
       const book = await alpasService.getBookDetail(bookId);
 
-      if (!book) {
-        return reply.code(404).send({
-          success: false,
-          error: 'Book not found',
+      if (book) {
+        return reply.send({
+          success: true,
+          data: {
+            id: book.id,
+            title: book.title,
+            author: book.author,
+            publisher: book.publisher,
+            publishedYear: book.publishedYear,
+            isbn: book.isbn,
+            summary: book.summary,
+            shelfCode: book.shelfCode,
+            callNumber: book.callNumber,
+            category: book.category,
+            coverImageUrl: book.coverImageUrl,
+            isAvailable: book.isAvailable,
+          },
         });
       }
 
-      // Return essential fields for DID detail screen
-      // Exclude video-related information as per requirements
-      return reply.send({
-        success: true,
-        data: {
-          id: book.id,
-          title: book.title,
-          author: book.author,
-          publisher: book.publisher,
-          publishedYear: book.publishedYear,
-          isbn: book.isbn,
-          summary: book.summary,
-          shelfCode: book.shelfCode,
-          callNumber: book.callNumber,
-          category: book.category,
-          coverImageUrl: book.coverImageUrl,
-          isAvailable: book.isAvailable,
-        },
+      // 2. VideoRecord에서 책 정보 조회 (ALPAS에서 못 찾은 경우)
+      const videoRecord = await videoRepository.findByBookId(bookId);
+      if (videoRecord && videoRecord.title) {
+        console.log(`[DID getBookDetail] Using book info from VideoRecord: ${videoRecord.title}`);
+        return reply.send({
+          success: true,
+          data: {
+            id: bookId,
+            title: videoRecord.title,
+            author: videoRecord.author || '저자 미상',
+            publisher: videoRecord.publisher || '',
+            summary: videoRecord.summary || '',
+            category: videoRecord.category || '',
+            coverImageUrl: videoRecord.coverImageUrl || `https://picsum.photos/seed/${bookId}/300/400`,
+            isAvailable: true,
+          },
+        });
+      }
+
+      return reply.code(404).send({
+        success: false,
+        error: 'Book not found',
       });
     } catch (error: any) {
       return reply.code(500).send({
@@ -224,25 +282,34 @@ export class DidController {
    * - 이미 READY: 바로 영상 URL 반환
    * - QUEUED/GENERATING: 이미 진행 중 상태 반환
    * - NONE/FAILED: 큐에 추가하고 QUEUED 상태 반환
+   * 
+   * Body (optional): { title, author, summary } - 프론트엔드에서 책 정보를 함께 전달
    */
   async requestVideo(
-    request: FastifyRequest<{ Params: { bookId: string } }>,
+    request: FastifyRequest<{
+      Params: { bookId: string };
+      Body?: { title?: string; author?: string; summary?: string };
+    }>,
     reply: FastifyReply
   ) {
     try {
       const { bookId } = request.params;
+      const bodyInfo = request.body || {};
 
-      // 1. 책 정보 조회 (없으면 fallback 책 정보로 큐 등록 허용 → Worker가 실제 영상 생성)
+      // 1. 책 정보 조회 (우선순위: body > cache > API search)
       let book = await alpasService.getBookDetail(bookId);
-      if (!book) {
+      
+      // Body에서 책 정보가 전달되었으면 사용 (캐시 미스 대비)
+      if (!book && bodyInfo.title) {
+        console.log(`[DID requestVideo] Using book info from request body: ${bodyInfo.title}`);
         book = {
           id: bookId,
-          title: `도서 ${bookId}`,
-          author: '알 수 없음',
-          summary: '',
+          title: bodyInfo.title,
+          author: bodyInfo.author || '저자 미상',
+          summary: bodyInfo.summary || '',
           publisher: '',
           publishedYear: 0,
-          isbn: bookId,
+          isbn: '',
           callNumber: '',
           registrationNumber: '',
           shelfCode: '',
@@ -250,6 +317,27 @@ export class DidController {
           category: '',
         };
       }
+      
+      if (!book) {
+        // 캐시에 없으면 검색으로 시도
+        console.log(`[DID requestVideo] Book not found in cache, trying search for: ${bookId}`);
+        const searchResults = await alpasService.searchBooks(bookId);
+        if (searchResults.length > 0) {
+          book = searchResults[0];
+          console.log(`[DID requestVideo] Found via search: ${book.title}`);
+        }
+      }
+      
+      if (!book) {
+        // 그래도 없으면 에러 반환 (fallback 제목으로 영상 생성하면 의미 없음)
+        console.log(`[DID requestVideo] Book not found: ${bookId}`);
+        return reply.code(404).send({
+          success: false,
+          error: '책 정보를 찾을 수 없습니다. 검색 결과에서 책을 선택해주세요.',
+        });
+      }
+      
+      console.log(`[DID requestVideo] Using book: ${book.title} by ${book.author}`);
 
       // 2. 기존 영상 상태 확인
       const existingRecord = await videoRepository.findByBookId(bookId);
@@ -283,12 +371,16 @@ export class DidController {
       }
 
       // 3. 큐에 추가 (사용자 요청 - 높은 우선순위)
+      // 책 정보도 함께 전달하여 VideoRecord에 저장
       const job = await queueService.addUserRequest({
         bookId: book.id,
         title: book.title,
         author: book.author,
         summary: book.summary || '',
         trigger: 'user_request',
+        publisher: book.publisher,
+        coverImageUrl: book.coverImageUrl,
+        category: book.category,
       });
 
       if (job) {
@@ -372,6 +464,7 @@ export class DidController {
   ) {
     try {
       const { q, limit } = request.query;
+      console.log('[DID Search] Query:', q, 'Limit:', limit);
 
       if (!q || q.trim() === '') {
         return reply.code(400).send({
@@ -381,7 +474,9 @@ export class DidController {
       }
 
       const maxResults = limit ? parseInt(limit, 10) : 20;
+      console.log('[DID Search] Calling alpasService.searchBooks...');
       const books = await alpasService.searchBooks(q);
+      console.log('[DID Search] Got', books.length, 'books');
       const limitedBooks = books.slice(0, maxResults);
 
       // 각 책에 영상 상태 추가
@@ -408,6 +503,7 @@ export class DidController {
         total: booksWithVideoStatus.length,
       });
     } catch (error: any) {
+      console.error('[DID Search] Error:', error.message, error.stack);
       return reply.code(500).send({
         success: false,
         error: error.message || 'Failed to search books',

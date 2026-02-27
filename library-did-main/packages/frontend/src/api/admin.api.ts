@@ -82,9 +82,13 @@ export const adminApi = {
   // =====================
   // Video management
   // =====================
-  async requestVideoGeneration(bookId: string): Promise<VideoStatusResponse> {
+  async requestVideoGeneration(
+    bookId: string,
+    bookInfo?: { title?: string; author?: string }
+  ): Promise<VideoStatusResponse> {
     const response = await apiClient.post<ApiResponse<VideoStatusResponse>>(
-      `/admin/books/${bookId}/video`
+      `/admin/books/${bookId}/video`,
+      bookInfo || {}
     );
     return response.data.data!;
   },

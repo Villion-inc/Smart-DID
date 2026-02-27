@@ -4,6 +4,7 @@ import { notificationRepository } from '../repositories/notification.repository'
 import { bookService } from './book.service';
 import { VideoStatusResponse } from '../types';
 import { config } from '../config';
+import { queueService } from './queue.service';
 
 export class VideoService {
   /**
@@ -20,10 +21,37 @@ export class VideoService {
 
   /**
    * Request video generation (user or admin)
+   * @param bookId - Book identifier
+   * @param isAdminRequest - Whether this is an admin request
+   * @param bookInfo - Optional book info (title, author) to use if not found in cache
    */
-  async requestVideo(bookId: string, isAdminRequest: boolean = false): Promise<VideoStatusResponse> {
-    // Verify book exists
-    const book = await bookService.getBookDetail(bookId);
+  async requestVideo(
+    bookId: string,
+    isAdminRequest: boolean = false,
+    bookInfo?: { title?: string; author?: string }
+  ): Promise<VideoStatusResponse> {
+    // Verify book exists (or use provided info)
+    let book = await bookService.getBookDetail(bookId);
+    
+    // If book not found but info provided, create minimal book object
+    if (!book && bookInfo?.title) {
+      console.log(`[VideoService] Using provided book info: ${bookInfo.title}`);
+      book = {
+        id: bookId,
+        title: bookInfo.title,
+        author: bookInfo.author || '저자 미상',
+        summary: '',
+        publisher: '',
+        publishedYear: 0,
+        isbn: '',
+        callNumber: '',
+        registrationNumber: '',
+        shelfCode: '',
+        isAvailable: true,
+        category: '',
+      };
+    }
+    
     if (!book) {
       throw new Error('Book not found');
     }
@@ -32,19 +60,32 @@ export class VideoService {
     let record = await videoRepository.findByBookId(bookId);
 
     if (!record) {
-      // Create new record with QUEUED status
-      const expiresAt = this.calculateExpiryDate();
-      record = await videoRepository.create({
+      // Add to BullMQ queue (this also creates DB record with QUEUED status)
+      const jobData = {
         bookId,
-        status: 'QUEUED',
-        expiresAt,
-      });
+        title: book.title,
+        author: book.author,
+        summary: book.summary || '',
+        trigger: isAdminRequest ? 'admin_seed' as const : 'user_request' as const,
+      };
 
-      // Create notification
-      await notificationRepository.create({
-        type: isAdminRequest ? 'admin_video_queued' : 'video_queued',
-        message: `Video generation queued for "${book.title}"`,
-      });
+      const job = isAdminRequest
+        ? await queueService.addAdminRequest(jobData)
+        : await queueService.addUserRequest(jobData);
+
+      if (job) {
+        // Create notification
+        await notificationRepository.create({
+          type: isAdminRequest ? 'admin_video_queued' : 'video_queued',
+          message: `Video generation queued for "${book.title}"`,
+        });
+      }
+
+      // Fetch the created record
+      record = await videoRepository.findByBookId(bookId);
+      if (!record) {
+        throw new Error('Failed to create video record');
+      }
 
       return this.toStatusResponse(record);
     }
@@ -66,19 +107,28 @@ export class VideoService {
 
       case 'NONE':
       case 'FAILED':
-        // Queue for generation
-        const expiresAt = this.calculateExpiryDate();
-        record = await videoRepository.update(bookId, {
-          status: 'QUEUED',
-          expiresAt,
-          lastRequestedAt: new Date(),
-          errorMessage: null,
-        });
+        // Add to BullMQ queue for regeneration
+        const jobData2 = {
+          bookId,
+          title: book.title,
+          author: book.author,
+          summary: book.summary || '',
+          trigger: isAdminRequest ? 'admin_seed' as const : 'user_request' as const,
+        };
 
-        await notificationRepository.create({
-          type: isAdminRequest ? 'admin_video_queued' : 'video_queued',
-          message: `Video generation queued for "${book.title}"`,
-        });
+        const job2 = isAdminRequest
+          ? await queueService.addAdminRequest(jobData2)
+          : await queueService.addUserRequest(jobData2);
+
+        if (job2) {
+          await notificationRepository.create({
+            type: isAdminRequest ? 'admin_video_queued' : 'video_queued',
+            message: `Video generation queued for "${book.title}"`,
+          });
+        }
+
+        // Fetch updated record
+        record = await videoRepository.findByBookId(bookId);
         break;
     }
 

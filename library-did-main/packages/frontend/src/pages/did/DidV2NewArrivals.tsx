@@ -5,98 +5,105 @@ import type { DidBook } from '../../types';
 import { DidV2Layout } from './DidV2Layout';
 
 /**
- * Frame 22 - 새로 들어온 책 목록 (698×228 카드, 이모지+제목+태그)
+ * 새로 들어온 책 (키오스크 세로 화면)
  */
 export function DidV2NewArrivals() {
   const navigate = useNavigate();
   const [books, setBooks] = useState<DidBook[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setError(null);
     (async () => {
       setLoading(true);
       try {
         const list = await getNewArrivals();
-        if (!cancelled) {
-          setBooks(list.slice(0, 6));
-          setError(null);
-        }
+        if (!cancelled) setBooks(list.slice(0, 8));
       } catch (e) {
-        if (!cancelled) {
-          setBooks([]);
-          setError('신착 도서를 불러오지 못했습니다.');
-        }
+        if (!cancelled) setBooks([]);
       }
       if (!cancelled) setLoading(false);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
-
-  const emojis = ['📍', '😺', '📍', '😺', '📍', '😺'];
 
   return (
     <DidV2Layout title="새로 들어온 책">
-      <div
-        className="flex w-full max-w-[480px] flex-1 flex-col items-center px-4 py-4"
-        style={{ fontFamily: 'Pretendard, sans-serif' }}
-      >
-        <div className="flex w-full flex-col items-center gap-4">
-          {(loading ? [] : books).map((book, i) => (
-            <button
-              key={book.id}
-              type="button"
-              onClick={() => navigate(`/did/video/${book.id}`)}
-              className="flex w-full max-w-[420px] items-center gap-4 rounded-3xl px-5 py-4 text-left transition active:scale-[0.98]"
-              style={{
-                background: 'linear-gradient(180deg, rgba(184, 230, 245, 0.85) 0%, rgba(168, 216, 234, 0.75) 100%)',
-                boxShadow: '0 2px 12px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(255,255,255,0.5) inset',
-              }}
-            >
-              {book.coverImageUrl ? (
-                <img
-                  src={book.coverImageUrl}
-                  alt=""
-                  className="h-14 w-14 shrink-0 rounded-lg object-cover shadow"
-                />
-              ) : (
-                <span className="text-4xl drop-shadow-sm" aria-hidden>
-                  {emojis[i % emojis.length]}
-                </span>
-              )}
-              <div className="flex flex-1 flex-col min-w-0">
-                <span className="text-base font-bold leading-tight text-gray-800 drop-shadow-sm">
-                  {book.title}
-                </span>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <span
-                    className="rounded-full px-3 py-1 text-xs font-medium text-gray-700"
-                    style={{ background: 'rgba(255,255,255,0.5)' }}
+      <div className="flex flex-1 flex-col px-4 py-4">
+        <p className="mb-4 text-center text-base text-gray-600">
+          ✨ 이번 주 새로 들어온 책이에요!
+        </p>
+
+        <div className="flex flex-1 flex-col gap-3 overflow-auto">
+          {loading && (
+            <div className="flex flex-1 items-center justify-center">
+              <p className="text-base text-gray-500">불러오는 중...</p>
+            </div>
+          )}
+          {!loading && books.length === 0 && (
+            <div className="flex flex-1 items-center justify-center">
+              <p className="text-base text-gray-500">신착 도서가 없습니다.</p>
+            </div>
+          )}
+          {!loading &&
+            books.map((book) => (
+              <button
+                key={book.id}
+                type="button"
+                onClick={() => navigate(`/did/video/${book.id}`)}
+                className="flex w-full items-center gap-3 rounded-2xl p-3 text-left transition active:scale-[0.98]"
+                style={{ background: 'rgba(255,255,255,0.85)' }}
+              >
+                {/* Cover Image with NEW badge */}
+                <div className="relative h-16 w-12 shrink-0">
+                  <div
+                    className="h-full w-full rounded-lg"
+                    style={{
+                      background: book.coverImageUrl
+                        ? `url(${book.coverImageUrl}) center/cover no-repeat`
+                        : 'linear-gradient(180deg, #FFE5A0 0%, #FFD966 100%)',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                    }}
                   >
-                    {book.category || '용기'}
-                  </span>
-                  <span
-                    className="rounded-full px-3 py-1 text-xs font-medium text-gray-700"
-                    style={{ background: 'rgba(255,255,255,0.5)' }}
+                    {!book.coverImageUrl && (
+                      <div className="flex h-full w-full items-center justify-center text-xl">
+                        📚
+                      </div>
+                    )}
+                  </div>
+                  {/* NEW Badge */}
+                  <div
+                    className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                    style={{ background: '#FF6B6B' }}
                   >
-                    모험
-                  </span>
+                    N
+                  </div>
                 </div>
-              </div>
-              <span className="text-2xl font-bold text-gray-500 shrink-0" aria-hidden>
-                ›
-              </span>
-            </button>
-          ))}
+                {/* Book Info */}
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-base font-bold text-gray-800">
+                    {book.title}
+                  </span>
+                  <span className="mt-0.5 truncate text-sm text-gray-600">
+                    {book.author}
+                  </span>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700">
+                      ✨ 신작
+                    </span>
+                    {book.category && (
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                        {book.category}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <span className="text-xl text-gray-400">›</span>
+              </button>
+            ))}
         </div>
-        {error && (
-          <p className="w-full py-4 text-center text-sm text-red-600">{error}</p>
-        )}
-        {!loading && !error && books.length === 0 && (
-          <p className="flex flex-1 items-center py-8 text-center text-base text-gray-600">신착 도서가 없습니다.</p>
-        )}
       </div>
     </DidV2Layout>
   );

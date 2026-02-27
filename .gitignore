@@ -30,3 +30,7 @@ dump.rdb
 .idea/
 *.swp
 *.swo
+
+# Worker generated media (do not commit)
+library-did-main/packages/worker/storage/videos/*.mp4
+library-did-main/packages/worker/storage/videos/*.vtt
