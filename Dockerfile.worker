@@ -1,4 +1,4 @@
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -6,7 +6,7 @@ COPY library-did-main/package*.json ./
 COPY library-did-main/packages/shared/package*.json ./packages/shared/
 COPY library-did-main/packages/worker/package*.json ./packages/worker/
 
-RUN npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps --ignore-scripts
 
 COPY library-did-main/packages/shared ./packages/shared
 COPY library-did-main/packages/worker ./packages/worker
@@ -15,7 +15,7 @@ COPY library-did-main/tsconfig.json ./
 RUN npm run build --workspace=@smart-did/shared
 RUN npm run build --workspace=@smart-did/worker
 
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
