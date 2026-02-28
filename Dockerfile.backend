@@ -18,6 +18,9 @@ COPY library-did-main/packages/shared ./packages/shared
 COPY library-did-main/packages/backend ./packages/backend
 COPY library-did-main/tsconfig.json ./
 
+# 빌드 시 DATABASE_URL 설정 (Prisma용)
+ENV DATABASE_URL=file:./packages/backend/prisma/dev.db
+
 # Prisma generate
 RUN npx prisma generate --schema=./packages/backend/prisma/schema.prisma
 
