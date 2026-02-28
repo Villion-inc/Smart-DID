@@ -18,13 +18,13 @@ COPY library-did-main/packages/shared ./packages/shared
 COPY library-did-main/packages/backend ./packages/backend
 COPY library-did-main/tsconfig.json ./
 
-# 빌드 시 DATABASE_URL 설정 (Prisma용)
-ENV DATABASE_URL=file:./packages/backend/prisma/dev.db
+# 빌드 시 DATABASE_URL 설정 (Prisma용 - schema 파일 기준 상대경로)
+ENV DATABASE_URL=file:./dev.db
 
 # Prisma generate
 RUN npx prisma generate --schema=./packages/backend/prisma/schema.prisma
 
-# Prisma DB 초기화 (SQLite 파일 생성)
+# Prisma DB 초기화 (SQLite 파일 생성 - schema 위치에 dev.db 생성됨)
 RUN npx prisma db push --schema=./packages/backend/prisma/schema.prisma --skip-generate
 
 RUN npm run build --workspace=@smart-did/shared
@@ -41,10 +41,9 @@ COPY --from=builder /app/packages/backend/dist ./dist
 COPY --from=builder /app/packages/shared/dist ./shared
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/backend/package*.json ./
-COPY --from=builder /app/packages/backend/prisma ./prisma
 
-# 빌드 시 생성된 SQLite DB 파일 복사
-COPY --from=builder /app/packages/backend/prisma/dev.db ./prisma/dev.db
+# prisma 폴더 전체 복사 (schema + dev.db 포함)
+COPY --from=builder /app/packages/backend/prisma ./prisma
 
 # Storage 디렉토리 생성
 RUN mkdir -p ./storage/videos
