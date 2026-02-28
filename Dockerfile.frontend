@@ -7,7 +7,7 @@ ARG VITE_BASE_PATH=/
 ENV VITE_BASE_PATH=${VITE_BASE_PATH}
 
 # 백엔드 API URL 설정
-ARG VITE_API_URL=https://smart-did-307923972454.asia-southeast1.run.app/api
+ARG VITE_API_URL=https://smart-did-730268485621.asia-southeast1.run.app/api
 ENV VITE_API_URL=${VITE_API_URL}
 
 COPY library-did-main/package*.json ./

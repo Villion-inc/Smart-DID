@@ -1,8 +1,15 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+
+// 기본 디자인 사이즈 (세로 키오스크 비율)
+const BASE_WIDTH = 450;
+const BASE_HEIGHT = 780;
+const ASPECT_RATIO = BASE_WIDTH / BASE_HEIGHT;
 
 /**
  * 키오스크 세로 화면용 DID 레이아웃
  * - 세로 비율: 약 450px × 780px (세로가 더 긴 키오스크)
+ * - 화면 크기에 맞춰 자동 스케일링 (비율 유지)
  * - 로고 제거, 심플한 헤더
  * - 하단 네비게이션 바
  */
@@ -21,16 +28,46 @@ export function DidV2Layout({
   const location = useLocation();
   const isHome = location.pathname === '/did' || location.pathname === '/did/';
 
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const calculateScale = () => {
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
+      const windowRatio = windowWidth / windowHeight;
+
+      let newScale: number;
+      if (windowRatio > ASPECT_RATIO) {
+        // 화면이 더 넓음 → 높이 기준으로 스케일
+        newScale = windowHeight / BASE_HEIGHT;
+      } else {
+        // 화면이 더 좁음 → 너비 기준으로 스케일
+        newScale = windowWidth / BASE_WIDTH;
+      }
+      setScale(newScale);
+    };
+
+    calculateScale();
+    window.addEventListener('resize', calculateScale);
+    return () => window.removeEventListener('resize', calculateScale);
+  }, []);
+
   return (
     <div
-      className="relative mx-auto flex flex-col overflow-hidden"
-      style={{
-        width: 450,
-        height: 780,
-        fontFamily: 'Pretendard, sans-serif',
-        background: 'linear-gradient(180deg, #E8F4FC 0%, #D4EAD6 100%)',
-      }}
+      className="fixed inset-0 flex items-center justify-center"
+      style={{ background: '#1a1a1a' }}
     >
+      <div
+        className="relative flex flex-col overflow-hidden"
+        style={{
+          width: BASE_WIDTH,
+          height: BASE_HEIGHT,
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center',
+          fontFamily: 'Pretendard, sans-serif',
+          background: 'linear-gradient(180deg, #E8F4FC 0%, #D4EAD6 100%)',
+        }}
+      >
       {/* Header */}
       {!hideHeader && (
         <header
@@ -127,6 +164,7 @@ export function DidV2Layout({
           </div>
         </footer>
       )}
+      </div>
     </div>
   );
 }
