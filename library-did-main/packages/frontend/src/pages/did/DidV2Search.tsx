@@ -48,15 +48,52 @@ export function DidV2Search() {
   return (
     <DidV2Layout title="책 검색">
       <div className="flex flex-1 flex-col px-4 py-2">
-        {/* Results - 상단에 배치 */}
-        <div className="flex flex-1 flex-col gap-2 overflow-auto">
-          {!searched && !loading && (
-            <div className="flex flex-1 flex-col items-center justify-center">
-              <span className="text-5xl mb-3">📚</span>
-              <p className="text-lg font-semibold text-gray-700">어떤 책을 찾고 있나요?</p>
-              <p className="mt-1 text-sm text-gray-500">아래에서 검색해보세요!</p>
+        {/* 검색 전 초기 상태: 검색창을 정중앙에 배치 */}
+        {!searched && !loading && (
+          <div className="flex flex-1 flex-col items-center justify-center">
+            <span className="text-5xl mb-3">📚</span>
+            <p className="text-lg font-semibold text-gray-700">어떤 책을 찾고 있나요?</p>
+            <p className="mt-1 text-sm text-gray-500 mb-6">아래에서 검색해보세요!</p>
+            
+            {/* Search box - 초기 상태에서는 중앙 위치 */}
+            <div
+              className="w-full rounded-2xl p-4"
+              style={{ background: 'rgba(255,255,255,0.95)', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}
+            >
+              <p className="mb-3 text-center text-lg font-bold text-gray-700">
+                🔍 여기에 써보세요!
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  placeholder="예: 토끼, 모험, 과학"
+                  className="flex-1 rounded-xl border-2 border-blue-200 bg-white px-4 py-4 text-lg outline-none focus:border-blue-400"
+                  style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+                  inputMode="search"
+                  enterKeyHint="search"
+                />
+                <button
+                  type="button"
+                  onClick={handleSearch}
+                  className="rounded-xl px-6 py-4 text-lg font-bold text-white transition active:scale-95"
+                  style={{
+                    background: 'linear-gradient(180deg, #6BB8D6 0%, #4DA3C4 100%)',
+                    minWidth: '80px',
+                  }}
+                >
+                  찾기
+                </button>
+              </div>
             </div>
-          )}
+          </div>
+        )}
+
+        {/* Results - 검색 후에만 표시 */}
+        <div className={`flex flex-col gap-2 overflow-auto ${searched || loading ? 'flex-1' : 'hidden'}`}>
+          {/* 검색 전 메시지는 위로 이동됨 */}
           {loading && (
             <div className="flex flex-1 items-center justify-center">
               <p className="text-base text-gray-500">🔍 찾는 중...</p>
@@ -120,39 +157,38 @@ export function DidV2Search() {
             ))}
         </div>
 
-        {/* Search box - 하단 고정 (어린이 손이 닿기 쉬운 위치) */}
-        <div
-          className="mt-3 w-full shrink-0 rounded-2xl p-4"
-          style={{ background: 'rgba(255,255,255,0.95)', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)' }}
-        >
-          <p className="mb-3 text-center text-lg font-bold text-gray-700">
-            🔍 여기에 써보세요!
-          </p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="예: 토끼, 모험, 과학"
-              className="flex-1 rounded-xl border-2 border-blue-200 bg-white px-4 py-4 text-lg outline-none focus:border-blue-400"
-              style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
-              inputMode="search"
-              enterKeyHint="search"
-            />
-            <button
-              type="button"
-              onClick={handleSearch}
-              className="rounded-xl px-6 py-4 text-lg font-bold text-white transition active:scale-95"
-              style={{
-                background: 'linear-gradient(180deg, #6BB8D6 0%, #4DA3C4 100%)',
-                minWidth: '80px',
-              }}
-            >
-              찾기
-            </button>
+        {/* Search box - 검색 후에는 하단에 표시 */}
+        {(searched || loading) && (
+          <div
+            className="mt-3 w-full shrink-0 rounded-2xl p-4"
+            style={{ background: 'rgba(255,255,255,0.95)', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)' }}
+          >
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder="예: 토끼, 모험, 과학"
+                className="flex-1 rounded-xl border-2 border-blue-200 bg-white px-4 py-3 text-base outline-none focus:border-blue-400"
+                style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+                inputMode="search"
+                enterKeyHint="search"
+              />
+              <button
+                type="button"
+                onClick={handleSearch}
+                className="rounded-xl px-5 py-3 text-base font-bold text-white transition active:scale-95"
+                style={{
+                  background: 'linear-gradient(180deg, #6BB8D6 0%, #4DA3C4 100%)',
+                  minWidth: '70px',
+                }}
+              >
+                찾기
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </DidV2Layout>
   );

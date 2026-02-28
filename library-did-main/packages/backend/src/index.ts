@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
+import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { config } from './config';
@@ -42,6 +43,17 @@ async function main() {
 
     await fastify.register(helmet, {
       contentSecurityPolicy: false,
+    });
+
+    // Rate Limiting - DDoS 및 스크래핑 방지
+    await fastify.register(rateLimit, {
+      max: 100, // IP당 1분에 최대 100회 요청
+      timeWindow: '1 minute',
+      errorResponseBuilder: () => ({
+        success: false,
+        error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
+        statusCode: 429,
+      }),
     });
 
     await fastify.register(jwt, {
