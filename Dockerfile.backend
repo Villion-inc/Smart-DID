@@ -18,14 +18,15 @@ COPY library-did-main/packages/shared ./packages/shared
 COPY library-did-main/packages/backend ./packages/backend
 COPY library-did-main/tsconfig.json ./
 
-# 빌드 시 DATABASE_URL 설정 (Prisma용 - schema 파일 기준 상대경로)
-ENV DATABASE_URL=file:./dev.db
-
 # Prisma generate
 RUN npx prisma generate --schema=./packages/backend/prisma/schema.prisma
 
-# Prisma DB 초기화 (SQLite 파일 생성 - schema 위치에 dev.db 생성됨)
+# Prisma DB 초기화 (SQLite 파일을 prisma 폴더에 생성)
+ENV DATABASE_URL=file:./packages/backend/prisma/dev.db
 RUN npx prisma db push --schema=./packages/backend/prisma/schema.prisma --skip-generate
+
+# DB 파일 생성 확인
+RUN ls -la ./packages/backend/prisma/
 
 RUN npm run build --workspace=@smart-did/shared
 RUN npm run build --workspace=@smart-did/backend
