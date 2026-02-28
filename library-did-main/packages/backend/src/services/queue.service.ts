@@ -24,25 +24,35 @@ import { notificationRepository } from '../repositories/notification.repository'
  * - 베스트셀러 사전 생성 지원
  */
 export class QueueService {
-  private queue: Queue<VideoJobData>;
+  private queue: Queue<VideoJobData> | null = null;
 
-  constructor() {
-    this.queue = new Queue<VideoJobData>('video-generation', {
-      connection: {
-        host: config.redis.host,
-        port: config.redis.port,
-        password: config.redis.password,
-      },
-      defaultJobOptions: {
-        removeOnComplete: 100, // Keep last 100 completed jobs
-        removeOnFail: 50,      // Keep last 50 failed jobs
-        attempts: config.video.maxRetries,
-        backoff: {
-          type: 'exponential',
-          delay: 5000,
+  private getQueue(): Queue<VideoJobData> {
+    if (!this.queue) {
+      if (!config.redis.host || config.redis.host === 'localhost') {
+        throw new Error('Redis not configured - queue operations disabled');
+      }
+      this.queue = new Queue<VideoJobData>('video-generation', {
+        connection: {
+          host: config.redis.host,
+          port: config.redis.port,
+          password: config.redis.password,
         },
-      },
-    });
+        defaultJobOptions: {
+          removeOnComplete: 100,
+          removeOnFail: 50,
+          attempts: config.video.maxRetries,
+          backoff: {
+            type: 'exponential',
+            delay: 5000,
+          },
+        },
+      });
+    }
+    return this.queue;
+  }
+
+  private isQueueEnabled(): boolean {
+    return !!config.redis.host && config.redis.host !== 'localhost';
   }
 
   /**
@@ -106,12 +116,17 @@ export class QueueService {
     );
 
     // 4. 큐에 작업 추가
+    if (!this.isQueueEnabled()) {
+      console.warn('[QueueService] Redis not configured, skipping queue add');
+      return null;
+    }
+
     const jobOptions: JobsOptions = {
       jobId: `video-${bookId}-${Date.now()}`,
       priority,
     };
 
-    const job = await this.queue.add('generate-video', jobData, jobOptions);
+    const job = await this.getQueue().add('generate-video', jobData, jobOptions);
     return job;
   }
 
@@ -172,7 +187,8 @@ export class QueueService {
    * 큐에서 bookId로 작업 찾기
    */
   private async findJobByBookId(bookId: string): Promise<Job<VideoJobData> | undefined> {
-    const jobs = await this.queue.getJobs(['waiting', 'active', 'delayed']);
+    if (!this.isQueueEnabled()) return undefined;
+    const jobs = await this.getQueue().getJobs(['waiting', 'active', 'delayed']);
     return jobs.find((job) => job.data.bookId === bookId);
   }
 
@@ -186,12 +202,16 @@ export class QueueService {
     failed: number;
     delayed: number;
   }> {
+    if (!this.isQueueEnabled()) {
+      return { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 };
+    }
+    const queue = this.getQueue();
     const [waiting, active, completed, failed, delayed] = await Promise.all([
-      this.queue.getWaitingCount(),
-      this.queue.getActiveCount(),
-      this.queue.getCompletedCount(),
-      this.queue.getFailedCount(),
-      this.queue.getDelayedCount(),
+      queue.getWaitingCount(),
+      queue.getActiveCount(),
+      queue.getCompletedCount(),
+      queue.getFailedCount(),
+      queue.getDelayedCount(),
     ]);
 
     return { waiting, active, completed, failed, delayed };
@@ -207,7 +227,8 @@ export class QueueService {
     priority: number;
     addedAt: Date;
   }>> {
-    const jobs = await this.queue.getJobs(['waiting'], 0, limit);
+    if (!this.isQueueEnabled()) return [];
+    const jobs = await this.getQueue().getJobs(['waiting'], 0, limit);
     return jobs.map((job) => ({
       jobId: job.id || '',
       bookId: job.data.bookId,
@@ -280,8 +301,10 @@ export class QueueService {
    * 큐 정리 (완료/실패된 작업 삭제)
    */
   async cleanQueue(): Promise<void> {
-    await this.queue.clean(24 * 60 * 60 * 1000, 100, 'completed'); // 24시간 이상 된 완료 작업
-    await this.queue.clean(7 * 24 * 60 * 60 * 1000, 50, 'failed');  // 7일 이상 된 실패 작업
+    if (!this.isQueueEnabled()) return;
+    const queue = this.getQueue();
+    await queue.clean(24 * 60 * 60 * 1000, 100, 'completed');
+    await queue.clean(7 * 24 * 60 * 60 * 1000, 50, 'failed');
   }
 }
 
