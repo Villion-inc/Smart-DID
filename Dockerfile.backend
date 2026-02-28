@@ -21,12 +21,12 @@ COPY library-did-main/tsconfig.json ./
 # Prisma generate
 RUN npx prisma generate --schema=./packages/backend/prisma/schema.prisma
 
-# Prisma DB 초기화 (SQLite 파일을 prisma 폴더에 생성)
-ENV DATABASE_URL=file:./packages/backend/prisma/dev.db
+# Prisma DB 초기화 (절대 경로로 SQLite 파일 생성)
+ENV DATABASE_URL=file:/app/packages/backend/prisma/dev.db
 RUN npx prisma db push --schema=./packages/backend/prisma/schema.prisma --skip-generate
 
 # DB 파일 생성 확인
-RUN ls -la ./packages/backend/prisma/
+RUN ls -la ./packages/backend/prisma/ && test -f ./packages/backend/prisma/dev.db
 
 RUN npm run build --workspace=@smart-did/shared
 RUN npm run build --workspace=@smart-did/backend
