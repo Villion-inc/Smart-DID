@@ -6,7 +6,7 @@ COPY library-did-main/package*.json ./
 COPY library-did-main/packages/shared/package*.json ./packages/shared/
 COPY library-did-main/packages/backend/package*.json ./packages/backend/
 
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 COPY library-did-main/packages/shared ./packages/shared
 COPY library-did-main/packages/backend ./packages/backend
