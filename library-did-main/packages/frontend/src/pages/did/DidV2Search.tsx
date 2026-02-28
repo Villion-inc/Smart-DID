@@ -47,48 +47,26 @@ export function DidV2Search() {
 
   return (
     <DidV2Layout title="책 검색">
-      <div className="flex flex-1 flex-col px-4 py-4">
-        {/* Search box */}
-        <div
-          className="w-full rounded-2xl p-4"
-          style={{ background: 'rgba(255,255,255,0.8)' }}
-        >
-          <p className="mb-3 text-center text-base font-semibold text-gray-700">
-            🔍 제목이나 단어를 써보세요!
-          </p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="예: 토끼, 모험, 과학"
-              className="flex-1 rounded-xl border-0 bg-white px-4 py-3 text-base outline-none"
-              style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
-            />
-            <button
-              type="button"
-              onClick={handleSearch}
-              className="rounded-xl px-5 py-3 text-base font-bold text-white transition active:scale-95"
-              style={{
-                background: 'linear-gradient(180deg, #6BB8D6 0%, #4DA3C4 100%)',
-              }}
-            >
-              검색
-            </button>
-          </div>
-        </div>
-
-        {/* Results */}
-        <div className="mt-4 flex flex-1 flex-col gap-3 overflow-auto">
+      <div className="flex flex-1 flex-col px-4 py-2">
+        {/* Results - 상단에 배치 */}
+        <div className="flex flex-1 flex-col gap-2 overflow-auto">
+          {!searched && !loading && (
+            <div className="flex flex-1 flex-col items-center justify-center">
+              <span className="text-5xl mb-3">📚</span>
+              <p className="text-lg font-semibold text-gray-700">어떤 책을 찾고 있나요?</p>
+              <p className="mt-1 text-sm text-gray-500">아래에서 검색해보세요!</p>
+            </div>
+          )}
           {loading && (
             <div className="flex flex-1 items-center justify-center">
-              <p className="text-base text-gray-500">검색 중...</p>
+              <p className="text-base text-gray-500">🔍 찾는 중...</p>
             </div>
           )}
           {!loading && searched && results.length === 0 && (
-            <div className="flex flex-1 items-center justify-center">
-              <p className="text-base text-gray-500">검색 결과가 없습니다.</p>
+            <div className="flex flex-1 flex-col items-center justify-center">
+              <span className="text-4xl mb-2">🤔</span>
+              <p className="text-base text-gray-500">검색 결과가 없어요</p>
+              <p className="mt-1 text-sm text-gray-400">다른 단어로 찾아볼까요?</p>
             </div>
           )}
           {!loading &&
@@ -140,6 +118,40 @@ export function DidV2Search() {
                 <span className="text-xl text-gray-400">›</span>
               </button>
             ))}
+        </div>
+
+        {/* Search box - 하단 고정 (어린이 손이 닿기 쉬운 위치) */}
+        <div
+          className="mt-3 w-full shrink-0 rounded-2xl p-4"
+          style={{ background: 'rgba(255,255,255,0.95)', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)' }}
+        >
+          <p className="mb-3 text-center text-lg font-bold text-gray-700">
+            🔍 여기에 써보세요!
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="예: 토끼, 모험, 과학"
+              className="flex-1 rounded-xl border-2 border-blue-200 bg-white px-4 py-4 text-lg outline-none focus:border-blue-400"
+              style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+              inputMode="search"
+              enterKeyHint="search"
+            />
+            <button
+              type="button"
+              onClick={handleSearch}
+              className="rounded-xl px-6 py-4 text-lg font-bold text-white transition active:scale-95"
+              style={{
+                background: 'linear-gradient(180deg, #6BB8D6 0%, #4DA3C4 100%)',
+                minWidth: '80px',
+              }}
+            >
+              찾기
+            </button>
+          </div>
         </div>
       </div>
     </DidV2Layout>
