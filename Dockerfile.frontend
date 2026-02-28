@@ -1,4 +1,4 @@
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY library-did-main/package*.json ./
 COPY library-did-main/packages/shared/package*.json ./packages/shared/
 COPY library-did-main/packages/frontend/package*.json ./packages/frontend/
 
-RUN npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps --ignore-scripts
 
 COPY library-did-main/packages/shared ./packages/shared
 COPY library-did-main/packages/frontend ./packages/frontend

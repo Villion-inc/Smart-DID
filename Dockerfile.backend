@@ -1,4 +1,4 @@
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -6,16 +6,19 @@ COPY library-did-main/package*.json ./
 COPY library-did-main/packages/shared/package*.json ./packages/shared/
 COPY library-did-main/packages/backend/package*.json ./packages/backend/
 
-RUN npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps --ignore-scripts
 
 COPY library-did-main/packages/shared ./packages/shared
 COPY library-did-main/packages/backend ./packages/backend
 COPY library-did-main/tsconfig.json ./
 
+# Prisma generate (backend에서 필요)
+RUN npx prisma generate --schema=./packages/backend/prisma/schema.prisma
+
 RUN npm run build --workspace=@smart-did/shared
 RUN npm run build --workspace=@smart-did/backend
 
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -23,6 +26,7 @@ COPY --from=builder /app/packages/backend/dist ./dist
 COPY --from=builder /app/packages/shared/dist ./shared
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/backend/package*.json ./
+COPY --from=builder /app/packages/backend/prisma ./prisma
 
 ENV NODE_ENV=production
 ENV PORT=3000
