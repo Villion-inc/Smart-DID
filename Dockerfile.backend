@@ -21,6 +21,9 @@ COPY library-did-main/tsconfig.json ./
 # Prisma generate
 RUN npx prisma generate --schema=./packages/backend/prisma/schema.prisma
 
+# Prisma DB 초기화 (SQLite 파일 생성)
+RUN npx prisma db push --schema=./packages/backend/prisma/schema.prisma --skip-generate
+
 RUN npm run build --workspace=@smart-did/shared
 RUN npm run build --workspace=@smart-did/backend
 
@@ -37,8 +40,15 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/backend/package*.json ./
 COPY --from=builder /app/packages/backend/prisma ./prisma
 
+# 빌드 시 생성된 SQLite DB 파일 복사
+COPY --from=builder /app/packages/backend/prisma/dev.db ./prisma/dev.db
+
+# Storage 디렉토리 생성
+RUN mkdir -p ./storage/videos
+
 ENV NODE_ENV=production
 ENV PORT=8080
+ENV DATABASE_URL=file:./prisma/dev.db
 
 EXPOSE 8080
 
