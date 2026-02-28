@@ -19,13 +19,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install FFmpeg with libass support for subtitle burning
+# FFmpeg 설치 (영상 병합용)
 RUN apk add --no-cache ffmpeg
 
 COPY --from=builder /app/packages/worker/dist ./dist
 COPY --from=builder /app/packages/shared/dist ./shared
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/worker/package*.json ./
+
+# Worker용 storage 디렉토리
+RUN mkdir -p /app/storage/videos
 
 ENV NODE_ENV=production
 

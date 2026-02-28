@@ -4,11 +4,102 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'smart-did-frontend:test'
+      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/frontend:$COMMIT_SHA'
+      - '-t'
+      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/frontend:latest'
       - '-f'
       - 'Dockerfile.frontend'
       - '.'
     id: 'build-frontend'
+
+  # Backend 빌드
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/backend:$COMMIT_SHA'
+      - '-t'
+      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/backend:latest'
+      - '-f'
+      - 'Dockerfile.backend'
+      - '.'
+    id: 'build-backend'
+
+  # Worker 빌드
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/worker:$COMMIT_SHA'
+      - '-t'
+      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/worker:latest'
+      - '-f'
+      - 'Dockerfile.worker'
+      - '.'
+    id: 'build-worker'
+
+  # 이미지 푸시
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '--all-tags', 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/frontend']
+    id: 'push-frontend'
+    waitFor: ['build-frontend']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '--all-tags', 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/backend']
+    id: 'push-backend'
+    waitFor: ['build-backend']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '--all-tags', 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/worker']
+    id: 'push-worker'
+    waitFor: ['build-worker']
+
+  # Cloud Run 배포 - Frontend
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'did-frontend'
+      - '--image=asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/frontend:$COMMIT_SHA'
+      - '--region=asia-northeast3'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=8080'
+    id: 'deploy-frontend'
+    waitFor: ['push-frontend']
+
+  # Cloud Run 배포 - Backend
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'did-backend'
+      - '--image=asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/backend:$COMMIT_SHA'
+      - '--region=asia-northeast3'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=8080'
+      - '--set-env-vars=NODE_ENV=production'
+    id: 'deploy-backend'
+    waitFor: ['push-backend']
+
+  # Cloud Run 배포 - Worker (Jobs로 실행하거나 always-on 서비스로)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'did-worker'
+      - '--image=asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/worker:$COMMIT_SHA'
+      - '--region=asia-northeast3'
+      - '--platform=managed'
+      - '--no-allow-unauthenticated'
+      - '--min-instances=1'
+      - '--set-env-vars=NODE_ENV=production'
+    id: 'deploy-worker'
+    waitFor: ['push-worker']
 
 options:
   logging: CLOUD_LOGGING_ONLY
