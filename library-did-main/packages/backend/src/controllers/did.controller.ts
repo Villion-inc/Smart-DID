@@ -3,6 +3,7 @@ import { alpasService } from '../services/alpas.service';
 import { videoRepository } from '../repositories/video.repository';
 import { queueService } from '../services/queue.service';
 import { cacheManagerService } from '../services/cache-manager.service';
+import { toPublicVideoUrl, toPublicSubtitleUrl } from '../utils/storage';
 
 /**
  * DID Controller
@@ -263,8 +264,8 @@ export class DidController {
         data: {
           bookId: record.bookId,
           status: record.status,
-          videoUrl: record.status === 'READY' ? record.videoUrl : null,
-          subtitleUrl: record.status === 'READY' && record.subtitleUrl ? record.subtitleUrl : null,
+          videoUrl: record.status === 'READY' ? toPublicVideoUrl(record.videoUrl) : null,
+          subtitleUrl: record.status === 'READY' && record.subtitleUrl ? toPublicSubtitleUrl(record.subtitleUrl) : null,
           message: this.getStatusMessage(record.status),
         },
       });
@@ -350,8 +351,8 @@ export class DidController {
           data: {
             bookId,
             status: 'READY',
-            videoUrl: existingRecord.videoUrl,
-            subtitleUrl: existingRecord.subtitleUrl ?? null,
+            videoUrl: toPublicVideoUrl(existingRecord.videoUrl),
+            subtitleUrl: toPublicSubtitleUrl(existingRecord.subtitleUrl),
             message: '영상이 준비되어 있습니다.',
           },
         });
@@ -435,7 +436,7 @@ export class DidController {
             title: book?.title || '알 수 없음',
             author: book?.author || '알 수 없음',
             coverImageUrl: book?.coverImageUrl,
-            videoUrl: video.videoUrl,
+            videoUrl: toPublicVideoUrl(video.videoUrl),
             requestCount: video.requestCount,
             rankingScore: video.rankingScore,
           };
