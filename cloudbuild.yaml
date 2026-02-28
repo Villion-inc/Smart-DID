@@ -4,47 +4,11 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/smart-did-frontend:$COMMIT_SHA'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/smart-did-frontend:latest'
+      - 'smart-did-frontend:test'
       - '-f'
-      - 'library-did-main/Dockerfile.frontend'
-      - 'library-did-main'
+      - 'Dockerfile.frontend'
+      - '.'
     id: 'build-frontend'
-
-  # Backend 빌드
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - 'build'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/smart-did-backend:$COMMIT_SHA'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/smart-did-backend:latest'
-      - '-f'
-      - 'library-did-main/Dockerfile.backend'
-      - 'library-did-main'
-    id: 'build-backend'
-
-  # Worker 빌드
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - 'build'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/smart-did-worker:$COMMIT_SHA'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/smart-did-worker:latest'
-      - '-f'
-      - 'library-did-main/Dockerfile.worker'
-      - 'library-did-main'
-    id: 'build-worker'
-
-images:
-  - 'gcr.io/$PROJECT_ID/smart-did-frontend:$COMMIT_SHA'
-  - 'gcr.io/$PROJECT_ID/smart-did-frontend:latest'
-  - 'gcr.io/$PROJECT_ID/smart-did-backend:$COMMIT_SHA'
-  - 'gcr.io/$PROJECT_ID/smart-did-backend:latest'
-  - 'gcr.io/$PROJECT_ID/smart-did-worker:$COMMIT_SHA'
-  - 'gcr.io/$PROJECT_ID/smart-did-worker:latest'
 
 options:
   logging: CLOUD_LOGGING_ONLY
