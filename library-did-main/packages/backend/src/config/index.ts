@@ -35,6 +35,7 @@ export const config = {
 
   storage: {
     type: process.env.STORAGE_TYPE || 'local',
+    gcsBucket: process.env.GCS_BUCKET || 'smart-did-videos',
     // Worker 저장 경로. 절대경로면 그대로, 아니면 후보 중 존재하는 경로 사용
     path: (() => {
       const raw = process.env.STORAGE_PATH || '';

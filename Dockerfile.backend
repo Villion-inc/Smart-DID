@@ -51,8 +51,11 @@ RUN mkdir -p ./storage/videos
 
 ENV NODE_ENV=production
 ENV PORT=8080
-ENV DATABASE_URL=file:./prisma/dev.db
+
+# DB 파일 존재 확인
+RUN ls -la ./prisma/
 
 EXPOSE 8080
 
-CMD ["node", "dist/index.js"]
+# 시작 시 DB를 /tmp로 복사 후 서버 실행 (Cloud Run 읽기 전용 파일시스템 우회)
+CMD sh -c "cp /app/prisma/dev.db /tmp/dev.db && DATABASE_URL=file:/tmp/dev.db node dist/index.js"
