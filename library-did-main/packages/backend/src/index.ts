@@ -35,9 +35,17 @@ const fastify = Fastify({
 
 async function main() {
   try {
-    // Register plugins
+    // CORS 설정 - 프로덕션에서는 허용된 도메인만
+    const allowedOrigins = [
+      'https://did-frontend-730268485621.asia-northeast3.run.app',
+      'https://smart-did-730268485621.asia-southeast1.run.app',
+      /^http:\/\/localhost(:\d+)?$/,
+    ];
+    
     await fastify.register(cors, {
-      origin: true,
+      origin: config.nodeEnv === 'production' 
+        ? allowedOrigins 
+        : true,
       credentials: true,
     });
 
@@ -47,7 +55,7 @@ async function main() {
 
     // Rate Limiting - DDoS 및 스크래핑 방지
     await fastify.register(rateLimit, {
-      max: 100, // IP당 1분에 최대 100회 요청
+      max: 100,
       timeWindow: '1 minute',
       errorResponseBuilder: () => ({
         success: false,
@@ -60,44 +68,46 @@ async function main() {
       secret: config.jwt.secret,
     });
 
-    // Swagger documentation
-    await fastify.register(swagger, {
-      swagger: {
-        info: {
-          title: 'Smart DID Video Service API',
-          description: 'API documentation for the Smart DID library video service',
-          version: '1.0.0',
-        },
-        host: `localhost:${config.port}`,
-        schemes: ['http'],
-        consumes: ['application/json'],
-        produces: ['application/json'],
-        tags: [
-          { name: 'health', description: 'Health check endpoints' },
-          { name: 'auth', description: 'Authentication endpoints' },
-          { name: 'books', description: 'Book-related endpoints' },
-          { name: 'videos', description: 'Video-related endpoints' },
-          { name: 'admin', description: 'Admin endpoints' },
-          { name: 'did', description: 'Digital Information Display (DID) public endpoints' },
-        ],
-        securityDefinitions: {
-          Bearer: {
-            type: 'apiKey',
-            name: 'Authorization',
-            in: 'header',
-            description: 'JWT Authorization header using the Bearer scheme. Example: "Bearer {token}"',
+    // Swagger - 개발 환경에서만 활성화
+    if (config.nodeEnv !== 'production') {
+      await fastify.register(swagger, {
+        swagger: {
+          info: {
+            title: 'Smart DID Video Service API',
+            description: 'API documentation for the Smart DID library video service',
+            version: '1.0.0',
+          },
+          host: `localhost:${config.port}`,
+          schemes: ['http'],
+          consumes: ['application/json'],
+          produces: ['application/json'],
+          tags: [
+            { name: 'health', description: 'Health check endpoints' },
+            { name: 'auth', description: 'Authentication endpoints' },
+            { name: 'books', description: 'Book-related endpoints' },
+            { name: 'videos', description: 'Video-related endpoints' },
+            { name: 'admin', description: 'Admin endpoints' },
+            { name: 'did', description: 'Digital Information Display (DID) public endpoints' },
+          ],
+          securityDefinitions: {
+            Bearer: {
+              type: 'apiKey',
+              name: 'Authorization',
+              in: 'header',
+              description: 'JWT Authorization header using the Bearer scheme. Example: "Bearer {token}"',
+            },
           },
         },
-      },
-    });
+      });
 
-    await fastify.register(swaggerUi, {
-      routePrefix: '/documentation',
-      uiConfig: {
-        docExpansion: 'list',
-        deepLinking: false,
-      },
-    });
+      await fastify.register(swaggerUi, {
+        routePrefix: '/documentation',
+        uiConfig: {
+          docExpansion: 'list',
+          deepLinking: false,
+        },
+      });
+    }
 
     // Register routes
     await fastify.register(healthRoutes, { prefix: config.apiPrefix });
@@ -117,7 +127,9 @@ async function main() {
     fastify.log.info(`Server running on port ${config.port}`);
     fastify.log.info(`Environment: ${config.nodeEnv}`);
     fastify.log.info(`Video storage path: ${config.storage.path}`);
-    fastify.log.info(`API Documentation: http://localhost:${config.port}/documentation`);
+    if (config.nodeEnv !== 'production') {
+      fastify.log.info(`API Documentation: http://localhost:${config.port}/documentation`);
+    }
 
     // Start scheduler for periodic tasks (cache cleanup, etc.)
     schedulerService.start();
