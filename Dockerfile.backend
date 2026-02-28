@@ -25,11 +25,15 @@ RUN npx prisma generate --schema=./packages/backend/prisma/schema.prisma
 ENV DATABASE_URL=file:/app/packages/backend/prisma/dev.db
 RUN npx prisma db push --schema=./packages/backend/prisma/schema.prisma --skip-generate
 
-# DB 파일 생성 확인
-RUN ls -la ./packages/backend/prisma/ && test -f ./packages/backend/prisma/dev.db
-
+# 빌드
 RUN npm run build --workspace=@smart-did/shared
 RUN npm run build --workspace=@smart-did/backend
+
+# 시드 데이터 삽입 (GCS 영상 레코드 포함)
+RUN node -e "require('./packages/backend/dist/db/seed.js').seedDatabase().then(() => console.log('Seed completed')).catch(e => { console.error(e); process.exit(1); })"
+
+# DB 파일 생성 확인
+RUN ls -la ./packages/backend/prisma/ && test -f ./packages/backend/prisma/dev.db
 
 FROM node:20-alpine
 
