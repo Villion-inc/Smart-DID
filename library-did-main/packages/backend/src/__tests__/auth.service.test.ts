@@ -1,6 +1,6 @@
 import { authService } from '../services/auth.service';
 import { db } from '../db';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { User, UserRole } from '@smart-did/shared';
 
