@@ -41,6 +41,7 @@ export const config = {
       const raw = process.env.STORAGE_PATH || '';
       if (raw && path.isAbsolute(raw)) return raw;
       const candidates = [
+        path.resolve(process.cwd(), 'storage/videos'),            // Docker: /app/storage/videos
         path.resolve(__dirname, '../../../worker/storage/videos'), // run from backend/src
         path.resolve(__dirname, '../../worker/storage/videos'),    // run from backend/dist
         path.resolve(process.cwd(), '../worker/storage/videos'),   // cwd = packages/backend

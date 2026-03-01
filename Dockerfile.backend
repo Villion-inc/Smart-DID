@@ -50,8 +50,10 @@ COPY --from=builder /app/packages/backend/package*.json ./
 # prisma 폴더 전체 복사 (schema + dev.db 포함)
 COPY --from=builder /app/packages/backend/prisma ./prisma
 
-# Storage 디렉토리 생성
+# Storage 디렉토리 생성 및 테스트 영상 복사
 RUN mkdir -p ./storage/videos
+COPY library-did-main/packages/worker/storage/videos/*.mp4 ./storage/videos/
+COPY library-did-main/packages/worker/storage/videos/*.vtt ./storage/videos/
 
 ENV NODE_ENV=production
 ENV PORT=8080
