@@ -51,6 +51,8 @@ async function main() {
 
     await fastify.register(helmet, {
       contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
     });
 
     // Rate Limiting - DDoS 및 스크래핑 방지
