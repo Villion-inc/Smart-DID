@@ -1,9 +1,12 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+
+const ASPECT_RATIO = 9 / 16;
 
 /**
  * 키오스크 세로 화면용 DID 레이아웃
- * - 화면 크기에 맞춰 100% 채움 (반응형)
- * - 키오스크(1080x1920) 및 모바일/데스크탑 모두 지원
+ * - 세로 화면(모바일/키오스크): 화면 꽉 채움
+ * - 가로 화면(데스크탑): 9:16 비율 유지하며 중앙 배치
  */
 export function DidV2Layout({
   children,
@@ -20,14 +23,32 @@ export function DidV2Layout({
   const location = useLocation();
   const isHome = location.pathname === '/did' || location.pathname === '/did/';
 
+  const [isLandscape, setIsLandscape] = useState(false);
+
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsLandscape(window.innerWidth > window.innerHeight);
+    };
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    return () => window.removeEventListener('resize', checkOrientation);
+  }, []);
+
   return (
     <div
-      className="fixed inset-0 flex flex-col"
-      style={{
-        fontFamily: 'Pretendard, sans-serif',
-        background: 'linear-gradient(180deg, #E8F4FC 0%, #D4EAD6 100%)',
-      }}
+      className="fixed inset-0 flex items-center justify-center"
+      style={{ background: isLandscape ? '#1a1a1a' : 'transparent' }}
     >
+      <div
+        className="flex flex-col overflow-hidden"
+        style={{
+          fontFamily: 'Pretendard, sans-serif',
+          background: 'linear-gradient(180deg, #E8F4FC 0%, #D4EAD6 100%)',
+          width: isLandscape ? `calc(100vh * ${ASPECT_RATIO})` : '100%',
+          height: '100%',
+          maxWidth: '100%',
+        }}
+      >
       {/* Header */}
       {!hideHeader && (
         <header
@@ -124,6 +145,7 @@ export function DidV2Layout({
           </div>
         </footer>
       )}
+      </div>
     </div>
   );
 }
