@@ -31,20 +31,20 @@ export function DidV2NewArrivals() {
 
   return (
     <DidV2Layout title="새로 들어온 책">
-      <div className="flex flex-1 flex-col px-4 py-4">
-        <p className="mb-4 text-center text-base text-gray-600">
+      <div className="flex flex-1 flex-col" style={{ padding: '40px 0' }}>
+        <p className="text-center text-gray-600" style={{ fontSize: 36, marginBottom: 40 }}>
           ✨ 이번 주 새로 들어온 책이에요!
         </p>
 
-        <div className="flex flex-1 flex-col gap-3 overflow-auto">
+        <div className="flex flex-1 flex-col overflow-auto" style={{ gap: 24 }}>
           {loading && (
             <div className="flex flex-1 items-center justify-center">
-              <p className="text-base text-gray-500">불러오는 중...</p>
+              <p className="text-gray-500" style={{ fontSize: 36 }}>불러오는 중...</p>
             </div>
           )}
           {!loading && books.length === 0 && (
             <div className="flex flex-1 items-center justify-center">
-              <p className="text-base text-gray-500">신착 도서가 없습니다.</p>
+              <p className="text-gray-500" style={{ fontSize: 36 }}>신착 도서가 없습니다.</p>
             </div>
           )}
           {!loading &&
@@ -53,54 +53,55 @@ export function DidV2NewArrivals() {
                 key={book.id}
                 type="button"
                 onClick={() => navigate(`/did/video/${book.id}`)}
-                className="flex w-full items-center gap-3 rounded-2xl p-3 text-left transition active:scale-[0.98]"
-                style={{ background: 'rgba(255,255,255,0.85)' }}
+                className="flex w-full items-center text-left transition active:scale-[0.98]"
+                style={{ background: 'rgba(255,255,255,0.85)', borderRadius: 24, padding: 28, gap: 28 }}
               >
                 {/* Cover Image with NEW badge */}
-                <div className="relative h-16 w-12 shrink-0">
+                <div className="relative shrink-0" style={{ width: 120, height: 160 }}>
                   <div
-                    className="h-full w-full rounded-lg"
+                    className="h-full w-full"
                     style={{
+                      borderRadius: 16,
                       background: book.coverImageUrl
                         ? `url(${book.coverImageUrl}) center/cover no-repeat`
                         : 'linear-gradient(180deg, #FFE5A0 0%, #FFD966 100%)',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                     }}
                   >
                     {!book.coverImageUrl && (
-                      <div className="flex h-full w-full items-center justify-center text-xl">
+                      <div className="flex h-full w-full items-center justify-center" style={{ fontSize: 48 }}>
                         📚
                       </div>
                     )}
                   </div>
                   {/* NEW Badge */}
                   <div
-                    className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                    style={{ background: '#FF6B6B' }}
+                    className="absolute flex items-center justify-center font-bold text-white"
+                    style={{ width: 48, height: 48, borderRadius: 24, fontSize: 24, background: '#FF6B6B', top: -8, right: -8 }}
                   >
                     N
                   </div>
                 </div>
                 {/* Book Info */}
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-base font-bold text-gray-800">
+                  <span className="truncate font-bold text-gray-800" style={{ fontSize: 36 }}>
                     {book.title}
                   </span>
-                  <span className="mt-0.5 truncate text-sm text-gray-600">
+                  <span className="truncate text-gray-600" style={{ fontSize: 28, marginTop: 8 }}>
                     {book.author}
                   </span>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700">
+                  <div className="flex flex-wrap" style={{ gap: 12, marginTop: 16 }}>
+                    <span className="bg-yellow-100 text-yellow-700" style={{ fontSize: 24, padding: '8px 16px', borderRadius: 20 }}>
                       ✨ 신작
                     </span>
                     {book.category && (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                      <span className="bg-gray-100 text-gray-600" style={{ fontSize: 24, padding: '8px 16px', borderRadius: 20 }}>
                         {book.category}
                       </span>
                     )}
                   </div>
                 </div>
-                <span className="text-xl text-gray-400">›</span>
+                <span className="text-gray-400" style={{ fontSize: 48 }}>›</span>
               </button>
             ))}
         </div>

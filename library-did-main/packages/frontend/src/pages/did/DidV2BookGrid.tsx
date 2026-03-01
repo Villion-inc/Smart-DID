@@ -39,8 +39,8 @@ export function DidV2BookGrid() {
 
   return (
     <DidV2Layout title={`${AGE_LABELS[ageGroup]} 추천도서`}>
-      <div className="flex flex-1 flex-col px-4 py-4">
-        <div className="grid w-full grid-cols-3 gap-3">
+      <div className="flex flex-1 flex-col" style={{ padding: '40px 0' }}>
+        <div className="grid w-full grid-cols-3" style={{ gap: 32 }}>
           {(loading ? [] : books).map((book) => (
             <button
               key={book.id}
@@ -49,22 +49,23 @@ export function DidV2BookGrid() {
               className="flex flex-col items-center transition active:scale-[0.97]"
             >
               <div
-                className="relative w-full overflow-hidden rounded-xl"
+                className="relative w-full overflow-hidden"
                 style={{
                   aspectRatio: '3/4',
+                  borderRadius: 20,
                   background: book.coverImageUrl
                     ? `url(${book.coverImageUrl}) center/cover no-repeat`
                     : 'linear-gradient(180deg, #E0F0F8 0%, #C8E8D0 100%)',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                 }}
               >
                 {!book.coverImageUrl && (
-                  <div className="absolute inset-0 flex items-center justify-center text-4xl">
+                  <div className="absolute inset-0 flex items-center justify-center" style={{ fontSize: 72 }}>
                     📚
                   </div>
                 )}
               </div>
-              <span className="mt-2 w-full truncate text-center text-sm font-medium text-gray-800">
+              <span className="w-full truncate text-center font-medium text-gray-800" style={{ fontSize: 28, marginTop: 16 }}>
                 {book.title || '제목'}
               </span>
             </button>
@@ -72,12 +73,12 @@ export function DidV2BookGrid() {
         </div>
         {loading && (
           <div className="flex flex-1 items-center justify-center">
-            <p className="text-base text-gray-500">불러오는 중...</p>
+            <p className="text-gray-500" style={{ fontSize: 36 }}>불러오는 중...</p>
           </div>
         )}
         {!loading && books.length === 0 && (
           <div className="flex flex-1 items-center justify-center">
-            <p className="text-base text-gray-500">도서가 없습니다.</p>
+            <p className="text-gray-500" style={{ fontSize: 36 }}>도서가 없습니다.</p>
           </div>
         )}
       </div>

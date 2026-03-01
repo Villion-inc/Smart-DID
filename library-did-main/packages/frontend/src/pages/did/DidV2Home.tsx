@@ -17,37 +17,46 @@ export function DidV2Home() {
 
   return (
     <DidV2Layout>
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-8">
-        <p className="mb-3 text-center text-2xl font-bold text-gray-800">
+      <div className="flex flex-1 flex-col items-center justify-center" style={{ padding: '80px 60px' }}>
+        <p className="text-center font-bold text-gray-800" style={{ fontSize: 56, marginBottom: 24 }}>
           누가 볼까요?
         </p>
-        <p className="mb-10 text-center text-base text-gray-600">
+        <p className="text-center text-gray-600" style={{ fontSize: 36, marginBottom: 80 }}>
           연령을 선택하면 추천 영상과 문장이 맞춰져요.
         </p>
 
-        <div className="flex w-full flex-col items-center gap-5">
+        <div className="flex w-full flex-col items-center" style={{ gap: 40 }}>
           {AGE_OPTIONS.map(({ group, label, sub, emoji }) => (
             <button
               key={group}
               type="button"
               onClick={() => navigate(`/did/age/${group}`)}
-              className="flex w-full items-center gap-4 rounded-2xl px-5 py-5 text-left transition active:scale-[0.98]"
+              className="flex w-full items-center text-left transition active:scale-[0.98]"
               style={{
                 background: 'rgba(255,255,255,0.7)',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                borderRadius: 32,
+                padding: '40px 48px',
+                gap: 40,
               }}
             >
               <div
-                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-3xl"
-                style={{ background: 'linear-gradient(180deg, #E8F4FC 0%, #D4EAD6 100%)' }}
+                className="flex shrink-0 items-center justify-center"
+                style={{ 
+                  width: 140, 
+                  height: 140, 
+                  borderRadius: 32, 
+                  fontSize: 72,
+                  background: 'linear-gradient(180deg, #E8F4FC 0%, #D4EAD6 100%)' 
+                }}
               >
                 {emoji}
               </div>
               <div className="flex flex-1 flex-col">
-                <span className="text-xl font-bold text-gray-800">{label}</span>
-                <span className="mt-1 text-sm text-gray-500">{sub}</span>
+                <span className="font-bold text-gray-800" style={{ fontSize: 48 }}>{label}</span>
+                <span className="text-gray-500" style={{ fontSize: 32, marginTop: 12 }}>{sub}</span>
               </div>
-              <span className="text-2xl text-gray-400">›</span>
+              <span className="text-gray-400" style={{ fontSize: 56 }}>›</span>
             </button>
           ))}
         </div>

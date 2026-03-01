@@ -1,17 +1,16 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 
-// 기본 디자인 사이즈 (세로 키오스크 비율)
-const BASE_WIDTH = 450;
-const BASE_HEIGHT = 780;
+// 키오스크 기준 사이즈 (1080 x 1920, 9:16 세로 비율)
+const BASE_WIDTH = 1080;
+const BASE_HEIGHT = 1920;
 const ASPECT_RATIO = BASE_WIDTH / BASE_HEIGHT;
 
 /**
  * 키오스크 세로 화면용 DID 레이아웃
- * - 세로 비율: 약 450px × 780px (세로가 더 긴 키오스크)
+ * - 기준 해상도: 1080 x 1920 (9:16 세로 키오스크)
  * - 화면 크기에 맞춰 자동 스케일링 (비율 유지)
- * - 로고 제거, 심플한 헤더
- * - 하단 네비게이션 바
+ * - 작은 화면에서도 축소되어 표시
  */
 export function DidV2Layout({
   children,
@@ -71,42 +70,48 @@ export function DidV2Layout({
       {/* Header */}
       {!hideHeader && (
         <header
-          className="flex h-14 w-full shrink-0 items-center justify-center px-4"
-          style={{ background: 'rgba(255,255,255,0.4)' }}
+          className="flex w-full shrink-0 items-center justify-center"
+          style={{ height: 120, background: 'rgba(255,255,255,0.4)', padding: '0 40px' }}
         >
           {title ? (
-            <h1 className="max-w-full truncate text-xl font-bold text-gray-800">
+            <h1 className="max-w-full truncate font-bold text-gray-800" style={{ fontSize: 48 }}>
               {title}
             </h1>
           ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-bold text-gray-800">BookMate</span>
-              <span className="text-base text-gray-600">북메이트</span>
+            <div className="flex items-center gap-4">
+              <span className="font-bold text-gray-800" style={{ fontSize: 48 }}>BookMate</span>
+              <span className="text-gray-600" style={{ fontSize: 36 }}>북메이트</span>
             </div>
           )}
         </header>
       )}
 
       {/* Main content */}
-      <main className="flex min-h-0 flex-1 flex-col overflow-auto">
+      <main className="flex min-h-0 flex-1 flex-col overflow-auto" style={{ padding: '0 40px' }}>
         {children}
       </main>
 
       {/* Bottom navigation bar */}
       {!hideFooter && (
         <footer
-          className="flex h-16 w-full shrink-0 items-center justify-between px-4"
+          className="flex w-full shrink-0 items-center justify-between"
           style={{
+            height: 140,
+            padding: '0 40px',
             background: 'rgba(255,255,255,0.85)',
             borderTop: '1px solid rgba(0,0,0,0.05)',
           }}
         >
-          <div className="flex gap-2">
+          <div className="flex" style={{ gap: 20 }}>
             <button
               type="button"
               onClick={() => navigate('/did')}
-              className="flex h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold transition active:scale-95"
+              className="flex items-center justify-center font-semibold transition active:scale-95"
               style={{
+                height: 80,
+                padding: '0 40px',
+                borderRadius: 20,
+                fontSize: 32,
                 background: isHome
                   ? 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)'
                   : '#F0F0F0',
@@ -118,8 +123,12 @@ export function DidV2Layout({
             <button
               type="button"
               onClick={() => navigate('/did/search')}
-              className="flex h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold transition active:scale-95"
+              className="flex items-center justify-center font-semibold transition active:scale-95"
               style={{
+                height: 80,
+                padding: '0 40px',
+                borderRadius: 20,
+                fontSize: 32,
                 background:
                   location.pathname === '/did/search'
                     ? 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)'
@@ -132,8 +141,12 @@ export function DidV2Layout({
             <button
               type="button"
               onClick={() => navigate('/did/new')}
-              className="flex h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold transition active:scale-95"
+              className="flex items-center justify-center font-semibold transition active:scale-95"
               style={{
+                height: 80,
+                padding: '0 40px',
+                borderRadius: 20,
+                fontSize: 32,
                 background:
                   location.pathname === '/did/new'
                     ? 'linear-gradient(180deg, #FFE5A0 0%, #FFD966 100%)'
@@ -144,20 +157,20 @@ export function DidV2Layout({
               신작
             </button>
           </div>
-          <div className="flex gap-2">
+          <div className="flex" style={{ gap: 16 }}>
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-lg font-bold text-gray-500 transition active:scale-95"
-              style={{ background: '#F0F0F0' }}
+              className="flex items-center justify-center font-bold text-gray-500 transition active:scale-95"
+              style={{ width: 80, height: 80, borderRadius: 20, fontSize: 40, background: '#F0F0F0' }}
             >
               ‹
             </button>
             <button
               type="button"
               onClick={() => navigate(1)}
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-lg font-bold text-gray-500 transition active:scale-95"
-              style={{ background: '#F0F0F0' }}
+              className="flex items-center justify-center font-bold text-gray-500 transition active:scale-95"
+              style={{ width: 80, height: 80, borderRadius: 20, fontSize: 40, background: '#F0F0F0' }}
             >
               ›
             </button>
