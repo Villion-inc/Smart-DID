@@ -84,14 +84,14 @@ export function DidV2BookDetail() {
 
   return (
     <DidV2Layout title={bookDetail?.title || '책 미리보기'}>
-      <div className="flex flex-1 flex-col overflow-auto py-3">
+      <div className="flex flex-1 flex-col overflow-auto py-4 sm:py-6">
         {/* Video player */}
         <div
-          className="relative w-full shrink-0 overflow-hidden rounded-2xl"
+          className="relative w-full shrink-0 overflow-hidden rounded-3xl"
           style={{
             aspectRatio: '16/9',
             background: '#1a1a1a',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
           }}
         >
           {resolvedVideoUrl && videoStatus === 'READY' ? (
@@ -112,10 +112,10 @@ export function DidV2BookDetail() {
                   <button
                     type="button"
                     onClick={handleReplay}
-                    className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform active:scale-90"
+                    className="flex h-20 w-20 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform active:scale-90 sm:h-24 sm:w-24"
                   >
                     <svg 
-                      className="h-7 w-7 translate-x-0.5 text-gray-800" 
+                      className="h-10 w-10 translate-x-0.5 text-gray-800 sm:h-12 sm:w-12" 
                       fill="currentColor" 
                       viewBox="0 0 24 24"
                     >
@@ -126,16 +126,16 @@ export function DidV2BookDetail() {
               )}
             </>
           ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-white">
               {videoStatus === 'QUEUED' || videoStatus === 'GENERATING' ? (
                 <>
-                  <span className="text-4xl">🎬</span>
-                  <span className="text-sm sm:text-base">영상 생성 중...</span>
+                  <span className="text-6xl">🎬</span>
+                  <span className="text-lg sm:text-xl">영상 생성 중...</span>
                 </>
               ) : (
                 <>
-                  <span className="text-4xl">📖</span>
-                  <span className="text-sm sm:text-base">영상이 아직 없어요</span>
+                  <span className="text-6xl">📖</span>
+                  <span className="text-lg sm:text-xl">영상이 아직 없어요</span>
                 </>
               )}
             </div>
@@ -144,28 +144,29 @@ export function DidV2BookDetail() {
 
         {/* Book Info Card */}
         <div
-          className="mt-3 w-full shrink-0 rounded-2xl p-4"
+          className="mt-5 w-full shrink-0 rounded-3xl p-5 sm:mt-6 sm:p-6"
           style={{ background: 'rgba(255,255,255,0.85)' }}
         >
           {/* Title & Author */}
-          <div className="mb-3 flex items-start gap-3">
+          <div className="mb-4 flex items-start gap-4 sm:gap-5">
             {/* Cover Image */}
             {bookDetail?.coverImageUrl && (
               <div
-                className="h-24 w-16 shrink-0 rounded-lg sm:h-28 sm:w-20"
+                className="h-32 w-22 shrink-0 rounded-xl sm:h-36 sm:w-24"
                 style={{
                   background: `url(${bookDetail.coverImageUrl}) center/cover no-repeat`,
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                  boxShadow: '0 3px 10px rgba(0,0,0,0.15)',
+                  width: '5.5rem',
                 }}
               />
             )}
             <div className="min-w-0 flex-1">
-              <h2 className="text-base font-bold text-gray-800 line-clamp-2 sm:text-lg">
+              <h2 className="text-xl font-bold text-gray-800 line-clamp-2 sm:text-2xl">
                 {bookDetail?.title || '제목'}
               </h2>
-              <p className="mt-1 text-sm text-gray-600 sm:text-base">{bookDetail?.author || '저자'}</p>
+              <p className="mt-2 text-base text-gray-600 sm:text-lg">{bookDetail?.author || '저자'}</p>
               {/* Publisher & Year */}
-              <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">
+              <p className="mt-1 text-sm text-gray-500 sm:text-base">
                 {bookDetail?.publisher}
                 {bookDetail?.publishedYear ? ` · ${bookDetail.publishedYear}년` : ''}
               </p>
@@ -173,15 +174,15 @@ export function DidV2BookDetail() {
           </div>
 
           {/* Summary */}
-          <p className="text-sm leading-relaxed text-gray-700 line-clamp-3 sm:text-base">
+          <p className="text-base leading-relaxed text-gray-700 line-clamp-3 sm:text-lg">
             {bookDetail?.summary || '이 책의 줄거리를 불러오는 중입니다...'}
           </p>
 
           {/* Tags & Availability */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             {bookDetail?.category && (
               <span
-                className="rounded-full px-3 py-1 text-xs font-medium text-gray-700 sm:text-sm"
+                className="rounded-full px-4 py-1.5 text-sm font-medium text-gray-700 sm:px-5 sm:py-2 sm:text-base"
                 style={{ background: 'rgba(107, 184, 214, 0.2)' }}
               >
                 #{bookDetail.category}
@@ -189,7 +190,7 @@ export function DidV2BookDetail() {
             )}
             {bookDetail?.isAvailable !== undefined && (
               <span
-                className={`rounded-full px-3 py-1 text-xs font-medium sm:text-sm ${
+                className={`rounded-full px-4 py-1.5 text-sm font-medium sm:px-5 sm:py-2 sm:text-base ${
                   bookDetail.isAvailable
                     ? 'bg-green-100 text-green-700'
                     : 'bg-red-100 text-red-700'
@@ -204,12 +205,12 @@ export function DidV2BookDetail() {
         {/* Location Info Preview */}
         {(bookDetail?.shelfCode || bookDetail?.callNumber) && (
           <div
-            className="mt-3 w-full shrink-0 rounded-2xl p-3"
+            className="mt-4 w-full shrink-0 rounded-2xl p-4 sm:mt-5 sm:p-5"
             style={{ background: 'rgba(255,255,255,0.7)' }}
           >
-            <div className="flex items-center justify-between text-sm sm:text-base">
+            <div className="flex items-center justify-between text-base sm:text-lg">
               <span className="text-gray-600">📍 위치</span>
-              <span className="font-medium text-gray-800">
+              <span className="font-semibold text-gray-800">
                 {bookDetail?.shelfCode || bookDetail?.callNumber}
               </span>
             </div>
@@ -217,14 +218,14 @@ export function DidV2BookDetail() {
         )}
 
         {/* Action button */}
-        <div className="mt-auto shrink-0 pt-3">
+        <div className="mt-auto shrink-0 pt-4 sm:pt-5">
           <button
             type="button"
             onClick={() => navigate(`/did/location/${bookId}`)}
-            className="flex h-14 w-full items-center justify-center rounded-2xl text-base font-bold text-white transition active:scale-[0.98] sm:h-16 sm:text-lg"
+            className="flex h-16 w-full items-center justify-center rounded-2xl text-lg font-bold text-white transition active:scale-[0.98] sm:h-20 sm:text-xl"
             style={{
               background: 'linear-gradient(180deg, #6BB8D6 0%, #4DA3C4 100%)',
-              boxShadow: '0 4px 12px rgba(77, 163, 196, 0.3)',
+              boxShadow: '0 4px 16px rgba(77, 163, 196, 0.35)',
             }}
           >
             📖 읽어볼래요! 위치 보기
