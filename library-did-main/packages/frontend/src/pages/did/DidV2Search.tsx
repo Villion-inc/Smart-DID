@@ -47,44 +47,39 @@ export function DidV2Search() {
 
   return (
     <DidV2Layout title="책 검색">
-      <div className="flex flex-1 flex-col" style={{ padding: '20px 0' }}>
+      <div className="flex flex-1 flex-col py-2">
         {/* 검색 전 초기 상태: 검색창을 정중앙에 배치 */}
         {!searched && !loading && (
           <div className="flex flex-1 flex-col items-center justify-center">
-            <span style={{ fontSize: 120, marginBottom: 30 }}>📚</span>
-            <p className="font-semibold text-gray-700" style={{ fontSize: 42 }}>어떤 책을 찾고 있나요?</p>
-            <p className="text-gray-500" style={{ fontSize: 32, marginTop: 16, marginBottom: 60 }}>아래에서 검색해보세요!</p>
+            <span className="mb-3 text-5xl sm:mb-4 sm:text-6xl">📚</span>
+            <p className="text-lg font-semibold text-gray-700 sm:text-xl md:text-2xl">어떤 책을 찾고 있나요?</p>
+            <p className="mb-6 mt-1 text-sm text-gray-500 sm:mb-8 sm:text-base">아래에서 검색해보세요!</p>
             
             {/* Search box - 초기 상태에서는 중앙 위치 */}
             <div
-              className="w-full"
-              style={{ background: 'rgba(255,255,255,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', borderRadius: 32, padding: 40 }}
+              className="w-full rounded-2xl p-4 sm:rounded-3xl sm:p-6"
+              style={{ background: 'rgba(255,255,255,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
             >
-              <p className="text-center font-bold text-gray-700" style={{ fontSize: 36, marginBottom: 24 }}>
+              <p className="mb-3 text-center text-base font-bold text-gray-700 sm:mb-4 sm:text-lg">
                 여기에 써보세요!
               </p>
-              <div className="flex" style={{ gap: 20 }}>
+              <div className="flex gap-2 sm:gap-3">
                 <input
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   placeholder="예: 토끼, 모험"
-                  className="min-w-0 flex-1 border-4 border-blue-200 bg-white outline-none focus:border-blue-400"
-                  style={{ fontSize: 36, padding: '24px 32px', borderRadius: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+                  className="min-w-0 flex-1 rounded-xl border-2 border-blue-200 bg-white px-4 py-3 text-base outline-none focus:border-blue-400 sm:px-5 sm:py-4 sm:text-lg"
+                  style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
                   inputMode="search"
                   enterKeyHint="search"
                 />
                 <button
                   type="button"
                   onClick={handleSearch}
-                  className="shrink-0 font-bold text-white transition active:scale-95"
-                  style={{
-                    fontSize: 36,
-                    padding: '24px 48px',
-                    borderRadius: 20,
-                    background: 'linear-gradient(180deg, #6BB8D6 0%, #4DA3C4 100%)',
-                  }}
+                  className="shrink-0 rounded-xl px-5 py-3 text-base font-bold text-white transition active:scale-95 sm:px-8 sm:py-4 sm:text-lg"
+                  style={{ background: 'linear-gradient(180deg, #6BB8D6 0%, #4DA3C4 100%)' }}
                 >
                   찾기
                 </button>
@@ -94,17 +89,17 @@ export function DidV2Search() {
         )}
 
         {/* Results - 검색 후에만 표시 */}
-        <div className={`flex flex-col overflow-auto ${searched || loading ? 'flex-1' : 'hidden'}`} style={{ gap: 20 }}>
+        <div className={`flex flex-col gap-3 overflow-auto sm:gap-4 ${searched || loading ? 'flex-1' : 'hidden'}`}>
           {loading && (
             <div className="flex flex-1 items-center justify-center">
-              <p className="text-gray-500" style={{ fontSize: 36 }}>🔍 찾는 중...</p>
+              <p className="text-base text-gray-500 sm:text-lg">🔍 찾는 중...</p>
             </div>
           )}
           {!loading && searched && results.length === 0 && (
             <div className="flex flex-1 flex-col items-center justify-center">
-              <span style={{ fontSize: 100, marginBottom: 20 }}>🤔</span>
-              <p className="text-gray-500" style={{ fontSize: 36 }}>검색 결과가 없어요</p>
-              <p className="text-gray-400" style={{ fontSize: 28, marginTop: 12 }}>다른 단어로 찾아볼까요?</p>
+              <span className="mb-2 text-4xl sm:text-5xl">🤔</span>
+              <p className="text-base text-gray-500 sm:text-lg">검색 결과가 없어요</p>
+              <p className="mt-1 text-sm text-gray-400">다른 단어로 찾아볼까요?</p>
             </div>
           )}
           {!loading &&
@@ -113,50 +108,45 @@ export function DidV2Search() {
                 key={book.id}
                 type="button"
                 onClick={() => navigate(`/did/video/${book.id}`)}
-                className="flex w-full items-center text-left transition active:scale-[0.98]"
-                style={{ background: 'rgba(255,255,255,0.85)', borderRadius: 24, padding: 24, gap: 24 }}
+                className="flex w-full items-center gap-3 rounded-2xl p-3 text-left transition active:scale-[0.98] sm:gap-4 sm:p-4"
+                style={{ background: 'rgba(255,255,255,0.85)' }}
               >
                 {/* Cover Image */}
                 <div
-                  className="shrink-0"
+                  className="h-20 w-14 shrink-0 rounded-lg sm:h-24 sm:w-16"
                   style={{
-                    width: 120,
-                    height: 160,
-                    borderRadius: 16,
                     background: book.coverImageUrl
                       ? `url(${book.coverImageUrl}) center/cover no-repeat`
                       : 'linear-gradient(180deg, #E8F4FC 0%, #D4EAD6 100%)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
                   }}
                 >
                   {!book.coverImageUrl && (
-                    <div className="flex h-full w-full items-center justify-center" style={{ fontSize: 48 }}>
-                      📚
-                    </div>
+                    <div className="flex h-full w-full items-center justify-center text-2xl">📚</div>
                   )}
                 </div>
                 {/* Book Info */}
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate font-bold text-gray-800" style={{ fontSize: 36 }}>
+                  <span className="truncate text-base font-bold text-gray-800 sm:text-lg">
                     {book.title}
                   </span>
-                  <span className="truncate text-gray-600" style={{ fontSize: 28, marginTop: 8 }}>
+                  <span className="mt-0.5 truncate text-sm text-gray-600 sm:text-base">
                     {book.author}
                   </span>
-                  <div className="flex flex-wrap items-center" style={{ gap: 12, marginTop: 16 }}>
+                  <div className="mt-1 flex flex-wrap items-center gap-1 sm:gap-2">
                     {book.category && (
-                      <span className="bg-blue-50 text-blue-700" style={{ fontSize: 24, padding: '8px 16px', borderRadius: 20 }}>
+                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700 sm:text-sm">
                         {book.category}
                       </span>
                     )}
                     {book.hasVideo && (
-                      <span className="bg-green-50 text-green-700" style={{ fontSize: 24, padding: '8px 16px', borderRadius: 20 }}>
+                      <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700 sm:text-sm">
                         🎬 영상있음
                       </span>
                     )}
                   </div>
                 </div>
-                <span className="text-gray-400" style={{ fontSize: 48 }}>›</span>
+                <span className="text-xl text-gray-400 sm:text-2xl">›</span>
               </button>
             ))}
         </div>
@@ -164,31 +154,26 @@ export function DidV2Search() {
         {/* Search box - 검색 후에는 하단에 표시 */}
         {(searched || loading) && (
           <div
-            className="w-full shrink-0"
-            style={{ background: 'rgba(255,255,255,0.95)', boxShadow: '0 -4px 20px rgba(0,0,0,0.1)', borderRadius: 32, padding: 32, marginTop: 20 }}
+            className="mt-3 w-full shrink-0 rounded-2xl p-3 sm:mt-4 sm:p-4"
+            style={{ background: 'rgba(255,255,255,0.95)', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)' }}
           >
-            <div className="flex" style={{ gap: 20 }}>
+            <div className="flex gap-2 sm:gap-3">
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="예: 토끼, 모험"
-                className="min-w-0 flex-1 border-4 border-blue-200 bg-white outline-none focus:border-blue-400"
-                style={{ fontSize: 32, padding: '20px 28px', borderRadius: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+                className="min-w-0 flex-1 rounded-xl border-2 border-blue-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400 sm:px-4 sm:py-3 sm:text-base"
+                style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
                 inputMode="search"
                 enterKeyHint="search"
               />
               <button
                 type="button"
                 onClick={handleSearch}
-                className="shrink-0 font-bold text-white transition active:scale-95"
-                style={{
-                  fontSize: 32,
-                  padding: '20px 40px',
-                  borderRadius: 20,
-                  background: 'linear-gradient(180deg, #6BB8D6 0%, #4DA3C4 100%)',
-                }}
+                className="shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold text-white transition active:scale-95 sm:px-6 sm:py-3 sm:text-base"
+                style={{ background: 'linear-gradient(180deg, #6BB8D6 0%, #4DA3C4 100%)' }}
               >
                 찾기
               </button>
