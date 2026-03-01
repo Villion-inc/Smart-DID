@@ -60,9 +60,6 @@ export function DidV2Search() {
               className="w-full rounded-2xl p-4 sm:rounded-3xl sm:p-6"
               style={{ background: 'rgba(255,255,255,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
             >
-              <p className="mb-3 text-center text-base font-bold text-gray-700 sm:mb-4 sm:text-lg">
-                여기에 써보세요!
-              </p>
               <div className="flex gap-2 sm:gap-3">
                 <input
                   type="text"

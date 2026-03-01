@@ -25,20 +25,20 @@ export function DidV2Location() {
 
   return (
     <DidV2Layout title="위치 안내">
-      <div className="flex min-h-full flex-col items-center justify-center py-6">
-        <p className="mb-6 text-center text-2xl font-bold text-gray-800 sm:mb-8 sm:text-3xl">
+      <div className="flex min-h-full flex-col items-center justify-center px-4 py-8">
+        <p className="mb-8 text-center text-3xl font-bold text-gray-800 sm:mb-10 sm:text-4xl">
           📍 이 책은 여기 있어요!
         </p>
 
         {/* Book Info Card */}
         <div
-          className="mb-6 w-full max-w-lg rounded-3xl p-6 sm:mb-8 sm:p-8"
+          className="mb-8 w-full max-w-xl rounded-3xl p-8 sm:mb-10 sm:p-10"
           style={{ background: 'rgba(255,255,255,0.9)' }}
         >
-          <div className="flex items-start gap-5 sm:gap-6">
+          <div className="flex items-start gap-6 sm:gap-8">
             {/* Cover Image */}
             <div
-              className="h-36 w-24 shrink-0 rounded-xl sm:h-44 sm:w-32"
+              className="h-48 w-32 shrink-0 rounded-xl sm:h-56 sm:w-40"
               style={{
                 background: bookDetail?.coverImageUrl
                   ? `url(${bookDetail.coverImageUrl}) center/cover no-repeat`
@@ -47,23 +47,23 @@ export function DidV2Location() {
               }}
             >
               {!bookDetail?.coverImageUrl && (
-                <div className="flex h-full w-full items-center justify-center text-4xl sm:text-5xl">📚</div>
+                <div className="flex h-full w-full items-center justify-center text-5xl sm:text-6xl">📚</div>
               )}
             </div>
             {/* Book Details */}
             <div className="min-w-0 flex-1">
-              <h2 className="text-xl font-bold text-gray-800 line-clamp-2 sm:text-2xl">
+              <h2 className="text-2xl font-bold text-gray-800 line-clamp-2 sm:text-3xl">
                 {bookDetail?.title || '책 제목'}
               </h2>
-              <p className="mt-2 text-base text-gray-600 sm:text-lg">{bookDetail?.author || '저자'}</p>
-              <p className="mt-1 text-sm text-gray-500 sm:text-base">
+              <p className="mt-3 text-lg text-gray-600 sm:text-xl">{bookDetail?.author || '저자'}</p>
+              <p className="mt-2 text-base text-gray-500 sm:text-lg">
                 {bookDetail?.publisher}
                 {bookDetail?.publishedYear ? ` · ${bookDetail.publishedYear}년` : ''}
               </p>
               {/* Availability Badge */}
               {bookDetail?.isAvailable !== undefined && (
                 <span
-                  className={`mt-3 inline-block rounded-full px-4 py-1.5 text-sm font-medium sm:mt-4 sm:px-5 sm:py-2 sm:text-base ${
+                  className={`mt-4 inline-block rounded-full px-5 py-2 text-base font-medium sm:mt-5 sm:px-6 sm:py-2.5 sm:text-lg ${
                     bookDetail.isAvailable
                       ? 'bg-green-100 text-green-700'
                       : 'bg-red-100 text-red-700'
@@ -78,33 +78,33 @@ export function DidV2Location() {
 
         {/* Location Details */}
         <div
-          className="mb-6 w-full max-w-lg rounded-3xl p-6 sm:mb-8 sm:p-8"
+          className="mb-8 w-full max-w-xl rounded-3xl p-8 sm:mb-10 sm:p-10"
           style={{ background: 'rgba(255,255,255,0.9)' }}
         >
-          <h3 className="mb-5 text-center text-xl font-semibold text-gray-800 sm:mb-6 sm:text-2xl">
+          <h3 className="mb-6 text-center text-2xl font-semibold text-gray-800 sm:mb-8 sm:text-3xl">
             📚 도서 위치 정보
           </h3>
-          <div className="flex flex-col gap-4 sm:gap-5">
+          <div className="flex flex-col gap-5 sm:gap-6">
             {bookDetail?.shelfCode && (
-              <div className="flex items-center justify-between rounded-2xl bg-blue-50 px-5 py-4 sm:px-6 sm:py-5">
-                <span className="text-base text-gray-600 sm:text-lg">서가 위치</span>
-                <span className="text-xl font-bold text-blue-700 sm:text-2xl">{bookDetail.shelfCode}</span>
+              <div className="flex items-center justify-between rounded-2xl bg-blue-50 px-6 py-5 sm:px-8 sm:py-6">
+                <span className="text-lg text-gray-600 sm:text-xl">서가 위치</span>
+                <span className="text-2xl font-bold text-blue-700 sm:text-3xl">{bookDetail.shelfCode}</span>
               </div>
             )}
             {bookDetail?.callNumber && (
-              <div className="flex items-center justify-between rounded-2xl bg-green-50 px-5 py-4 sm:px-6 sm:py-5">
-                <span className="text-base text-gray-600 sm:text-lg">청구기호</span>
-                <span className="text-xl font-bold text-green-700 sm:text-2xl">{bookDetail.callNumber}</span>
+              <div className="flex items-center justify-between rounded-2xl bg-green-50 px-6 py-5 sm:px-8 sm:py-6">
+                <span className="text-lg text-gray-600 sm:text-xl">청구기호</span>
+                <span className="text-2xl font-bold text-green-700 sm:text-3xl">{bookDetail.callNumber}</span>
               </div>
             )}
             {bookDetail?.isbn && (
-              <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-5 py-4 sm:px-6 sm:py-5">
-                <span className="text-base text-gray-600 sm:text-lg">ISBN</span>
-                <span className="text-base font-medium text-gray-700 sm:text-lg">{bookDetail.isbn}</span>
+              <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-6 py-5 sm:px-8 sm:py-6">
+                <span className="text-lg text-gray-600 sm:text-xl">ISBN</span>
+                <span className="text-lg font-medium text-gray-700 sm:text-xl">{bookDetail.isbn}</span>
               </div>
             )}
             {!bookDetail?.shelfCode && !bookDetail?.callNumber && (
-              <p className="py-6 text-center text-lg text-gray-500 sm:text-xl">
+              <p className="py-8 text-center text-xl text-gray-500 sm:text-2xl">
                 위치 정보를 불러오는 중입니다...
               </p>
             )}
@@ -115,7 +115,7 @@ export function DidV2Location() {
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="flex h-14 w-full max-w-lg shrink-0 items-center justify-center rounded-2xl text-lg font-semibold text-gray-700 transition active:scale-[0.98] sm:h-16 sm:text-xl"
+          className="flex h-16 w-full max-w-xl shrink-0 items-center justify-center rounded-2xl text-xl font-semibold text-gray-700 transition active:scale-[0.98] sm:h-20 sm:text-2xl"
           style={{ background: 'rgba(255,255,255,0.8)' }}
         >
           ← 돌아가기
