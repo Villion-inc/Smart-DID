@@ -4,9 +4,11 @@ import { getDidBookDetail, getVideoStatus } from '../../api/did.api';
 import { DidV2Layout } from './DidV2Layout';
 import type { DidBookDetail } from '../../types';
 
-// 상대 경로 비디오/자막 URL은 현재 origin 기준으로 해석 (도메인/베이스경로 무관)
-const apiOrigin =
-  typeof window !== 'undefined' ? window.location.origin : '';
+// 백엔드 API URL (영상은 백엔드에서 서빙)
+const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (basePath ? `${basePath}/api` : '/api');
 
 /**
  * 책 미리보기 (키오스크 세로 화면)
@@ -71,13 +73,14 @@ export function DidV2BookDetail() {
     }
   };
 
-  const resolvedVideoUrl = videoUrl?.startsWith('http')
-    ? videoUrl
-    : videoUrl?.startsWith('/')
+  // /videos/xxx.mp4 → /api/videos/xxx.mp4 (백엔드에서 서빙)
+  const resolvedVideoUrl = videoUrl
+    ? videoUrl.startsWith('http')
       ? videoUrl
-      : videoUrl
-        ? `${apiOrigin}${videoUrl.startsWith('/') ? videoUrl : `/${videoUrl}`}`
-        : null;
+      : videoUrl.startsWith('/videos/')
+        ? `${API_BASE_URL}${videoUrl}`
+        : `${API_BASE_URL}/videos/${videoUrl.replace(/^\//, '')}`
+    : null;
 
   return (
     <DidV2Layout title={bookDetail?.title || '책 미리보기'}>
