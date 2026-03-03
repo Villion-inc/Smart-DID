@@ -19,7 +19,7 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Install FFmpeg with libass support for subtitle burning
+# FFmpeg for video assembly + subtitle burning
 RUN apk add --no-cache ffmpeg
 
 COPY --from=builder /app/packages/worker/dist ./dist

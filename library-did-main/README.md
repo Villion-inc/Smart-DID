@@ -1,6 +1,6 @@
 # 꿈샘 도서관 AI 영상 서비스 (Smart DID Video Service)
 
-> **마지막 업데이트**: 2026-02-28
+> **마지막 업데이트**: 2026-03-03
 
 아산 꿈샘 아동청소년 도서관을 위한 AI 기반 도서 소개 영상 자동 생성 서비스입니다.
 
@@ -11,26 +11,30 @@
 - 도서 검색 및 상세 정보 조회
 - AI 생성 영상 자동 재생 (종료 시 다시보기 버튼)
 - 도서 위치 안내
+- **9:16 세로 화면 비율** (키오스크 최적화)
 
 ### 2. 영상 자동 생성 시스템
 - **Pipeline V2**: Grounding → Style Bible → Scene Planning → Video Generation → Subtitles → Merge
 - **Gemini 2.0 Flash**: 시나리오/스크립트 생성
 - **Veo 3.1 / Sora**: 영상 생성
 - **FFmpeg**: 3장면 병합 + 자막 burn
+- **네이버 책 검색 API**: 표지 이미지 및 책 소개 자동 수집
 
 ### 3. 관리자 대시보드
 - 영상 생성 현황 모니터링
 - 큐 관리 (대기/진행/완료/실패)
 - 베스트셀러/연령대별 시드 실행
 - 캐시 관리 (LRU 기반)
+- **9:16 키오스크 비율 UI** (DID와 동일)
 
 ## 기술 스택
 
 ```
 Frontend: React 18 + Vite + TypeScript + TailwindCSS + Zustand
-Backend:  Fastify 5 + TypeScript + Prisma + SQLite
-Queue:    Redis + BullMQ
-Worker:   BullMQ Worker + Pipeline V2 (Gemini + Veo/Sora)
+Backend:  Fastify 5 + TypeScript + Prisma + PostgreSQL (Cloud SQL)
+Queue:    pg-boss (PostgreSQL 기반, Redis 불필요)
+Worker:   pg-boss Worker + Pipeline V2 (Gemini + Veo/Sora)
+Cloud:    GCP Cloud Run + Cloud SQL + Cloud Storage
 ```
 
 ## 프로젝트 구조
@@ -73,16 +77,16 @@ lib-mvp/
 ## 영상 생성 흐름
 
 ```
-┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────────┐
-│  Frontend   │───▶│   Backend    │───▶│    Redis    │───▶│    Worker    │
-│  (Request)  │    │  (Queue API) │    │   (BullMQ)  │    │ (Pipeline V2)│
-└─────────────┘    └──────────────┘    └─────────────┘    └──────────────┘
-                          │                                       │
-                          ▼                                       ▼
-                   ┌──────────────┐                        ┌──────────────┐
-                   │    SQLite    │◀───────────────────────│   Storage    │
-                   │   (Prisma)   │      (Callback)        │  (Local/S3)  │
-                   └──────────────┘                        └──────────────┘
+┌─────────────┐    ┌──────────────┐    ┌──────────────────┐    ┌──────────────┐
+│  Frontend   │───▶│   Backend    │───▶│   PostgreSQL     │───▶│    Worker    │
+│  (Request)  │    │  (Queue API) │    │   (pg-boss 큐)   │    │ (Pipeline V2)│
+└─────────────┘    └──────────────┘    └──────────────────┘    └──────────────┘
+                          │                     │                      │
+                          ▼                     ▼                      ▼
+                   ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
+                   │  Cloud SQL   │◀─────│   pg-boss    │      │     GCS      │
+                   │ (PostgreSQL) │      │  (작업 큐)   │      │   Storage    │
+                   └──────────────┘      └──────────────┘      └──────────────┘
 ```
 
 ### Pipeline V2 상세
@@ -122,12 +126,8 @@ cp .env.example .env
 
 `.env` 파일 편집:
 ```env
-# Database
-DATABASE_URL=file:./dev.db
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
+# Database (PostgreSQL)
+DATABASE_URL=postgresql://smartdid:smartdid123@localhost:5432/smart_did
 
 # JWT (관리자 인증)
 JWT_SECRET=your-secret-key-change-in-production-32chars
@@ -146,26 +146,35 @@ OPENAI_API_KEY=YOUR_OPENAI_KEY    # Sora
 # VEO_API_KEY=YOUR_VEO_KEY        # Veo 3.1
 
 # Storage
-STORAGE_TYPE=local
+STORAGE_TYPE=local                 # local 또는 gcs
 STORAGE_PATH=./storage/videos
+# GCS_BUCKET=smart-did-storage-1  # GCS 사용 시
+
+# 네이버 책 검색 API
+NAVER_CLIENT_ID=YOUR_NAVER_CLIENT_ID
+NAVER_CLIENT_SECRET=YOUR_NAVER_CLIENT_SECRET
 ```
 
-### 3. 데이터베이스 초기화
+### 3. PostgreSQL 실행 (Docker)
+
+```bash
+# Docker로 PostgreSQL 실행
+docker run -d --name postgres \
+  -e POSTGRES_USER=smartdid \
+  -e POSTGRES_PASSWORD=smartdid123 \
+  -e POSTGRES_DB=smart_did \
+  -p 5432:5432 postgres:15-alpine
+
+# 또는 docker-compose 사용
+docker-compose up -d postgres
+```
+
+### 4. 데이터베이스 초기화
 
 ```bash
 cd packages/backend
-npm run prisma:migrate:deploy
-npm run prisma:generate
-```
-
-### 4. Redis 실행
-
-```bash
-# Docker로 Redis 실행
-docker run -d -p 6379:6379 redis:alpine
-
-# 또는 docker-compose 사용
-docker-compose up -d redis
+npx prisma migrate deploy
+npx prisma generate
 ```
 
 ### 5. 개발 서버 실행
@@ -252,8 +261,8 @@ model VideoRecord {
 |------|------|
 | [docs/API.md](./docs/API.md) | API 레퍼런스 (전체 엔드포인트) |
 | [docs/ERD.md](./docs/ERD.md) | 데이터베이스 스키마 |
-| [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) | 배포 가이드 |
-| [개발_기록.md](../개발_기록.md) | 개발 변경 이력 |
+| [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) | GCP Cloud Run 배포 가이드 |
+| [docs/CHANGELOG.md](./docs/CHANGELOG.md) | 변경 이력 |
 | [QUICKSTART.md](./QUICKSTART.md) | 빠른 시작 가이드 |
 | [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md) | 개발 가이드 |
 
@@ -262,6 +271,15 @@ model VideoRecord {
 - **FFmpeg 의존성**: 설치/실행 환경에 따라 병합 단계가 실패할 수 있음 → 실패 시 "첫 장면만 저장" fallback 동작
 - **외부 API 변동성**: Sora/Veo/Gemini 쿼터·권한·응답 지연 이슈 가능
 - **콜백 실패 시**: Worker→Backend 콜백은 최대 3회 재시도(지수 백오프)
+
+## 최근 변경사항 (2026-03-03)
+
+- **데이터베이스**: SQLite → PostgreSQL (Cloud SQL) 전환
+- **큐 시스템**: BullMQ + Redis → pg-boss (PostgreSQL 기반) 전환
+- **UI**: Admin 페이지 9:16 키오스크 비율 적용
+- **배포**: GCP Cloud Run + Cloud SQL Connector 지원
+
+자세한 내용은 [CHANGELOG.md](./docs/CHANGELOG.md) 참조
 
 ## 라이선스
 

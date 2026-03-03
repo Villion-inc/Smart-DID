@@ -57,6 +57,35 @@ export interface DashboardStats {
   cache: CacheStats;
 }
 
+// =====================
+// Recommendation Types
+// =====================
+
+export interface RecommendationData {
+  id: string;
+  bookId: string;
+  ageGroup: string;
+  sortOrder: number;
+  title: string;
+  author: string;
+  publisher: string;
+  summary: string;
+  coverImageUrl: string | null;
+  category: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AddRecommendationInput {
+  ageGroup: string;
+  title: string;
+  author: string;
+  publisher?: string;
+  summary?: string;
+  coverImageUrl?: string;
+  category?: string;
+}
+
 export const adminApi = {
   // =====================
   // Dashboard
@@ -77,6 +106,42 @@ export const adminApi = {
   async getLibrarianPicks(): Promise<Book[]> {
     const response = await apiClient.get<ApiResponse<Book[]>>('/admin/recommendations/librarian-picks');
     return response.data.data!;
+  },
+
+  // =====================
+  // 추천도서 관리 (DB CRUD)
+  // =====================
+  async getRecommendations(): Promise<RecommendationData[]> {
+    const response = await apiClient.get<ApiResponse<RecommendationData[]>>('/admin/recommendations');
+    return response.data.data!;
+  },
+
+  async addRecommendation(data: AddRecommendationInput): Promise<RecommendationData> {
+    const response = await apiClient.post<ApiResponse<RecommendationData>>('/admin/recommendations', data);
+    return response.data.data!;
+  },
+
+  async deleteRecommendation(id: string): Promise<RecommendationData> {
+    const response = await apiClient.delete<ApiResponse<RecommendationData>>(`/admin/recommendations/${id}`);
+    return response.data.data!;
+  },
+
+  // =====================
+  // 네이버 책 검색 (표지 이미지)
+  // =====================
+  async searchBookCover(title: string, author?: string, publisher?: string): Promise<string | null> {
+    try {
+      const params: Record<string, string> = { title };
+      if (author) params.author = author;
+      if (publisher) params.publisher = publisher;
+      const response = await apiClient.get<ApiResponse<{ coverImageUrl: string | null }>>(
+        '/admin/books/search-cover',
+        { params }
+      );
+      return response.data.data?.coverImageUrl ?? null;
+    } catch {
+      return null;
+    }
   },
 
   // =====================

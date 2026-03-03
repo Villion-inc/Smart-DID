@@ -79,7 +79,7 @@ export const VideoManagement: React.FC = () => {
   ];
 
   return (
-    <AdminLayout title="영상 관리">
+    <AdminLayout>
       <div className="flex flex-1 flex-col gap-4 overflow-auto px-4 py-4">
         {/* 탭 전환 */}
         <div className="flex gap-2">

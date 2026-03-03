@@ -3,12 +3,12 @@
  * Exports all grounding functions for the V2 pipeline
  */
 
-export { fetchCandidates, fetchBookById, fetchFromAlpas } from './fetchCandidates';
+export { fetchCandidates, fetchBookById, fetchFromAlpas, fetchFromNaver } from './fetchCandidates';
 export { rankCandidates, selectBestCandidate } from './rankCandidates';
 export { buildBookFacts } from './buildBookFacts';
 
 import { BookCandidate, BookFacts } from '../../shared/types';
-import { fetchCandidates, fetchFromAlpas } from './fetchCandidates';
+import { fetchCandidates, fetchFromAlpas, fetchFromNaver } from './fetchCandidates';
 import { selectBestCandidate } from './rankCandidates';
 import { buildBookFacts } from './buildBookFacts';
 import { config } from '../../config';
@@ -107,9 +107,10 @@ const FALLBACK_BOOKS: Record<string, { candidate: BookCandidate; bookFacts: Book
  * Complete grounding process: search → rank → extract facts
  *
  * Source priority:
- *   1. Alpas API (library catalog) — PRIMARY
- *   2. Google Books API — SECONDARY (enrichment / validation)
- *   3. Fallback (well-known books + minimal facts)
+ *   1. 네이버 도서 검색 API — PRIMARY (한국어 줄거리/설명)
+ *   2. Alpas API (library catalog) — 도서관 메타데이터
+ *   3. Google Books API — SECONDARY (보완용)
+ *   4. Fallback (well-known books + minimal facts)
  *
  * @param title Book title to search
  * @param author Optional author name
@@ -123,10 +124,19 @@ export async function groundBook(
   console.log(`[Grounding] Title: "${title}"${author ? ` by ${author}` : ''}`);
 
   try {
+    let naverCandidates: BookCandidate[] = [];
     let alpasCandidates: BookCandidate[] = [];
     let googleCandidates: BookCandidate[] = [];
 
-    // Step 1a: Try Alpas API (primary source) via backend internal API
+    // Step 1a: 네이버 도서 검색 (PRIMARY — 한국어 줄거리 설명)
+    try {
+      naverCandidates = await fetchFromNaver(title, author);
+      console.log(`[Grounding] Naver returned ${naverCandidates.length} candidates`);
+    } catch (err: any) {
+      console.log(`[Grounding] Naver error (non-fatal): ${err.message}`);
+    }
+
+    // Step 1b: Try Alpas API (library catalog) via backend internal API
     if (config.alpas.enabled) {
       try {
         alpasCandidates = await fetchFromAlpas(title, author);
@@ -136,7 +146,7 @@ export async function groundBook(
       }
     }
 
-    // Step 1b: Try Google Books API (secondary source for enrichment)
+    // Step 1c: Try Google Books API (secondary source for enrichment)
     try {
       googleCandidates = await fetchCandidates(title, author);
       console.log(`[Grounding] Google Books returned ${googleCandidates.length} candidates`);
@@ -144,15 +154,15 @@ export async function groundBook(
       console.log(`[Grounding] Google Books error (non-fatal): ${err.message}`);
     }
 
-    // Step 2: Merge candidates — Alpas first, then Google Books
-    const candidates = [...alpasCandidates, ...googleCandidates];
+    // Step 2: Merge candidates — Naver first (best Korean descriptions), then Alpas, then Google
+    const candidates = [...naverCandidates, ...alpasCandidates, ...googleCandidates];
 
     if (candidates.length === 0) {
       console.log('[Grounding] No API candidates found, checking fallback...');
       return tryFallback(title, author);
     }
 
-    // Step 3: Select best candidate (prefers Korean, Alpas results come first)
+    // Step 3: Select best candidate (prefers Korean, Naver results come first)
     const bestCandidate = selectBestCandidate(candidates, title, {
       preferredAuthor: author,
       preferredLanguage: 'ko',
@@ -164,7 +174,17 @@ export async function groundBook(
       return tryFallback(title, author);
     }
 
-    // Step 4: If best candidate came from Alpas (no description), enrich with Google Books
+    // Step 4: 네이버 설명(description)을 PRIMARY source로 사용
+    // bestCandidate가 네이버가 아닌 경우에도, 네이버에서 좋은 description이 있으면 덮어씀
+    const naverDescription = findBestNaverDescription(naverCandidates, title);
+    if (naverDescription && naverDescription.length > 30) {
+      if (!bestCandidate.description || bestCandidate.description.length < naverDescription.length) {
+        console.log(`[Grounding] Using Naver description as PRIMARY (${naverDescription.length} chars)`);
+        bestCandidate.description = naverDescription;
+      }
+    }
+
+    // Step 4b: 네이버에도 description이 없으면 Google Books에서 보완
     if (
       (!bestCandidate.description || bestCandidate.description.length < 30) &&
       googleCandidates.length > 0
@@ -173,7 +193,7 @@ export async function groundBook(
         preferredAuthor: author,
       });
       if (googleMatch?.description && googleMatch.description.length > 30) {
-        console.log('[Grounding] Enriching Alpas candidate with Google Books description');
+        console.log('[Grounding] Enriching with Google Books description (Naver had none)');
         bestCandidate.description = googleMatch.description;
         if (googleMatch.categories && !bestCandidate.categories) {
           bestCandidate.categories = googleMatch.categories;
@@ -198,6 +218,42 @@ export async function groundBook(
     console.log('[Grounding] Checking fallback data...');
     return tryFallback(title, author);
   }
+}
+
+/**
+ * Find the best Naver description among candidates by matching title
+ */
+function findBestNaverDescription(naverCandidates: BookCandidate[], title: string): string | undefined {
+  if (naverCandidates.length === 0) return undefined;
+
+  const normalizedTitle = title.replace(/\s/g, '').toLowerCase();
+
+  // Try exact title match first
+  for (const c of naverCandidates) {
+    const candidateTitle = c.title.replace(/\s/g, '').toLowerCase();
+    if (candidateTitle === normalizedTitle && c.description && c.description.length > 30) {
+      return c.description;
+    }
+  }
+
+  // Try partial match
+  for (const c of naverCandidates) {
+    const candidateTitle = c.title.replace(/\s/g, '').toLowerCase();
+    if (
+      (candidateTitle.includes(normalizedTitle) || normalizedTitle.includes(candidateTitle)) &&
+      c.description &&
+      c.description.length > 30
+    ) {
+      return c.description;
+    }
+  }
+
+  // Return the longest description from any Naver result
+  const withDesc = naverCandidates
+    .filter((c) => c.description && c.description.length > 30)
+    .sort((a, b) => (b.description?.length || 0) - (a.description?.length || 0));
+
+  return withDesc[0]?.description;
 }
 
 /**

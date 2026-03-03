@@ -5,6 +5,8 @@ import { notificationService } from '../services/notification.service';
 import { queueService } from '../services/queue.service';
 import { cacheManagerService } from '../services/cache-manager.service';
 import { bestsellerSeedService } from '../services/bestseller-seed.service';
+import { recommendationRepository } from '../repositories/recommendation.repository';
+import { naverBookService } from '../services/naver-book.service';
 import { VideoUpdateInput, VideoStatusQueryInput } from '../schemas/video.schema';
 import { VideoStatus } from '../types';
 
@@ -24,6 +26,113 @@ export class AdminController {
       success: true,
       data: books,
     });
+  }
+
+  // =====================
+  // 추천도서 관리 (Recommendations CRUD)
+  // =====================
+
+  async getRecommendations(request: FastifyRequest, reply: FastifyReply) {
+    const recommendations = await recommendationRepository.getAll();
+    return reply.send({
+      success: true,
+      data: recommendations,
+    });
+  }
+
+  async addRecommendation(
+    request: FastifyRequest<{
+      Body: {
+        ageGroup: string;
+        title: string;
+        author: string;
+        publisher?: string;
+        summary?: string;
+        coverImageUrl?: string;
+        category?: string;
+      };
+    }>,
+    reply: FastifyReply
+  ) {
+    const { ageGroup, title, author, publisher, summary, coverImageUrl, category } = request.body;
+
+    // Validate age group
+    const validGroups = ['preschool', 'elementary', 'teen'];
+    if (!validGroups.includes(ageGroup)) {
+      return reply.code(400).send({
+        success: false,
+        error: `Invalid age group. Must be one of: ${validGroups.join(', ')}`,
+      });
+    }
+
+    if (!title || !author) {
+      return reply.code(400).send({
+        success: false,
+        error: '제목과 저자는 필수입니다.',
+      });
+    }
+
+    try {
+      // 표지 URL이 없으면 네이버 책 검색으로 자동 조회
+      let resolvedCoverUrl = coverImageUrl;
+      if (!resolvedCoverUrl) {
+        resolvedCoverUrl = await naverBookService.searchCoverImage(title, author) || undefined;
+      }
+
+      const recommendation = await recommendationRepository.create({
+        ageGroup,
+        title,
+        author,
+        publisher,
+        summary,
+        coverImageUrl: resolvedCoverUrl,
+        category,
+      });
+
+      // 자동 영상 생성 요청
+      await queueService.addAdminRequest({
+        bookId: recommendation.bookId,
+        title: recommendation.title,
+        author: recommendation.author,
+        summary: recommendation.summary || '',
+        trigger: 'admin_seed',
+        publisher: recommendation.publisher,
+        coverImageUrl: recommendation.coverImageUrl || undefined,
+        category: recommendation.category,
+      });
+
+      return reply.send({
+        success: true,
+        data: recommendation,
+        message: '추천도서가 등록되고 영상 생성이 요청되었습니다.',
+      });
+    } catch (error: any) {
+      return reply.code(500).send({
+        success: false,
+        error: error.message || '추천도서 등록 실패',
+      });
+    }
+  }
+
+  async deleteRecommendation(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+  ) {
+    const { id } = request.params;
+
+    try {
+      const deleted = await recommendationRepository.remove(id);
+      return reply.send({
+        success: true,
+        data: deleted,
+        message: '추천도서가 삭제되었습니다.',
+      });
+    } catch (error: any) {
+      return reply.code(404).send({
+        success: false,
+        error: '추천도서를 찾을 수 없습니다.',
+      });
+    }
   }
 
   // Video management
@@ -333,6 +442,41 @@ export class AdminController {
   // =====================
   // Dashboard Stats
   // =====================
+
+  // =====================
+  // 네이버 책 검색 (표지 이미지)
+  // =====================
+
+  /**
+   * GET /api/admin/books/search-cover?title=...&author=...
+   * 네이버 책 검색 API로 표지 이미지 URL 조회
+   */
+  async searchBookCover(
+    request: FastifyRequest<{ Querystring: { title: string; author?: string; publisher?: string } }>,
+    reply: FastifyReply
+  ) {
+    const { title, author, publisher } = request.query;
+
+    if (!title) {
+      return reply.code(400).send({
+        success: false,
+        error: '제목을 입력해주세요.',
+      });
+    }
+
+    if (!naverBookService.isConfigured()) {
+      return reply.send({
+        success: true,
+        data: { coverImageUrl: null, message: '네이버 API 키가 설정되지 않았습니다.' },
+      });
+    }
+
+    const coverImageUrl = await naverBookService.searchCoverImage(title, author, publisher);
+    return reply.send({
+      success: true,
+      data: { coverImageUrl },
+    });
+  }
 
   /**
    * 대시보드 통계 조회

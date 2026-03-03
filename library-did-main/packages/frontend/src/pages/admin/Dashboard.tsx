@@ -2,16 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useAdminStore } from '../../stores/adminStore';
-import { adminApi } from '../../api/admin.api';
+import { adminApi, RecommendationData } from '../../api/admin.api';
 import { AdminLayout } from './AdminLayout';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { logout, isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const {
-    librarianPicks,
-    loadNewArrivals,
-    loadLibrarianPicks,
     loadVideos,
     requestVideoGeneration,
   } = useAdminStore();
@@ -24,6 +21,7 @@ export const AdminDashboard: React.FC = () => {
     queued: number;
     generating: number;
   } | null>(null);
+  const [recommendations, setRecommendations] = useState<RecommendationData[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -31,11 +29,19 @@ export const AdminDashboard: React.FC = () => {
       navigate('/admin/login');
       return;
     }
-    loadNewArrivals();
-    loadLibrarianPicks();
+    loadRecommendations();
     loadVideos();
     loadStats();
   }, [isAuthenticated, navigate]);
+
+  const loadRecommendations = async () => {
+    try {
+      const data = await adminApi.getRecommendations();
+      setRecommendations(data);
+    } catch {
+      setRecommendations([]);
+    }
+  };
 
   const loadStats = async () => {
     try {
@@ -69,11 +75,6 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/admin/login');
-  };
-
   const handleRequestVideo = async (bookId: string) => {
     setLoading(true);
     try {
@@ -94,19 +95,8 @@ export const AdminDashboard: React.FC = () => {
   };
 
   return (
-    <AdminLayout title="대시보드">
+    <AdminLayout>
       <div className="flex flex-1 flex-col gap-4 overflow-auto px-4 py-4">
-        {/* 로그아웃 버튼 */}
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-lg bg-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-300"
-          >
-            로그아웃
-          </button>
-        </div>
-
         {/* API 사용 현황 */}
         <div
           className="rounded-2xl p-4"
@@ -156,27 +146,27 @@ export const AdminDashboard: React.FC = () => {
             </button>
           </div>
           
-          {librarianPicks.length === 0 ? (
+          {recommendations.length === 0 ? (
             <p className="py-4 text-center text-sm text-gray-400">
               등록된 추천 도서가 없습니다.
             </p>
           ) : (
             <div className="space-y-2">
-              {librarianPicks.slice(0, 5).map((book) => (
+              {recommendations.slice(0, 5).map((rec) => (
                 <div
-                  key={book.id}
+                  key={rec.id}
                   className="flex items-center justify-between rounded-xl bg-gray-50 p-3"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-gray-800">
-                      {book.title}
+                      {rec.title}
                     </p>
-                    <p className="truncate text-xs text-gray-500">{book.author}</p>
+                    <p className="truncate text-xs text-gray-500">{rec.author}</p>
                   </div>
                   <button
                     type="button"
                     disabled={loading}
-                    onClick={() => handleRequestVideo(book.id)}
+                    onClick={() => handleRequestVideo(rec.bookId)}
                     className="ml-2 shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                   >
                     영상 생성
@@ -200,13 +190,6 @@ export const AdminDashboard: React.FC = () => {
               className="flex h-12 items-center justify-center rounded-xl bg-gray-100 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
             >
               영상 목록 보기
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/did')}
-              className="flex h-12 items-center justify-center rounded-xl bg-gray-100 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
-            >
-              DID 화면 보기
             </button>
           </div>
         </div>

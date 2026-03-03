@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getDidBookDetail, getVideoStatus, requestVideo } from '../../api/did.api';
+import { getDidBookDetail, getVideoStatus } from '../../api/did.api';
 import { DidV2Layout } from './DidV2Layout';
 import type { DidBookDetail } from '../../types';
 
@@ -27,8 +27,6 @@ export function DidV2BookDetail() {
   const [videoEnded, setVideoEnded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const autoRequestedRef = useRef(false);
-
   // Load book detail
   useEffect(() => {
     if (!bookId) return;
@@ -70,30 +68,11 @@ export function DidV2BookDetail() {
 
         if (res.status === 'READY' && res.videoUrl) {
           setVideoUrl(res.videoUrl);
-          return; // Already ready, no need to request or poll
+          return;
         }
 
-        // Auto-request video if status is NONE or FAILED
-        if ((res.status === 'NONE' || res.status === 'FAILED') && !autoRequestedRef.current) {
-          autoRequestedRef.current = true;
-          try {
-            const reqRes = await requestVideo(bookId, {
-              title: bookDetail.title,
-              author: bookDetail.author,
-            });
-            setVideoStatus(reqRes.status);
-            if (reqRes.status === 'READY' && reqRes.videoUrl) {
-              setVideoUrl(reqRes.videoUrl);
-              return;
-            }
-          } catch (e) {
-            console.error('Auto requestVideo error:', e);
-          }
-        }
-
-        // Start polling for QUEUED or GENERATING
-        const currentStatus = res.status === 'NONE' || res.status === 'FAILED' ? 'QUEUED' : res.status;
-        if (currentStatus === 'QUEUED' || currentStatus === 'GENERATING') {
+        // Poll for QUEUED or GENERATING (admin이 이미 요청한 경우)
+        if (res.status === 'QUEUED' || res.status === 'GENERATING') {
           if (!pollingRef.current) {
             pollingRef.current = setInterval(pollVideoStatus, 10_000);
           }

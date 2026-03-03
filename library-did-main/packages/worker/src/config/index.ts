@@ -20,6 +20,10 @@ if (envPath) {
 export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
 
+  // PostgreSQL (pg-boss queue)
+  databaseUrl: process.env.DATABASE_URL || '',
+
+  // Redis (legacy - kept for compatibility)
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
@@ -83,6 +87,12 @@ export const config = {
   alpas: {
     /** true이면 Alpas 검색을 1차 소스로 사용 (기본: true) */
     enabled: process.env.ALPAS_ENABLED !== 'false',
+  },
+
+  /** 네이버 도서 검색 API (줄거리 설명 PRIMARY source) */
+  naver: {
+    clientId: process.env.NAVER_CLIENT_ID || '',
+    clientSecret: process.env.NAVER_CLIENT_SECRET || '',
   },
 };
 

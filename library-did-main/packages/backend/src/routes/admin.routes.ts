@@ -13,10 +13,22 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.get('/admin/dashboard/stats', adminController.getDashboardStats.bind(adminController));
 
   // =====================
-  // Recommendations
+  // Recommendations (ALPAS)
   // =====================
   fastify.get('/admin/recommendations/new-arrivals', adminController.getNewArrivals.bind(adminController));
   fastify.get('/admin/recommendations/librarian-picks', adminController.getLibrarianPicks.bind(adminController));
+
+  // =====================
+  // 추천도서 관리 (DB CRUD)
+  // =====================
+  fastify.get('/admin/recommendations', adminController.getRecommendations.bind(adminController));
+  fastify.post('/admin/recommendations', adminController.addRecommendation.bind(adminController));
+  fastify.delete('/admin/recommendations/:id', adminController.deleteRecommendation.bind(adminController));
+
+  // =====================
+  // 네이버 책 검색 (표지 이미지)
+  // =====================
+  fastify.get('/admin/books/search-cover', adminController.searchBookCover.bind(adminController));
 
   // =====================
   // Video Management

@@ -22,18 +22,27 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - DATABASE_URL=${DATABASE_URL:-file:./dev.db}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET:-your-secret-key}
-      - VEO_API_KEY=${VEO_API_KEY}
-      - VEO_API_ENDPOINT=${VEO_API_ENDPOINT}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-internal-secret}
+      - STORAGE_TYPE=${STORAGE_TYPE:-local}
+      - STORAGE_PATH=./storage/videos
+      - GCS_BUCKET=${GCS_BUCKET:-}
+      - NAVER_CLIENT_ID=${NAVER_CLIENT_ID:-}
+      - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET:-}
+      - ALPAS_USE_MOCK=${ALPAS_USE_MOCK:-true}
+      - ALPAS_API_URL=${ALPAS_API_URL:-}
+      - ALPAS_API_KEY=${ALPAS_API_KEY:-}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme123}
     depends_on:
       redis:
         condition: service_healthy
     volumes:
-      - ./storage:/app/storage
+      - video_storage:/app/storage
+      - db_data:/app/prisma
     restart: unless-stopped
 
   worker:
@@ -44,8 +53,17 @@ services:
       - NODE_ENV=production
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - VEO_API_KEY=${VEO_API_KEY}
-      - VEO_API_ENDPOINT=${VEO_API_ENDPOINT}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-internal-secret}
+      - BACKEND_URL=http://backend:3000
+      - STORAGE_TYPE=${STORAGE_TYPE:-local}
+      - STORAGE_PATH=./storage/videos
+      - GCS_BUCKET=${GCS_BUCKET:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
+      - NAVER_CLIENT_ID=${NAVER_CLIENT_ID:-}
+      - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET:-}
+      - VEO_API_KEY=${VEO_API_KEY:-}
+      - VEO_API_ENDPOINT=${VEO_API_ENDPOINT:-}
       - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-2}
     depends_on:
       redis:
@@ -53,13 +71,16 @@ services:
       backend:
         condition: service_started
     volumes:
-      - ./storage:/app/storage
+      - video_storage:/app/storage
     restart: unless-stopped
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        - VITE_BASE_PATH=${VITE_BASE_PATH:-}
+        - VITE_API_URL=${VITE_API_URL:-}
     ports:
       - "80:80"
     depends_on:
@@ -68,3 +89,5 @@ services:
 
 volumes:
   redis_data:
+  video_storage:
+  db_data:

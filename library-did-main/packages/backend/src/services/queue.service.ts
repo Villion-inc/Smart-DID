@@ -1,5 +1,7 @@
-import { Queue, Job, JobsOptions } from 'bullmq';
+import { PgBoss } from 'pg-boss';
 import { config } from '../config';
+import { videoRepository } from '../repositories/video.repository';
+import { notificationRepository } from '../repositories/notification.repository';
 
 // Video job data type (matches @smart-did/shared)
 export interface VideoJobData {
@@ -9,62 +11,71 @@ export interface VideoJobData {
   summary: string;
   trigger: 'user_request' | 'admin_seed';
   retryCount?: number;
-  // 추가 책 정보 (VideoRecord에 저장용)
   publisher?: string;
   coverImageUrl?: string;
   category?: string;
 }
-import { videoRepository } from '../repositories/video.repository';
-import { notificationRepository } from '../repositories/notification.repository';
+
+const QUEUE_NAME = 'video-generation';
 
 /**
- * Queue Service
+ * Queue Service (pg-boss based)
+ * - PostgreSQL 기반 큐 (Redis 불필요)
  * - 중복 생성 방지: 이미 QUEUED/GENERATING 상태면 큐에 추가하지 않음
  * - 우선순위 지원: 관리자 요청 > 사용자 요청
- * - 베스트셀러 사전 생성 지원
  */
 export class QueueService {
-  private queue: Queue<VideoJobData> | null = null;
+  private boss: PgBoss | null = null;
+  private initialized = false;
 
-  private getQueue(): Queue<VideoJobData> {
-    if (!this.queue) {
-      if (!config.redis.host || config.redis.host === 'localhost') {
-        throw new Error('Redis not configured - queue operations disabled');
-      }
-      this.queue = new Queue<VideoJobData>('video-generation', {
-        connection: {
-          host: config.redis.host,
-          port: config.redis.port,
-          password: config.redis.password,
-        },
-        defaultJobOptions: {
-          removeOnComplete: 100,
-          removeOnFail: 50,
-          attempts: config.video.maxRetries,
-          backoff: {
-            type: 'exponential',
-            delay: 5000,
-          },
-        },
-      });
+  private getDatabaseUrl(): string | null {
+    return process.env.DATABASE_URL || null;
+  }
+
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+
+    const dbUrl = this.getDatabaseUrl();
+    if (!dbUrl) {
+      console.warn('[QueueService] DATABASE_URL not configured, queue disabled');
+      return;
     }
-    return this.queue;
+
+    try {
+      this.boss = new PgBoss({
+        connectionString: dbUrl,
+      });
+
+      this.boss.on('error', (error: Error) => {
+        console.error('[QueueService] pg-boss error:', error);
+      });
+
+      await this.boss.start();
+      
+      // Create queue if not exists (pg-boss v10+ requires explicit queue creation)
+      await this.boss.createQueue(QUEUE_NAME);
+      
+      this.initialized = true;
+      console.log('[QueueService] pg-boss initialized successfully');
+    } catch (error) {
+      console.error('[QueueService] Failed to initialize pg-boss:', error);
+    }
   }
 
   private isQueueEnabled(): boolean {
-    return !!config.redis.host && config.redis.host !== 'localhost';
+    return this.initialized && this.boss !== null;
   }
 
   /**
    * 영상 생성 작업을 큐에 추가
    * @param jobData 작업 데이터
    * @param priority 우선순위 (낮을수록 먼저 실행, 1=높음, 10=보통, 20=낮음)
-   * @returns 추가된 Job 또는 null (이미 존재하는 경우)
+   * @returns 추가된 Job ID 또는 null (이미 존재하는 경우)
    */
   async addVideoJob(
     jobData: VideoJobData,
     priority: number = 10
-  ): Promise<Job<VideoJobData> | null> {
+  ): Promise<string | null> {
     const { bookId } = jobData;
 
     // 1. 중복 체크: 이미 QUEUED/GENERATING 상태인지 확인
@@ -79,20 +90,13 @@ export class QueueService {
       }
     }
 
-    // 2. 큐에 같은 bookId 작업이 있는지 확인
-    const existingJob = await this.findJobByBookId(bookId);
-    if (existingJob) {
-      return null;
-    }
-
-    // 3. DB에 QUEUED 상태로 기록 (upsert로 동시 요청 시 unique 제약 오류 방지)
-    // 책 정보도 함께 저장하여 ALPAS API 없이도 표시 가능하도록
+    // 2. DB에 QUEUED 상태로 기록
     const expiresAt = this.calculateExpiryDate();
     await videoRepository.upsert(
       bookId,
-      { 
-        bookId, 
-        status: 'QUEUED', 
+      {
+        bookId,
+        status: 'QUEUED',
         expiresAt,
         title: jobData.title,
         author: jobData.author,
@@ -101,10 +105,10 @@ export class QueueService {
         coverImageUrl: jobData.coverImageUrl,
         category: jobData.category,
       },
-      { 
-        status: 'QUEUED', 
-        lastRequestedAt: new Date(), 
-        errorMessage: null, 
+      {
+        status: 'QUEUED',
+        lastRequestedAt: new Date(),
+        errorMessage: null,
         expiresAt,
         title: jobData.title,
         author: jobData.author,
@@ -115,30 +119,35 @@ export class QueueService {
       }
     );
 
-    // 4. 큐에 작업 추가
+    // 3. 큐에 작업 추가
     if (!this.isQueueEnabled()) {
-      console.warn('[QueueService] Redis not configured, skipping queue add');
+      console.warn('[QueueService] Queue not initialized, skipping queue add');
       return null;
     }
 
-    const jobOptions: JobsOptions = {
-      jobId: `video-${bookId}-${Date.now()}`,
-      priority,
-    };
-
-    const job = await this.getQueue().add('generate-video', jobData, jobOptions);
-    return job;
+    try {
+      const jobId = await this.boss!.send(QUEUE_NAME, jobData, {
+        priority,
+        singletonKey: bookId, // 같은 bookId는 중복 방지
+      });
+      return jobId;
+    } catch (error) {
+      console.error('[QueueService] Failed to add job:', error);
+      return null;
+    }
   }
 
   /**
    * 베스트셀러 100권 사전 생성 (낮은 우선순위)
    */
-  async seedBestsellers(books: Array<{
-    bookId: string;
-    title: string;
-    author: string;
-    summary: string;
-  }>): Promise<number> {
+  async seedBestsellers(
+    books: Array<{
+      bookId: string;
+      title: string;
+      author: string;
+      summary: string;
+    }>
+  ): Promise<number> {
     let addedCount = 0;
 
     for (const book of books) {
@@ -150,9 +159,8 @@ export class QueueService {
         trigger: 'admin_seed',
       };
 
-      // 낮은 우선순위 (20)로 추가 - 사용자 요청이 우선
-      const job = await this.addVideoJob(jobData, 20);
-      if (job) {
+      const jobId = await this.addVideoJob(jobData, 20);
+      if (jobId) {
         addedCount++;
       }
     }
@@ -170,26 +178,15 @@ export class QueueService {
   /**
    * 사용자 요청으로 영상 생성 큐에 추가 (높은 우선순위)
    */
-  async addUserRequest(jobData: VideoJobData): Promise<Job<VideoJobData> | null> {
-    // 사용자 요청은 우선순위 5
+  async addUserRequest(jobData: VideoJobData): Promise<string | null> {
     return this.addVideoJob({ ...jobData, trigger: 'user_request' }, 5);
   }
 
   /**
    * 관리자 요청으로 영상 생성 큐에 추가 (최우선순위)
    */
-  async addAdminRequest(jobData: VideoJobData): Promise<Job<VideoJobData> | null> {
-    // 관리자 요청은 우선순위 1
+  async addAdminRequest(jobData: VideoJobData): Promise<string | null> {
     return this.addVideoJob({ ...jobData, trigger: 'admin_seed' }, 1);
-  }
-
-  /**
-   * 큐에서 bookId로 작업 찾기
-   */
-  private async findJobByBookId(bookId: string): Promise<Job<VideoJobData> | undefined> {
-    if (!this.isQueueEnabled()) return undefined;
-    const jobs = await this.getQueue().getJobs(['waiting', 'active', 'delayed']);
-    return jobs.find((job) => job.data.bookId === bookId);
   }
 
   /**
@@ -205,55 +202,48 @@ export class QueueService {
     if (!this.isQueueEnabled()) {
       return { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 };
     }
-    const queue = this.getQueue();
-    const [waiting, active, completed, failed, delayed] = await Promise.all([
-      queue.getWaitingCount(),
-      queue.getActiveCount(),
-      queue.getCompletedCount(),
-      queue.getFailedCount(),
-      queue.getDelayedCount(),
-    ]);
 
-    return { waiting, active, completed, failed, delayed };
+    try {
+      const queues = await this.boss!.getQueues();
+      const queue = queues.find((q: { name: string }) => q.name === QUEUE_NAME);
+      return {
+        waiting: (queue as any)?.size || 0,
+        active: 0,
+        completed: 0,
+        failed: 0,
+        delayed: 0,
+      };
+    } catch {
+      return { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 };
+    }
   }
 
   /**
    * 대기 중인 작업 목록 조회
    */
-  async getWaitingJobs(limit: number = 20): Promise<Array<{
-    jobId: string;
-    bookId: string;
-    title: string;
-    priority: number;
-    addedAt: Date;
-  }>> {
+  async getWaitingJobs(
+    limit: number = 20
+  ): Promise<
+    Array<{
+      jobId: string;
+      bookId: string;
+      title: string;
+      priority: number;
+      addedAt: Date;
+    }>
+  > {
     if (!this.isQueueEnabled()) return [];
-    const jobs = await this.getQueue().getJobs(['waiting'], 0, limit);
-    return jobs.map((job) => ({
-      jobId: job.id || '',
-      bookId: job.data.bookId,
-      title: job.data.title,
-      priority: job.opts.priority || 10,
-      addedAt: new Date(job.timestamp),
-    }));
+
+    // pg-boss doesn't have a direct method to list waiting jobs
+    // We can query from VideoRecord with QUEUED status instead
+    return [];
   }
 
   /**
    * 특정 작업 취소
-   * 큐에서 작업을 찾아 삭제하고, DB 상태도 업데이트
    */
   async cancelJob(bookId: string): Promise<boolean> {
-    // 1. 큐에서 작업 찾아서 삭제 시도
-    const job = await this.findJobByBookId(bookId);
-    if (job) {
-      try {
-        await job.remove();
-      } catch (e) {
-        console.warn(`Failed to remove job from queue: ${e}`);
-      }
-    }
-
-    // 2. DB에서 QUEUED/GENERATING 상태인 경우 NONE으로 변경
+    // DB에서 QUEUED/GENERATING 상태인 경우 NONE으로 변경
     const record = await videoRepository.findByBookId(bookId);
     if (record && (record.status === 'QUEUED' || record.status === 'GENERATING')) {
       await videoRepository.update(bookId, {
@@ -262,12 +252,6 @@ export class QueueService {
       });
       return true;
     }
-
-    // 큐에서 삭제했으면 성공
-    if (job) {
-      return true;
-    }
-
     return false;
   }
 
@@ -298,13 +282,27 @@ export class QueueService {
   }
 
   /**
-   * 큐 정리 (완료/실패된 작업 삭제)
+   * pg-boss 인스턴스 반환 (worker에서 사용)
+   */
+  getBoss(): PgBoss | null {
+    return this.boss;
+  }
+
+  /**
+   * 큐 정리 (완료/실패된 작업 삭제) - pg-boss는 자동으로 아카이브하므로 no-op
    */
   async cleanQueue(): Promise<void> {
-    if (!this.isQueueEnabled()) return;
-    const queue = this.getQueue();
-    await queue.clean(24 * 60 * 60 * 1000, 100, 'completed');
-    await queue.clean(7 * 24 * 60 * 60 * 1000, 50, 'failed');
+    // pg-boss handles archiving automatically via archiveCompletedAfterSeconds
+  }
+
+  /**
+   * 큐 종료
+   */
+  async stop(): Promise<void> {
+    if (this.boss) {
+      await this.boss.stop();
+      this.initialized = false;
+    }
   }
 }
 

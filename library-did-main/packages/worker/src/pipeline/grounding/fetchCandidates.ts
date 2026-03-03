@@ -11,6 +11,7 @@ import { BookCandidate } from '../../shared/types';
 import { config } from '../../config';
 
 const GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes';
+const NAVER_BOOKS_API_URL = 'https://openapi.naver.com/v1/search/book.json';
 
 /** Alpas Book shape returned from backend internal API */
 interface AlpasBookResult {
@@ -72,6 +73,85 @@ export async function fetchFromAlpas(
     }));
   } catch (error: any) {
     console.error(`[Grounding/Alpas] Error: ${error.message}`);
+    return [];
+  }
+}
+
+/** Naver Book Search API response shape */
+interface NaverBookItem {
+  title: string;
+  link: string;
+  image: string;
+  author: string;
+  discount: string;
+  publisher: string;
+  pubdate: string;
+  isbn: string;
+  description: string;
+}
+
+interface NaverBookResponse {
+  lastBuildDate: string;
+  total: number;
+  start: number;
+  display: number;
+  items: NaverBookItem[];
+}
+
+/**
+ * Fetch book candidates from Naver Book Search API
+ * PRIMARY source for Korean book descriptions (줄거리)
+ */
+export async function fetchFromNaver(
+  title: string,
+  author?: string,
+): Promise<BookCandidate[]> {
+  const { clientId, clientSecret } = config.naver;
+  if (!clientId || !clientSecret) {
+    console.log('[Grounding/Naver] API keys not configured, skipping');
+    return [];
+  }
+
+  const query = author ? `${title} ${author}` : title;
+  const url = `${NAVER_BOOKS_API_URL}?query=${encodeURIComponent(query)}&display=5`;
+
+  console.log(`[Grounding/Naver] Searching: "${query}"`);
+
+  try {
+    const response = await axios.get<NaverBookResponse>(url, {
+      timeout: 10000,
+      headers: {
+        'X-Naver-Client-Id': clientId,
+        'X-Naver-Client-Secret': clientSecret,
+      },
+    });
+
+    const items = response.data?.items;
+    if (!Array.isArray(items) || items.length === 0) {
+      console.log('[Grounding/Naver] No results');
+      return [];
+    }
+
+    console.log(`[Grounding/Naver] Got ${items.length} results`);
+
+    return items.map((item) => {
+      // Strip HTML tags from Naver response fields
+      const cleanTitle = item.title.replace(/<[^>]*>/g, '');
+      const cleanAuthor = item.author.replace(/<[^>]*>/g, '');
+      const cleanDescription = item.description.replace(/<[^>]*>/g, '');
+
+      return {
+        id: `naver-${item.isbn || encodeURIComponent(cleanTitle)}`,
+        title: cleanTitle,
+        authors: cleanAuthor ? [cleanAuthor] : ['Unknown Author'],
+        publishedDate: item.pubdate,
+        description: cleanDescription,
+        language: 'ko',
+        thumbnail: item.image || undefined,
+      };
+    });
+  } catch (error: any) {
+    console.error(`[Grounding/Naver] Error: ${error.message}`);
     return [];
   }
 }

@@ -78,6 +78,11 @@ export const config = {
     networkAdapterId: process.env.ALPAS_NETWORK_ADAPTER_ID || '1',
   },
 
+  naver: {
+    clientId: process.env.NAVER_CLIENT_ID || '',
+    clientSecret: process.env.NAVER_CLIENT_SECRET || '',
+  },
+
   admin: {
     username: process.env.ADMIN_USERNAME || 'admin',
     password: process.env.ADMIN_PASSWORD || 'admin1234',

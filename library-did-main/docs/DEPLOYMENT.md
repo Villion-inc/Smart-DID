@@ -1,124 +1,200 @@
 # Deployment Guide
 
-> **마지막 업데이트**: 2026-02-28
+> **마지막 업데이트**: 2026-03-03
 
 Smart DID Video Service 배포 가이드입니다.
 
 ## 목차
 
-- [환경 설정](#환경-설정)
-- [Docker 배포](#docker-배포)
-- [수동 배포](#수동-배포)
-- [Nginx 설정](#nginx-설정)
+- [아키텍처 개요](#아키텍처-개요)
+- [GCP Cloud Run 배포](#gcp-cloud-run-배포)
+- [환경 변수](#환경-변수)
+- [Docker 로컬 배포](#docker-로컬-배포)
 - [모니터링](#모니터링)
-- [보안](#보안)
-- [백업](#백업)
+- [트러블슈팅](#트러블슈팅)
 
-## 환경 설정
+## 아키텍처 개요
 
-### 필수 인프라
-
-- **서버**: 2+ CPU, 4GB+ RAM
-- **Redis**: 큐 관리용
-- **FFmpeg**: 영상 병합용
-- **SSL 인증서**: HTTPS용
-
-### 환경 변수
-
-`.env.production` 파일 생성:
-
-```env
-# Environment
-NODE_ENV=production
-
-# Backend
-PORT=3001
-API_PREFIX=/api
-
-# Database (SQLite 또는 PostgreSQL)
-DATABASE_URL=file:./prod.db
-# DATABASE_URL=postgresql://user:password@localhost:5432/smart_did
-
-# JWT
-JWT_SECRET=<64자-이상-랜덤-문자열>
-JWT_EXPIRES_IN=3600
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=<redis-password>
-
-# Internal API (Backend-Worker 통신)
-INTERNAL_API_SECRET=<internal-secret>
-BACKEND_URL=http://localhost:3001
-
-# AI APIs
-GEMINI_API_KEY=<gemini-api-key>
-VEO_API_KEY=<veo-api-key>
-OPENAI_API_KEY=<openai-api-key>
-
-# ALPAS (도서관 API)
-ALPAS_API_URL=https://alpas.library.example.com/api
-ALPAS_API_KEY=<alpas-api-key>
-
-# Video Settings
-VIDEO_DEFAULT_EXPIRY_DAYS=90
-VIDEO_MAX_RETRIES=3
-
-# Worker
-WORKER_CONCURRENCY=2
-
-# Admin
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=<strong-password>
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        GCP Cloud Run                             │
+├─────────────────┬─────────────────┬─────────────────────────────┤
+│    Frontend     │    Backend      │         Worker              │
+│   (Nginx/SPA)   │  (Fastify API)  │   (pg-boss + Pipeline)      │
+│                 │                 │                             │
+│  - DID 화면     │  - REST API     │  - 영상 생성 (Sora/Veo)     │
+│  - Admin 화면   │  - pg-boss 큐   │  - FFmpeg 조립              │
+│                 │  - Prisma ORM   │  - GCS 업로드               │
+└────────┬────────┴────────┬────────┴──────────────┬──────────────┘
+         │                 │                       │
+         │                 ▼                       │
+         │    ┌────────────────────────┐           │
+         │    │   Cloud SQL (PostgreSQL)│◄──────────┘
+         │    │   - 사용자/영상 데이터   │
+         │    │   - pg-boss 큐 테이블   │
+         │    └────────────────────────┘
+         │
+         ▼
+┌────────────────────────┐
+│  Cloud Storage (GCS)   │
+│  - 생성된 영상 파일     │
+│  - 자막 파일 (.vtt)    │
+└────────────────────────┘
 ```
 
-### 시크릿 생성
+### 주요 변경사항 (2026-03-03)
 
-```bash
-# JWT 시크릿
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+- **Redis → pg-boss**: BullMQ + Redis 대신 PostgreSQL 기반 pg-boss 사용
+- **SQLite → PostgreSQL**: Cloud SQL PostgreSQL로 전환
+- **Cloud SQL Connector**: Public IP 대신 Unix 소켓 연결 (보안 강화)
 
-# Internal API 시크릿
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-## Docker 배포
+## GCP Cloud Run 배포
 
 ### 사전 요구사항
 
-- Docker 20.10+
-- Docker Compose 2.0+
+1. GCP 프로젝트 (`asanlibrary`)
+2. Cloud SQL PostgreSQL 인스턴스
+3. Cloud Storage 버킷 (`smart-did-storage-1`)
+4. Artifact Registry 저장소
 
-### 이미지 빌드
+### 1. Cloud SQL 설정
+
+```bash
+# Cloud SQL 인스턴스 생성 (이미 완료된 경우 스킵)
+gcloud sql instances create smart-did-db \
+  --database-version=POSTGRES_15 \
+  --tier=db-f1-micro \
+  --region=asia-northeast3
+
+# 데이터베이스 생성
+gcloud sql databases create smart_did --instance=smart-did-db
+
+# 사용자 비밀번호 설정
+gcloud sql users set-password postgres \
+  --instance=smart-did-db \
+  --password=YOUR_PASSWORD
+```
+
+### 2. Docker 이미지 빌드 & 푸시
 
 ```bash
 cd library-did-main
 
-# 전체 빌드
-docker-compose build
+# Artifact Registry 인증
+gcloud auth configure-docker asia-northeast3-docker.pkg.dev
 
-# 개별 빌드
-docker build -f Dockerfile.backend -t smart-did-backend .
-docker build -f Dockerfile.frontend -t smart-did-frontend .
-docker build -f Dockerfile.worker -t smart-did-worker .
+# Backend 빌드 & 푸시
+docker build -f Dockerfile.backend -t asia-northeast3-docker.pkg.dev/asanlibrary/smart-did/backend:latest .
+docker push asia-northeast3-docker.pkg.dev/asanlibrary/smart-did/backend:latest
+
+# Frontend 빌드 & 푸시
+docker build -f Dockerfile.frontend \
+  --build-arg VITE_API_URL=https://YOUR_BACKEND_URL/api \
+  -t asia-northeast3-docker.pkg.dev/asanlibrary/smart-did/frontend:latest .
+docker push asia-northeast3-docker.pkg.dev/asanlibrary/smart-did/frontend:latest
+
+# Worker 빌드 & 푸시
+docker build -f Dockerfile.worker -t asia-northeast3-docker.pkg.dev/asanlibrary/smart-did/worker:latest .
+docker push asia-northeast3-docker.pkg.dev/asanlibrary/smart-did/worker:latest
 ```
 
-### Docker Compose 실행
+### 3. Cloud Run 배포
+
+#### Backend
 
 ```bash
-# 서비스 시작
-docker-compose up -d
-
-# 로그 확인
-docker-compose logs -f
-
-# 상태 확인
-docker-compose ps
-
-# 서비스 중지
-docker-compose down
+gcloud run deploy smart-did-backend \
+  --image asia-northeast3-docker.pkg.dev/asanlibrary/smart-did/backend:latest \
+  --region asia-northeast3 \
+  --platform managed \
+  --allow-unauthenticated \
+  --add-cloudsql-instances asanlibrary:asia-northeast3:smart-did-db \
+  --memory 512Mi \
+  --cpu 1 \
+  --min-instances 0 \
+  --max-instances 3
 ```
+
+#### Frontend
+
+```bash
+gcloud run deploy smart-did-frontend \
+  --image asia-northeast3-docker.pkg.dev/asanlibrary/smart-did/frontend:latest \
+  --region asia-northeast3 \
+  --platform managed \
+  --allow-unauthenticated \
+  --memory 256Mi \
+  --cpu 1 \
+  --min-instances 0 \
+  --max-instances 3
+```
+
+#### Worker
+
+```bash
+gcloud run deploy smart-did-worker \
+  --image asia-northeast3-docker.pkg.dev/asanlibrary/smart-did/worker:latest \
+  --region asia-northeast3 \
+  --platform managed \
+  --no-allow-unauthenticated \
+  --add-cloudsql-instances asanlibrary:asia-northeast3:smart-did-db \
+  --memory 2Gi \
+  --cpu 2 \
+  --min-instances 1 \
+  --max-instances 2 \
+  --no-cpu-throttling
+```
+
+### 4. 환경변수 설정 (GCP Console)
+
+Cloud Run 서비스 → 수정 → 변수 및 보안 비밀 → 환경 변수 추가
+
+## 환경 변수
+
+### Backend
+
+| 변수명 | 설명 | 예시 |
+|--------|------|------|
+| `NODE_ENV` | 환경 | `production` |
+| `PORT` | 포트 | `3000` |
+| `DATABASE_URL` | Cloud SQL 연결 | `postgresql://postgres:PASSWORD@localhost/smart_did?host=/cloudsql/asanlibrary:asia-northeast3:smart-did-db` |
+| `JWT_SECRET` | JWT 시크릿 | `openssl rand -base64 32` |
+| `INTERNAL_API_SECRET` | 내부 API 시크릿 | `openssl rand -base64 32` |
+| `STORAGE_TYPE` | 저장소 타입 | `gcs` |
+| `GCS_BUCKET` | GCS 버킷명 | `smart-did-storage-1` |
+| `NAVER_CLIENT_ID` | 네이버 API ID | - |
+| `NAVER_CLIENT_SECRET` | 네이버 API Secret | - |
+| `ADMIN_USERNAME` | 관리자 ID | `admin` |
+| `ADMIN_PASSWORD` | 관리자 비밀번호 | - |
+
+### Worker
+
+Backend 환경변수 + 추가:
+
+| 변수명 | 설명 | 예시 |
+|--------|------|------|
+| `GEMINI_API_KEY` | Gemini API 키 | - |
+| `OPENAI_API_KEY` | OpenAI (Sora) API 키 | - |
+| `BACKEND_URL` | Backend URL | `https://smart-did-backend-xxx.run.app` |
+| `WORKER_CONCURRENCY` | 동시 처리 수 | `2` |
+
+### Frontend
+
+| 변수명 | 설명 | 예시 |
+|--------|------|------|
+| `VITE_API_URL` | Backend API URL | `https://smart-did-backend-xxx.run.app/api` |
+
+### Cloud SQL 연결 URL 형식
+
+```
+# Cloud Run에서 Cloud SQL Connector 사용 시 (권장)
+DATABASE_URL=postgresql://USER:PASSWORD@localhost/DATABASE?host=/cloudsql/PROJECT:REGION:INSTANCE
+
+# 예시
+DATABASE_URL=postgresql://postgres:mypassword@localhost/smart_did?host=/cloudsql/asanlibrary:asia-northeast3:smart-did-db
+```
+
+## Docker 로컬 배포
 
 ### docker-compose.yml
 
@@ -126,13 +202,17 @@ docker-compose down
 version: '3.8'
 
 services:
-  redis:
-    image: redis:7-alpine
+  postgres:
+    image: postgres:15-alpine
     restart: always
+    environment:
+      POSTGRES_USER: smartdid
+      POSTGRES_PASSWORD: smartdid123
+      POSTGRES_DB: smart_did
     ports:
-      - "6379:6379"
+      - "5432:5432"
     volumes:
-      - redis_data:/data
+      - postgres_data:/var/lib/postgresql/data
 
   backend:
     build:
@@ -140,29 +220,47 @@ services:
       dockerfile: Dockerfile.backend
     restart: always
     ports:
-      - "3001:3001"
-    env_file: .env.production
+      - "3001:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://smartdid:smartdid123@postgres:5432/smart_did
+      - JWT_SECRET=${JWT_SECRET}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
+      - STORAGE_TYPE=local
+      - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
+      - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     depends_on:
-      - redis
+      - postgres
     volumes:
-      - ./packages/worker/storage:/app/packages/worker/storage
+      - ./storage:/app/storage
 
   worker:
     build:
       context: .
       dockerfile: Dockerfile.worker
     restart: always
-    env_file: .env.production
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://smartdid:smartdid123@postgres:5432/smart_did
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
+      - BACKEND_URL=http://backend:3000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - STORAGE_TYPE=local
+      - WORKER_CONCURRENCY=2
     depends_on:
-      - redis
+      - postgres
       - backend
     volumes:
-      - ./packages/worker/storage:/app/packages/worker/storage
+      - ./storage:/app/storage
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        - VITE_API_URL=http://localhost:3001/api
     restart: always
     ports:
       - "80:80"
@@ -170,160 +268,24 @@ services:
       - backend
 
 volumes:
-  redis_data:
+  postgres_data:
 ```
 
-## 수동 배포
-
-### 1. 서버 준비
+### 실행
 
 ```bash
-# 시스템 업데이트
-sudo apt update && sudo apt upgrade -y
+# 환경변수 설정
+cp .env.example .env
+# .env 파일 편집
 
-# Node.js 18 설치
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt install -y nodejs
+# 서비스 시작
+docker-compose up -d
 
-# Redis 설치
-sudo apt install -y redis-server
-sudo systemctl enable redis-server
-sudo systemctl start redis-server
+# 로그 확인
+docker-compose logs -f
 
-# FFmpeg 설치
-sudo apt install -y ffmpeg
-
-# Nginx 설치
-sudo apt install -y nginx
-```
-
-### 2. 빌드
-
-```bash
-# 저장소 클론
-git clone https://github.com/your-org/smart-did.git
-cd smart-did/library-did-main
-
-# 의존성 설치
-npm install
-
-# 빌드
-npm run build
-```
-
-### 3. Systemd 서비스
-
-**Backend** (`/etc/systemd/system/smart-did-backend.service`):
-
-```ini
-[Unit]
-Description=Smart DID Backend API
-After=network.target redis.service
-
-[Service]
-Type=simple
-User=www-data
-WorkingDirectory=/var/www/smart-did/library-did-main/packages/backend
-EnvironmentFile=/var/www/smart-did/.env.production
-ExecStart=/usr/bin/node dist/index.js
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**Worker** (`/etc/systemd/system/smart-did-worker.service`):
-
-```ini
-[Unit]
-Description=Smart DID Video Worker
-After=network.target redis.service smart-did-backend.service
-
-[Service]
-Type=simple
-User=www-data
-WorkingDirectory=/var/www/smart-did/library-did-main/packages/worker
-EnvironmentFile=/var/www/smart-did/.env.production
-ExecStart=/usr/bin/node dist/index.js
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-서비스 활성화:
-
-```bash
-sudo systemctl enable smart-did-backend smart-did-worker
-sudo systemctl start smart-did-backend smart-did-worker
-sudo systemctl status smart-did-backend smart-did-worker
-```
-
-## Nginx 설정
-
-`/etc/nginx/sites-available/smart-did`:
-
-```nginx
-upstream backend {
-    server 127.0.0.1:3001;
-}
-
-server {
-    listen 80;
-    server_name library.example.com;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name library.example.com;
-
-    ssl_certificate /etc/letsencrypt/live/library.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/library.example.com/privkey.pem;
-
-    # Frontend (정적 파일)
-    root /var/www/smart-did/library-did-main/packages/frontend/dist;
-    index index.html;
-
-    # SPA 라우팅
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # METIS 경로 (DID 키오스크)
-    location /METIS {
-        alias /var/www/smart-did/library-did-main/packages/frontend/dist;
-        try_files $uri $uri/ /index.html;
-    }
-
-    # API 프록시
-    location /api {
-        proxy_pass http://backend;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    # 영상 파일 (캐싱)
-    location /api/videos {
-        proxy_pass http://backend;
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-    }
-}
-```
-
-활성화:
-
-```bash
-sudo ln -s /etc/nginx/sites-available/smart-did /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
+# 서비스 중지
+docker-compose down
 ```
 
 ## 모니터링
@@ -331,149 +293,70 @@ sudo systemctl reload nginx
 ### 헬스 체크
 
 ```bash
-# Backend 상태
-curl http://localhost:3001/health
+# Backend
+curl https://YOUR_BACKEND_URL/api/health
 
-# Redis 상태
-redis-cli ping
-
-# 큐 상태
-curl -H "Authorization: Bearer <token>" http://localhost:3001/api/admin/queue/status
+# 응답 예시
+{"status":"ok","timestamp":"2026-03-03T12:00:00.000Z"}
 ```
 
-### 로그 확인
+### Cloud Run 로그
 
 ```bash
 # Backend 로그
-journalctl -u smart-did-backend -f
+gcloud run services logs read smart-did-backend --region asia-northeast3
 
 # Worker 로그
-journalctl -u smart-did-worker -f
-
-# Nginx 로그
-tail -f /var/log/nginx/access.log
-tail -f /var/log/nginx/error.log
+gcloud run services logs read smart-did-worker --region asia-northeast3
 ```
 
-### 주요 모니터링 지표
-
-- 요청 처리량 (requests/sec)
-- 응답 시간 (latency)
-- 큐 길이 (waiting jobs)
-- 영상 생성 성공/실패율
-- Redis 메모리 사용량
-
-## 보안
-
-### SSL/TLS
+### 큐 상태 확인
 
 ```bash
-# Let's Encrypt 설치
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d library.example.com
+curl -H "Authorization: Bearer <token>" \
+  https://YOUR_BACKEND_URL/api/admin/queue/status
 ```
-
-### 방화벽
-
-```bash
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
-```
-
-### 보안 헤더 (Nginx)
-
-```nginx
-add_header X-Frame-Options "SAMEORIGIN" always;
-add_header X-Content-Type-Options "nosniff" always;
-add_header X-XSS-Protection "1; mode=block" always;
-add_header Strict-Transport-Security "max-age=31536000" always;
-```
-
-### Rate Limiting
-
-```nginx
-limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
-
-location /api {
-    limit_req zone=api burst=20 nodelay;
-    # ...
-}
-```
-
-## 백업
-
-### 데이터베이스
-
-```bash
-# SQLite 백업
-cp /var/www/smart-did/library-did-main/packages/backend/prisma/prod.db /backup/
-
-# PostgreSQL 백업
-pg_dump smart_did | gzip > /backup/smart_did_$(date +%Y%m%d).sql.gz
-```
-
-### 영상 파일
-
-```bash
-# 로컬 백업
-rsync -av /var/www/smart-did/library-did-main/packages/worker/storage/ /backup/videos/
-
-# S3 동기화 (운영 시)
-aws s3 sync /var/www/smart-did/storage/ s3://smart-did-backup/
-```
-
-### Redis
-
-```bash
-# RDB 스냅샷 설정
-redis-cli CONFIG SET save "900 1 300 10 60 10000"
-```
-
-## 배포 체크리스트
-
-- [ ] 환경 변수 설정 완료
-- [ ] 시크릿 생성 및 보안 저장
-- [ ] Redis 실행 확인
-- [ ] FFmpeg 설치 확인
-- [ ] DB 마이그레이션 완료
-- [ ] SSL 인증서 설치
-- [ ] 방화벽 설정
-- [ ] 헬스 체크 정상
-- [ ] 로그 로테이션 설정
-- [ ] 백업 자동화 설정
-- [ ] 모니터링 설정
 
 ## 트러블슈팅
 
+### Cloud SQL 연결 실패
+
+1. Cloud Run 서비스에 Cloud SQL 연결이 추가되었는지 확인
+2. DATABASE_URL 형식 확인 (`?host=/cloudsql/...`)
+3. Cloud SQL Admin API 활성화 확인
+
+### pg-boss 큐 오류
+
+```
+Error: Queue video-generation does not exist
+```
+
+→ 서비스 시작 시 `createQueue()`가 호출되는지 확인. Backend/Worker 모두 큐를 자동 생성함.
+
 ### Worker 콜백 실패
 
-```bash
-# Backend와 Worker의 INTERNAL_API_SECRET 일치 확인
-# BACKEND_URL이 Worker에서 접근 가능한지 확인
-curl -X POST http://localhost:3001/api/internal/video-callback \
-  -H "X-Internal-Secret: <secret>" \
-  -H "Content-Type: application/json" \
-  -d '{"bookId":"test","status":"READY"}'
-```
+1. `INTERNAL_API_SECRET`이 Backend와 Worker에서 동일한지 확인
+2. `BACKEND_URL`이 Worker에서 접근 가능한지 확인
 
 ### 영상 생성 실패
 
-```bash
-# FFmpeg 설치 확인
-ffmpeg -version
+1. Worker 로그에서 오류 메시지 확인
+2. API 키 (GEMINI, OPENAI) 유효성 확인
+3. GCS 버킷 권한 확인
 
-# API 키 확인 (Worker 로그)
-journalctl -u smart-did-worker | grep "API_KEY"
-```
+### 네이버 API 오류
 
-### Redis 연결 실패
+1. `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` 설정 확인
+2. 네이버 개발자 센터에서 API 사용량 확인
 
-```bash
-# Redis 상태 확인
-systemctl status redis-server
-redis-cli ping
+## 배포 체크리스트
 
-# 연결 테스트
-redis-cli -h localhost -p 6379 -a <password> ping
-```
+- [ ] Cloud SQL 인스턴스 생성 및 DB/유저 설정
+- [ ] GCS 버킷 생성 및 권한 설정
+- [ ] 환경 변수 설정 (JWT_SECRET, INTERNAL_API_SECRET 등)
+- [ ] Docker 이미지 빌드 및 푸시
+- [ ] Cloud Run 서비스 배포 (Backend → Frontend → Worker)
+- [ ] Cloud SQL 연결 추가 (Backend, Worker)
+- [ ] 헬스 체크 확인
+- [ ] Admin 로그인 테스트
+- [ ] 영상 생성 테스트

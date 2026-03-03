@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { alpasService } from '../services/alpas.service';
 import { videoRepository } from '../repositories/video.repository';
+import { recommendationRepository } from '../repositories/recommendation.repository';
 import { queueService } from '../services/queue.service';
 import { cacheManagerService } from '../services/cache-manager.service';
 import { toPublicVideoUrl, toPublicSubtitleUrl } from '../utils/storage';
@@ -96,54 +97,36 @@ export class DidController {
         });
       }
 
-      // 1. 영상이 준비된 책 먼저 가져오기 (최대 9개)
-      const readyVideos = await videoRepository.getReadyVideosOrderByRanking(9);
-      const readyBookIds = new Set(readyVideos.map((v) => v.bookId));
-      
-      // 영상이 있는 책들의 상세 정보 가져오기
-      const readyBooks = await Promise.all(
-        readyVideos.map(async (video) => {
-          const book = await alpasService.getBookDetail(video.bookId);
-          if (book) {
-            return {
-              id: book.id,
-              title: book.title,
-              author: book.author,
-              coverImageUrl: book.coverImageUrl,
-              shelfCode: book.shelfCode,
-              category: book.category,
-              hasVideo: true,
-            };
-          }
-          return null;
+      // DB recommendations 테이블에서 해당 연령 그룹 조회
+      // (관리자가 등록한 추천도서만 표시, mock fallback 없음)
+      const recommendations = await recommendationRepository.getByAgeGroup(group.toLowerCase());
+
+      const didBooks = recommendations.map((rec) => ({
+        id: rec.bookId,
+        title: rec.title,
+        author: rec.author,
+        coverImageUrl: rec.coverImageUrl || undefined,
+        shelfCode: '',
+        category: rec.category,
+        hasVideo: false,
+        publisher: rec.publisher,
+        summary: rec.summary,
+      }));
+
+      // 각 추천도서의 영상 상태 확인
+      const booksWithVideoStatus = await Promise.all(
+        didBooks.map(async (book) => {
+          const videoRecord = await videoRepository.findByBookId(book.id);
+          return {
+            ...book,
+            hasVideo: videoRecord?.status === 'READY',
+          };
         })
       );
-      const validReadyBooks = readyBooks.filter((b) => b !== null);
-
-      // 2. ALPAS에서 연령별 도서 검색
-      const alpasBooks = await alpasService.getBooksByAgeGroup(group);
-      
-      // 3. 영상이 있는 책 제외하고 나머지로 채우기
-      const remainingSlots = 9 - validReadyBooks.length;
-      const additionalBooks = alpasBooks
-        .filter((book) => !readyBookIds.has(book.id))
-        .slice(0, remainingSlots)
-        .map((book) => ({
-          id: book.id,
-          title: book.title,
-          author: book.author,
-          coverImageUrl: book.coverImageUrl,
-          shelfCode: book.shelfCode,
-          category: book.category,
-          hasVideo: false,
-        }));
-
-      // 4. 영상 있는 책 먼저, 그 다음 ALPAS 검색 결과
-      const didBooks = [...validReadyBooks, ...additionalBooks];
 
       return reply.send({
         success: true,
-        data: didBooks,
+        data: booksWithVideoStatus,
       });
     } catch (error: any) {
       return reply.code(500).send({

@@ -15,6 +15,7 @@ import { internalRoutes } from './routes/internal.routes';
 import { videoRoutes } from './routes/video.routes';
 import prisma from './config/database';
 import { schedulerService } from './services/scheduler.service';
+import { queueService } from './services/queue.service';
 
 const fastify = Fastify({
   logger: {
@@ -133,6 +134,10 @@ async function main() {
       fastify.log.info(`API Documentation: http://localhost:${config.port}/documentation`);
     }
 
+    // Initialize pg-boss queue service
+    await queueService.initialize();
+    fastify.log.info('Queue service (pg-boss) initialized');
+
     // Start scheduler for periodic tasks (cache cleanup, etc.)
     schedulerService.start();
     fastify.log.info('Scheduler service started');
@@ -147,6 +152,7 @@ async function main() {
 const gracefulShutdown = async () => {
   fastify.log.info('Shutting down gracefully...');
   schedulerService.stop();
+  await queueService.stop();
   await fastify.close();
   await prisma.$disconnect();
   process.exit(0);
