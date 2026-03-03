@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getDidBookDetail, getVideoStatus } from '../../api/did.api';
+import { getDidBookDetail, getVideoStatus, requestVideo } from '../../api/did.api';
 import { DidV2Layout } from './DidV2Layout';
 import type { DidBookDetail } from '../../types';
 
@@ -26,7 +26,10 @@ export function DidV2BookDetail() {
   >('NONE');
   const [videoEnded, setVideoEnded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoRequestedRef = useRef(false);
 
+  // Load book detail
   useEffect(() => {
     if (!bookId) return;
     (async () => {
@@ -37,25 +40,80 @@ export function DidV2BookDetail() {
     })();
   }, [bookId]);
 
-  useEffect(() => {
+  // Poll video status helper
+  const pollVideoStatus = useCallback(async () => {
     if (!bookId) return;
+    try {
+      const res = await getVideoStatus(bookId);
+      setVideoStatus(res.status);
+      if (res.status === 'READY' && res.videoUrl) {
+        setVideoUrl(res.videoUrl);
+        // Stop polling once video is ready
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+      }
+    } catch (e) {
+      console.error('getVideoStatus error:', e);
+    }
+  }, [bookId]);
 
-    const checkVideoStatus = async () => {
+  // Initial video status check + auto-request + polling
+  useEffect(() => {
+    if (!bookId || !bookDetail) return;
+
+    const initVideo = async () => {
       try {
         const res = await getVideoStatus(bookId);
         setVideoStatus(res.status);
+
         if (res.status === 'READY' && res.videoUrl) {
           setVideoUrl(res.videoUrl);
+          return; // Already ready, no need to request or poll
+        }
+
+        // Auto-request video if status is NONE or FAILED
+        if ((res.status === 'NONE' || res.status === 'FAILED') && !autoRequestedRef.current) {
+          autoRequestedRef.current = true;
+          try {
+            const reqRes = await requestVideo(bookId, {
+              title: bookDetail.title,
+              author: bookDetail.author,
+            });
+            setVideoStatus(reqRes.status);
+            if (reqRes.status === 'READY' && reqRes.videoUrl) {
+              setVideoUrl(reqRes.videoUrl);
+              return;
+            }
+          } catch (e) {
+            console.error('Auto requestVideo error:', e);
+          }
+        }
+
+        // Start polling for QUEUED or GENERATING
+        const currentStatus = res.status === 'NONE' || res.status === 'FAILED' ? 'QUEUED' : res.status;
+        if (currentStatus === 'QUEUED' || currentStatus === 'GENERATING') {
+          if (!pollingRef.current) {
+            pollingRef.current = setInterval(pollVideoStatus, 10_000);
+          }
         }
       } catch (e) {
-        console.error('getVideoStatus error:', e);
+        console.error('initVideo error:', e);
       }
     };
 
-    checkVideoStatus();
-  }, [bookId]);
+    initVideo();
 
-  // 영상 자동 재생
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [bookId, bookDetail, pollVideoStatus]);
+
+  // Auto-play when video becomes ready
   useEffect(() => {
     if (videoRef.current && videoUrl && videoStatus === 'READY') {
       videoRef.current.play().catch((e) => {

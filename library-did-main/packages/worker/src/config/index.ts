@@ -78,6 +78,46 @@ export const config = {
   /** Backend 콜백 (영상 생성 완료/실패 시 DB 갱신). Backend와 동일한 .env의 INTERNAL_API_SECRET 사용 */
   backendUrl: process.env.BACKEND_URL || 'http://localhost:3001',
   internalApiSecret: process.env.INTERNAL_API_SECRET || process.env.JWT_SECRET || 'internal-secret',
+
+  /** Alpas API (Worker에서 Backend 내부 API를 통해 도서 검색) */
+  alpas: {
+    /** true이면 Alpas 검색을 1차 소스로 사용 (기본: true) */
+    enabled: process.env.ALPAS_ENABLED !== 'false',
+  },
+};
+
+export const VIDEO_CONFIG_V7 = {
+  sceneDuration: 4,
+  crossfadeDuration: 0.5,
+  crossfadeType: 'dissolve',
+  codec: 'libx264',
+  format: 'mp4',
+  resolution: { width: 1280, height: 720 },
+  fps: 30,
+  modes: {
+    12: {
+      sceneCount: 3,
+      totalDuration: 11,
+      sceneRoles: ['atmosphere', 'story', 'emotion'],
+      xfadeOffsets: [3.5, 7.0],
+      fadeOutStart: 10.5,
+    },
+    20: {
+      sceneCount: 5,
+      totalDuration: 18,
+      sceneRoles: ['world', 'character', 'story', 'message', 'title'],
+      xfadeOffsets: [3.5, 7.0, 10.5, 14.0],
+      fadeOutStart: 17.5,
+    },
+  },
+  fonts: {
+    bold: process.platform === 'darwin'
+      ? '/System/Library/Fonts/AppleSDGothicNeo.ttc'
+      : '/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf',
+    medium: process.platform === 'darwin'
+      ? '/System/Library/Fonts/AppleSDGothicNeo.ttc'
+      : '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+  },
 };
 
 export function validateConfig(): void {

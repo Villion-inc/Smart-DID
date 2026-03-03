@@ -52,19 +52,28 @@ export function DidV2Layout({
       {/* Header */}
       {!hideHeader && (
         <header
-          className="flex w-full shrink-0 items-center justify-center px-4 py-3 sm:px-6 sm:py-4"
+          className="flex w-full shrink-0 items-center justify-between px-4 py-3 sm:px-6 sm:py-4"
           style={{ background: 'rgba(255,255,255,0.4)' }}
         >
-          {title ? (
-            <h1 className="max-w-full truncate text-xl font-bold text-gray-800 sm:text-2xl md:text-3xl">
-              {title}
-            </h1>
-          ) : (
-            <div className="flex items-center gap-2 sm:gap-3">
-              <span className="text-xl font-bold text-gray-800 sm:text-2xl md:text-3xl">BookMate</span>
-              <span className="text-base text-gray-600 sm:text-lg md:text-xl">북메이트</span>
-            </div>
-          )}
+          {/* Left: Title */}
+          <div className="min-w-0 flex-1">
+            {title ? (
+              <h1 className="max-w-full truncate text-xl font-bold text-gray-800 sm:text-2xl md:text-3xl">
+                {title}
+              </h1>
+            ) : (
+              <div className="flex items-center gap-2 sm:gap-3">
+                <span className="text-xl font-bold text-gray-800 sm:text-2xl md:text-3xl">BookMate</span>
+                <span className="text-base text-gray-600 sm:text-lg md:text-xl">북메이트</span>
+              </div>
+            )}
+          </div>
+          {/* Right: Logo */}
+          <img
+            src="/logos/kkumsaem-logo.png"
+            alt="꿈샘 어린이청소년도서관"
+            className="h-6 max-w-[120px] shrink-0 object-contain sm:h-7 sm:max-w-[140px]"
+          />
         </header>
       )}
 
@@ -82,11 +91,11 @@ export function DidV2Layout({
             borderTop: '1px solid rgba(0,0,0,0.05)',
           }}
         >
-          <div className="flex gap-3 sm:gap-4">
+          <div className="flex gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => navigate('/did')}
-              className="flex h-14 items-center justify-center rounded-2xl px-6 text-lg font-semibold transition active:scale-95 sm:h-16 sm:px-8 sm:text-xl"
+              className="flex h-12 items-center justify-center rounded-2xl px-4 text-base font-semibold transition active:scale-95 sm:h-14 sm:px-6 sm:text-lg"
               style={{
                 background: isHome
                   ? 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)'
@@ -99,7 +108,7 @@ export function DidV2Layout({
             <button
               type="button"
               onClick={() => navigate('/did/search')}
-              className="flex h-14 items-center justify-center rounded-2xl px-6 text-lg font-semibold transition active:scale-95 sm:h-16 sm:px-8 sm:text-xl"
+              className="flex h-12 items-center justify-center rounded-2xl px-4 text-base font-semibold transition active:scale-95 sm:h-14 sm:px-6 sm:text-lg"
               style={{
                 background:
                   location.pathname === '/did/search'
@@ -113,7 +122,7 @@ export function DidV2Layout({
             <button
               type="button"
               onClick={() => navigate('/did/new')}
-              className="flex h-14 items-center justify-center rounded-2xl px-6 text-lg font-semibold transition active:scale-95 sm:h-16 sm:px-8 sm:text-xl"
+              className="flex h-12 items-center justify-center rounded-2xl px-4 text-base font-semibold transition active:scale-95 sm:h-14 sm:px-6 sm:text-lg"
               style={{
                 background:
                   location.pathname === '/did/new'
@@ -125,11 +134,11 @@ export function DidV2Layout({
               신작
             </button>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="flex h-14 w-14 items-center justify-center rounded-2xl text-2xl font-bold text-gray-500 transition active:scale-95 sm:h-16 sm:w-16 sm:text-3xl"
+              className="flex h-12 w-12 items-center justify-center rounded-2xl text-xl font-bold text-gray-500 transition active:scale-95 sm:h-14 sm:w-14 sm:text-2xl"
               style={{ background: '#F0F0F0' }}
             >
               ‹
@@ -137,7 +146,7 @@ export function DidV2Layout({
             <button
               type="button"
               onClick={() => navigate(1)}
-              className="flex h-14 w-14 items-center justify-center rounded-2xl text-2xl font-bold text-gray-500 transition active:scale-95 sm:h-16 sm:w-16 sm:text-3xl"
+              className="flex h-12 w-12 items-center justify-center rounded-2xl text-xl font-bold text-gray-500 transition active:scale-95 sm:h-14 sm:w-14 sm:text-2xl"
               style={{ background: '#F0F0F0' }}
             >
               ›

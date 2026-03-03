@@ -2,13 +2,11 @@ import { Worker, Job } from 'bullmq';
 import { VideoJobData, VideoGenerationRequest } from '@smart-did/shared';
 import { config } from './config';
 import { logger } from './config/logger';
-import { PipelineOrchestratorV2 } from './pipeline/orchestrator';
-import { GeminiProviderAdapter } from './services/gemini-provider.adapter';
+import { PipelineOrchestratorV7 } from './pipeline/orchestrator-v7';
 import { notifyBackendVideoCallback } from './services/backend-callback.service';
 
-/** Pipeline V2: 단일 인스턴스 재사용 */
-const geminiProvider = new GeminiProviderAdapter();
-const pipelineOrchestrator = new PipelineOrchestratorV2(geminiProvider);
+/** Pipeline V7: 12s Short Trailer (3×4s Sora + crossfade) */
+const pipelineOrchestrator = new PipelineOrchestratorV7();
 
 /**
  * Job 데이터(VideoJobData) → 파이프라인 입력(VideoGenerationRequest) 변환
@@ -36,7 +34,7 @@ function toVideoGenerationRequest(jobData: VideoJobData): VideoGenerationRequest
 
 /**
  * Video generation worker
- * Pipeline V2 실행 후 완료/실패 시 Backend 내부 콜백으로 VideoRecord 갱신
+ * Pipeline V7 (12s Short Trailer) 실행 후 완료/실패 시 Backend 내부 콜백으로 VideoRecord 갱신
  */
 export function createWorker(): Worker {
   const worker = new Worker(

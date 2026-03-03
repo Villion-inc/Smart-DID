@@ -1,12 +1,80 @@
 /**
- * Fetch Book Candidates from Google Books API
+ * Fetch Book Candidates from Google Books API & Alpas API
  * Step 0.1 of the V2 Pipeline
+ *
+ * Alpas (via Backend internal API) is the PRIMARY source for library book info.
+ * Google Books is the SECONDARY source for enrichment/validation.
  */
 
 import axios from 'axios';
 import { BookCandidate } from '../../shared/types';
+import { config } from '../../config';
 
 const GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes';
+
+/** Alpas Book shape returned from backend internal API */
+interface AlpasBookResult {
+  id: string;
+  title: string;
+  author: string;
+  publisher: string;
+  publishedYear: number;
+  isbn: string;
+  summary: string;
+  callNumber: string;
+  registrationNumber: string;
+  shelfCode: string;
+  isAvailable: boolean;
+  coverImageUrl?: string;
+  category: string;
+}
+
+/**
+ * Fetch book candidates from Alpas via Backend internal API
+ * @param title Book title to search for
+ * @param author Optional author name (currently unused by Alpas search, but kept for future)
+ * @returns Array of BookCandidate transformed from Alpas results
+ */
+export async function fetchFromAlpas(
+  title: string,
+  author?: string,
+): Promise<BookCandidate[]> {
+  const backendUrl = config.backendUrl.replace(/\/$/, '');
+  const secret = config.internalApiSecret;
+  const params = new URLSearchParams({ title });
+  if (author) params.set('author', author);
+
+  const url = `${backendUrl}/api/internal/book-search?${params.toString()}`;
+  console.log(`[Grounding/Alpas] Fetching from: ${url}`);
+
+  try {
+    const response = await axios.get<{ success: boolean; data: AlpasBookResult[] }>(url, {
+      timeout: 15000,
+      headers: { 'X-Internal-Secret': secret },
+    });
+
+    const books = response.data?.data;
+    if (!Array.isArray(books) || books.length === 0) {
+      console.log('[Grounding/Alpas] No results');
+      return [];
+    }
+
+    console.log(`[Grounding/Alpas] Got ${books.length} results`);
+    return books.map((b) => ({
+      id: b.id,
+      title: b.title,
+      authors: [b.author],
+      publishedDate: String(b.publishedYear),
+      description: b.summary,
+      categories: b.category ? [b.category] : undefined,
+      language: 'ko',
+      thumbnail: b.coverImageUrl,
+    }));
+  } catch (error: any) {
+    console.error(`[Grounding/Alpas] Error: ${error.message}`);
+    return [];
+  }
+}
 
 /**
  * Retry helper with exponential backoff

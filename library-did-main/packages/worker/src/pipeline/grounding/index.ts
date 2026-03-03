@@ -3,14 +3,15 @@
  * Exports all grounding functions for the V2 pipeline
  */
 
-export { fetchCandidates, fetchBookById } from './fetchCandidates';
+export { fetchCandidates, fetchBookById, fetchFromAlpas } from './fetchCandidates';
 export { rankCandidates, selectBestCandidate } from './rankCandidates';
 export { buildBookFacts } from './buildBookFacts';
 
 import { BookCandidate, BookFacts } from '../../shared/types';
-import { fetchCandidates } from './fetchCandidates';
+import { fetchCandidates, fetchFromAlpas } from './fetchCandidates';
 import { selectBestCandidate } from './rankCandidates';
 import { buildBookFacts } from './buildBookFacts';
+import { config } from '../../config';
 
 /**
  * Well-known books fallback data for when API is unavailable
@@ -104,7 +105,12 @@ const FALLBACK_BOOKS: Record<string, { candidate: BookCandidate; bookFacts: Book
 
 /**
  * Complete grounding process: search → rank → extract facts
- * Falls back to known books if API is unavailable
+ *
+ * Source priority:
+ *   1. Alpas API (library catalog) — PRIMARY
+ *   2. Google Books API — SECONDARY (enrichment / validation)
+ *   3. Fallback (well-known books + minimal facts)
+ *
  * @param title Book title to search
  * @param author Optional author name
  * @returns BookFacts or null if book not found
@@ -117,15 +123,36 @@ export async function groundBook(
   console.log(`[Grounding] Title: "${title}"${author ? ` by ${author}` : ''}`);
 
   try {
-    // Step 1: Fetch candidates
-    const candidates = await fetchCandidates(title, author);
+    let alpasCandidates: BookCandidate[] = [];
+    let googleCandidates: BookCandidate[] = [];
+
+    // Step 1a: Try Alpas API (primary source) via backend internal API
+    if (config.alpas.enabled) {
+      try {
+        alpasCandidates = await fetchFromAlpas(title, author);
+        console.log(`[Grounding] Alpas returned ${alpasCandidates.length} candidates`);
+      } catch (err: any) {
+        console.log(`[Grounding] Alpas error (non-fatal): ${err.message}`);
+      }
+    }
+
+    // Step 1b: Try Google Books API (secondary source for enrichment)
+    try {
+      googleCandidates = await fetchCandidates(title, author);
+      console.log(`[Grounding] Google Books returned ${googleCandidates.length} candidates`);
+    } catch (err: any) {
+      console.log(`[Grounding] Google Books error (non-fatal): ${err.message}`);
+    }
+
+    // Step 2: Merge candidates — Alpas first, then Google Books
+    const candidates = [...alpasCandidates, ...googleCandidates];
 
     if (candidates.length === 0) {
       console.log('[Grounding] No API candidates found, checking fallback...');
       return tryFallback(title, author);
     }
 
-    // Step 2: Select best candidate
+    // Step 3: Select best candidate (prefers Korean, Alpas results come first)
     const bestCandidate = selectBestCandidate(candidates, title, {
       preferredAuthor: author,
       preferredLanguage: 'ko',
@@ -137,10 +164,30 @@ export async function groundBook(
       return tryFallback(title, author);
     }
 
-    // Step 3: Build book facts
+    // Step 4: If best candidate came from Alpas (no description), enrich with Google Books
+    if (
+      (!bestCandidate.description || bestCandidate.description.length < 30) &&
+      googleCandidates.length > 0
+    ) {
+      const googleMatch = selectBestCandidate(googleCandidates, title, {
+        preferredAuthor: author,
+      });
+      if (googleMatch?.description && googleMatch.description.length > 30) {
+        console.log('[Grounding] Enriching Alpas candidate with Google Books description');
+        bestCandidate.description = googleMatch.description;
+        if (googleMatch.categories && !bestCandidate.categories) {
+          bestCandidate.categories = googleMatch.categories;
+        }
+        if (googleMatch.pageCount && !bestCandidate.pageCount) {
+          bestCandidate.pageCount = googleMatch.pageCount;
+        }
+      }
+    }
+
+    // Step 5: Build book facts
     const bookFacts = await buildBookFacts(bestCandidate);
 
-    console.log('[Grounding] ✅ Book grounding complete\n');
+    console.log('[Grounding] Book grounding complete\n');
 
     return {
       bookFacts,
