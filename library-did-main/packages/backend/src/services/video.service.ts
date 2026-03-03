@@ -274,6 +274,8 @@ export class VideoService {
       expiresAt: record.expiresAt,
       videoUrl: record.videoUrl,
       rankingScore: record.rankingScore,
+      title: record.title || undefined,
+      author: record.author || undefined,
     };
   }
 }

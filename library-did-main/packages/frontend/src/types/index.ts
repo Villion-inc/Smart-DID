@@ -25,6 +25,8 @@ export interface VideoStatusResponse {
   videoUrl: string | null;
   rankingScore?: number;
   message?: string;
+  title?: string;
+  author?: string;
 }
 
 export interface AuthResponse {

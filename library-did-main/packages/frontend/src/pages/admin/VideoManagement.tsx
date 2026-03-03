@@ -199,8 +199,11 @@ export const VideoManagement: React.FC = () => {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold text-gray-800">
-                        {video.bookId}
+                        {video.title || video.bookId}
                       </p>
+                      {video.author && (
+                        <p className="truncate text-xs text-gray-600">{video.author}</p>
+                      )}
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                         <span>요청 {video.requestCount ?? 0}회</span>
                         <span>랭킹 {(video.rankingScore ?? 0).toFixed(1)}</span>
