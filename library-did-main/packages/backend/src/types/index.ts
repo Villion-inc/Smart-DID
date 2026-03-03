@@ -24,6 +24,8 @@ export interface VideoStatusResponse {
   expiresAt: Date | null;
   videoUrl: string | null;
   rankingScore: number;
+  title?: string;
+  author?: string;
 }
 
 export interface AdminLoginRequest {
