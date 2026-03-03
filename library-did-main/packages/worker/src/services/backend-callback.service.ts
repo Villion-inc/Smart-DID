@@ -1,7 +1,7 @@
 import { config } from '../config';
 import { logger } from '../config/logger';
 
-export type CallbackStatus = 'READY' | 'FAILED';
+export type CallbackStatus = 'GENERATING' | 'READY' | 'FAILED';
 
 export interface BackendCallbackPayload {
   bookId: string;

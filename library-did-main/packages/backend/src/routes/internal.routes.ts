@@ -6,7 +6,7 @@ import { alpasService } from '../services/alpas.service';
 
 interface VideoCallbackBody {
   bookId: string;
-  status: 'READY' | 'FAILED';
+  status: 'GENERATING' | 'READY' | 'FAILED';
   videoUrl?: string;
   subtitleUrl?: string;
   errorMessage?: string;
@@ -78,10 +78,10 @@ export async function internalRoutes(fastify: FastifyInstance) {
           error: 'bookId and status are required',
         });
       }
-      if (status !== 'READY' && status !== 'FAILED') {
+      if (status !== 'GENERATING' && status !== 'READY' && status !== 'FAILED') {
         return reply.code(400).send({
           success: false,
-          error: 'status must be READY or FAILED',
+          error: 'status must be GENERATING, READY or FAILED',
         });
       }
 

@@ -47,6 +47,12 @@ export async function createWorker(): Promise<Worker> {
       const { bookId } = job.data;
       logger.info(`Processing job ${job.id} for book ${bookId}`);
 
+      // 작업 시작 시 GENERATING 상태로 업데이트
+      await notifyBackendVideoCallback({
+        bookId,
+        status: 'GENERATING',
+      });
+
       try {
         const request = toVideoGenerationRequest(job.data);
         const result = await pipelineOrchestrator.execute(request);
