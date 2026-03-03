@@ -5,6 +5,7 @@ import { bookService } from './book.service';
 import { VideoStatusResponse } from '../types';
 import { config } from '../config';
 import { queueService } from './queue.service';
+import prisma from '../config/database';
 
 export class VideoService {
   /**
@@ -28,10 +29,37 @@ export class VideoService {
   async requestVideo(
     bookId: string,
     isAdminRequest: boolean = false,
-    bookInfo?: { title?: string; author?: string }
+    bookInfo?: { title?: string; author?: string; summary?: string; publisher?: string; coverImageUrl?: string; category?: string }
   ): Promise<VideoStatusResponse> {
-    // Verify book exists (or use provided info)
-    let book = await bookService.getBookDetail(bookId);
+    let book: any = null;
+
+    // REC- prefix인 경우 Recommendation 테이블에서 조회
+    if (bookId.startsWith('REC-')) {
+      const recommendation = await prisma.recommendation.findFirst({
+        where: { bookId },
+      });
+      if (recommendation) {
+        console.log(`[VideoService] Found recommendation: ${recommendation.title}`);
+        book = {
+          id: bookId,
+          title: recommendation.title,
+          author: recommendation.author,
+          summary: recommendation.summary || '',
+          publisher: recommendation.publisher || '',
+          publishedYear: 0,
+          isbn: '',
+          callNumber: '',
+          registrationNumber: '',
+          shelfCode: '',
+          isAvailable: true,
+          category: recommendation.category || '',
+          coverImageUrl: recommendation.coverImageUrl,
+        };
+      }
+    } else {
+      // 일반 도서는 bookService에서 조회
+      book = await bookService.getBookDetail(bookId);
+    }
     
     // If book not found but info provided, create minimal book object
     if (!book && bookInfo?.title) {
@@ -40,15 +68,16 @@ export class VideoService {
         id: bookId,
         title: bookInfo.title,
         author: bookInfo.author || '저자 미상',
-        summary: '',
-        publisher: '',
+        summary: bookInfo.summary || '',
+        publisher: bookInfo.publisher || '',
         publishedYear: 0,
         isbn: '',
         callNumber: '',
         registrationNumber: '',
         shelfCode: '',
         isAvailable: true,
-        category: '',
+        category: bookInfo.category || '',
+        coverImageUrl: bookInfo.coverImageUrl,
       };
     }
     
@@ -60,13 +89,16 @@ export class VideoService {
     let record = await videoRepository.findByBookId(bookId);
 
     if (!record) {
-      // Add to BullMQ queue (this also creates DB record with QUEUED status)
+      // Add to pg-boss queue (this also creates DB record with QUEUED status)
       const jobData = {
         bookId,
         title: book.title,
         author: book.author,
         summary: book.summary || '',
         trigger: isAdminRequest ? 'admin_seed' as const : 'user_request' as const,
+        publisher: book.publisher || '',
+        coverImageUrl: book.coverImageUrl || '',
+        category: book.category || '',
       };
 
       const job = isAdminRequest
@@ -107,13 +139,16 @@ export class VideoService {
 
       case 'NONE':
       case 'FAILED':
-        // Add to BullMQ queue for regeneration
+        // Add to pg-boss queue for regeneration
         const jobData2 = {
           bookId,
           title: book.title,
           author: book.author,
           summary: book.summary || '',
           trigger: isAdminRequest ? 'admin_seed' as const : 'user_request' as const,
+          publisher: book.publisher || '',
+          coverImageUrl: book.coverImageUrl || '',
+          category: book.category || '',
         };
 
         const job2 = isAdminRequest
