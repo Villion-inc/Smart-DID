@@ -130,28 +130,28 @@ export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
       onClick={onClose}
     >
       <div
-        className="relative flex w-[90vw] max-w-[500px] animate-[fadeScaleIn_0.25s_ease-out] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+        className="relative flex h-[90vh] w-full max-w-[95vw] animate-[fadeScaleIn_0.25s_ease-out] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-2 top-2 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-black/40 text-white transition active:scale-90"
+          className="absolute right-4 top-4 z-10 flex h-16 w-16 items-center justify-center rounded-full bg-black/60 text-white transition active:scale-90"
         >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
 
-        {/* Video player */}
+        {/* Video player - 대부분의 공간 차지 */}
         <div
-          className="relative w-full overflow-hidden rounded-t-3xl"
-          style={{ aspectRatio: '16/9', background: '#1a1a1a' }}
+          className="relative flex-1 overflow-hidden rounded-t-3xl"
+          style={{ background: '#1a1a1a', minHeight: '60%' }}
         >
           {resolvedVideoUrl && videoStatus === 'READY' ? (
             <>
@@ -170,9 +170,9 @@ export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
                   <button
                     type="button"
                     onClick={videoEnded ? handleReplay : handlePlay}
-                    className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform active:scale-90"
+                    className="flex h-32 w-32 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform active:scale-90"
                   >
-                    <svg className="h-8 w-8 translate-x-0.5 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-16 w-16 translate-x-1 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M8 5v14l11-7z" />
                     </svg>
                   </button>
@@ -180,16 +180,16 @@ export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
               )}
             </>
           ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-6 text-white">
               {videoStatus === 'QUEUED' || videoStatus === 'GENERATING' ? (
                 <>
-                  <span className="text-5xl">🎬</span>
-                  <span className="text-base sm:text-lg">영상 생성 중...</span>
+                  <span className="text-8xl">🎬</span>
+                  <span className="text-2xl">영상 생성 중...</span>
                 </>
               ) : (
                 <>
-                  <span className="text-5xl">📖</span>
-                  <span className="text-base sm:text-lg">영상이 아직 없어요</span>
+                  <span className="text-8xl">📖</span>
+                  <span className="text-2xl">영상이 아직 없어요</span>
                 </>
               )}
             </div>
@@ -197,11 +197,11 @@ export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
         </div>
 
         {/* Book info below video */}
-        <div className="px-5 py-4">
-          <h3 className="text-lg font-bold text-gray-800 line-clamp-1">
+        <div className="shrink-0 px-8 py-6">
+          <h3 className="text-2xl font-bold text-gray-800 line-clamp-1">
             {bookDetail?.title || '제목'}
           </h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-2 text-lg text-gray-500">
             {bookDetail?.author || '저자'}
           </p>
         </div>
