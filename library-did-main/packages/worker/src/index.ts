@@ -4,7 +4,8 @@ import { logger } from './config/logger';
 import { config } from './config';
 
 // Cloud Run 헬스체크용 HTTP 서버
-const PORT = process.env.PORT || 8080;
+// 로컬에서는 WORKER_PORT 사용, Cloud Run에서는 PORT 사용
+const PORT = process.env.WORKER_PORT || process.env.PORT || 8080;
 let isHealthy = false;
 
 const healthServer = http.createServer((req, res) => {

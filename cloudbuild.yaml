@@ -1,5 +1,5 @@
 steps:
-  # Frontend 빌드
+  # Frontend 빌드 (GCP beta: root path)
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -8,8 +8,10 @@ steps:
       - '-t'
       - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/frontend:latest'
       - '-f'
-      - 'Dockerfile.frontend'
-      - '.'
+      - 'library-did-main/Dockerfile.frontend'
+      - '--build-arg'
+      - 'VITE_API_URL=/api'
+      - 'library-did-main'
     id: 'build-frontend'
 
   # Backend 빌드
@@ -21,8 +23,8 @@ steps:
       - '-t'
       - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/backend:latest'
       - '-f'
-      - 'Dockerfile.backend'
-      - '.'
+      - 'library-did-main/Dockerfile.backend'
+      - 'library-did-main'
     id: 'build-backend'
 
   # Worker 빌드
@@ -34,8 +36,8 @@ steps:
       - '-t'
       - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/smart-did/worker:latest'
       - '-f'
-      - 'Dockerfile.worker'
-      - '.'
+      - 'library-did-main/Dockerfile.worker'
+      - 'library-did-main'
     id: 'build-worker'
 
   # 이미지 푸시
@@ -65,7 +67,7 @@ steps:
       - '--region=asia-northeast3'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--port=8080'
+      - '--port=80'
     id: 'deploy-frontend'
     waitFor: ['push-frontend']
 
@@ -80,12 +82,14 @@ steps:
       - '--region=asia-northeast3'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--port=8080'
+      - '--port=3000'
       - '--set-env-vars=NODE_ENV=production'
+      - '--memory=512Mi'
+      - '--timeout=300'
     id: 'deploy-backend'
     waitFor: ['push-backend']
 
-  # Cloud Run 배포 - Worker (Jobs로 실행하거나 always-on 서비스로)
+  # Cloud Run 배포 - Worker (always-on)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     entrypoint: gcloud
     args:
@@ -97,6 +101,8 @@ steps:
       - '--platform=managed'
       - '--no-allow-unauthenticated'
       - '--min-instances=1'
+      - '--memory=1Gi'
+      - '--timeout=600'
       - '--set-env-vars=NODE_ENV=production'
     id: 'deploy-worker'
     waitFor: ['push-worker']

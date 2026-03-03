@@ -1,0 +1,193 @@
+/**
+ * Sora API 클라이언트 (OpenAI)
+ * 텍스트/이미지 → 영상 생성
+ * @see https://platform.openai.com/docs/api-reference/videos
+ */
+
+import axios from 'axios';
+import { logger } from '../config/logger';
+
+/** OpenAI Sora 공식: POST /v1/videos, GET /v1/videos/{id}, GET /v1/videos/{id}/content */
+
+interface SoraVideoRequest {
+  prompt: string;
+  imageUrl?: string;
+  imageBytesBase64?: string;
+  duration?: number; // seconds → seconds "4"|"8"|"12"
+  aspectRatio?: '16:9' | '9:16' | '1:1';
+  resolution?: '480p' | '720p' | '1080p';
+}
+
+interface SoraVideoResult {
+  success: boolean;
+  videoUrl?: string;
+  videoBuffer?: Buffer;
+  error?: string;
+}
+
+/** size: 720x1280(세로), 1280x720(가로), 1024x1792, 1792x1024 */
+const SIZE_MAP: Record<string, string> = {
+  '16:9': '1280x720',
+  '9:16': '720x1280',
+  '1:1': '1024x1024',
+};
+
+export class SoraClient {
+  private apiKey: string;
+  private baseUrl: string = 'https://api.openai.com/v1';
+
+  constructor(apiKey: string) {
+    this.apiKey = apiKey;
+  }
+
+  /**
+   * 텍스트 프롬프트로 영상 생성 (OpenAI Sora: create → poll → content)
+   * 
+   * Note: Sora API의 input_reference는 이미지 URL만 지원하며, base64는 지원하지 않음.
+   * 현재는 text-to-video 모드로만 동작 (키프레임 이미지는 프롬프트에 설명으로 포함)
+   */
+  async generateVideo(request: SoraVideoRequest): Promise<SoraVideoResult> {
+    try {
+      logger.info('[Sora] 🎬 영상 생성 시작...');
+      logger.info(`   프롬프트: ${request.prompt.substring(0, 80)}...`);
+
+      const duration = request.duration ?? 8;
+      const seconds = String(Math.min(12, Math.max(4, duration)) as 4 | 8 | 12);
+      const size = SIZE_MAP[request.aspectRatio || '16:9'] || '1280x720';
+
+      // Build request body (text-to-video only)
+      // Sora API의 input_reference는 이미지 URL만 지원하므로 base64는 사용 불가
+      const body: Record<string, unknown> = {
+        model: 'sora-2',
+        prompt: request.prompt,
+        seconds,
+        size,
+      };
+
+      // input_reference는 이미지 URL이 있을 때만 사용 (현재 미지원)
+      if (request.imageUrl) {
+        body.input_reference = request.imageUrl;
+        logger.info('   이미지 참조 URL 사용');
+      }
+
+      // 1) Create job: POST /v1/videos (공식 엔드포인트)
+      const createRes = await axios.post(
+        `${this.baseUrl}/videos`,
+        body,
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 60000,
+        }
+      );
+
+      const jobId = createRes.data?.id;
+      if (!jobId) {
+        throw new Error(createRes.data?.error?.message || 'No job id in create response');
+      }
+
+      // 2) Poll until completed/failed
+      const polled = await this.pollForResult(jobId);
+      if (!polled.success) return polled;
+
+      // 3) Download content (GET /v1/videos/{id}/content)
+      const contentRes = await axios.get(`${this.baseUrl}/videos/${jobId}/content`, {
+        headers: { Authorization: `Bearer ${this.apiKey}` },
+        responseType: 'arraybuffer',
+        timeout: 120000,
+      });
+      const videoBuffer = Buffer.from(contentRes.data as ArrayBuffer);
+
+      logger.info('[Sora] ✅ 영상 생성 완료!');
+      return { success: true, videoBuffer };
+    } catch (error: any) {
+      logger.error('[Sora] ❌ 에러:', error.response?.data || error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 이미지 기반 영상 생성 (Image-to-Video)
+   * 
+   * Note: Sora API는 input_reference로 이미지 URL만 지원하며, base64 직접 전달은 불가.
+   * 현재는 키프레임 이미지 정보를 프롬프트에 포함하여 text-to-video로 생성.
+   * 향후 이미지를 S3/CDN에 업로드 후 URL로 전달하는 방식으로 개선 가능.
+   */
+  async generateVideoFromImage(
+    imageBuffer: Buffer,
+    prompt: string,
+    duration: number = 8
+  ): Promise<SoraVideoResult> {
+    // 현재는 이미지 없이 프롬프트만으로 생성 (text-to-video)
+    // 키프레임 스타일 정보는 이미 프롬프트에 포함되어 있음
+    const result = await this.generateVideo({
+      prompt,
+      duration,
+      aspectRatio: '16:9',
+    });
+
+    if (!result.success) return result;
+    if (result.videoBuffer) return result;
+
+    if (result.videoUrl) {
+      try {
+        const res = await axios.get(result.videoUrl, {
+          responseType: 'arraybuffer',
+          timeout: 300000,
+        });
+        return { ...result, videoBuffer: Buffer.from(res.data) };
+      } catch (e: any) {
+        return { success: false, error: e?.message || 'Failed to download video' };
+      }
+    }
+    return result;
+  }
+
+  /**
+   * 비동기 작업 결과 폴링 (GET /v1/videos/{id})
+   */
+  private async pollForResult(
+    jobId: string,
+    maxAttempts: number = 120
+  ): Promise<SoraVideoResult> {
+    logger.info('[Sora] ⏳ 영상 생성 대기 중...');
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const response = await axios.get(`${this.baseUrl}/videos/${jobId}`, {
+          headers: { Authorization: `Bearer ${this.apiKey}` },
+          timeout: 10000,
+        });
+
+        const status = response.data?.status;
+        if (status === 'completed') {
+          return { success: true };
+        }
+        if (status === 'failed') {
+          const err = response.data?.error;
+          return {
+            success: false,
+            error: (err?.message || err?.code) || 'Generation failed',
+          };
+        }
+
+        if (attempt % 10 === 0) {
+          const progress = response.data?.progress ?? 0;
+          logger.info(`[Sora] 대기 중... (${attempt * 3}초, progress: ${progress}%)`);
+        }
+
+        await this.delay(3000);
+      } catch (e: any) {
+        logger.warn(`[Sora] 폴링 에러: ${e.message}`);
+      }
+    }
+
+    return { success: false, error: '영상 생성 타임아웃' };
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+}
