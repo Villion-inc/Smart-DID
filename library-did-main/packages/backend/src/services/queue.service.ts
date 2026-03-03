@@ -42,8 +42,13 @@ export class QueueService {
     }
 
     try {
+      console.log('[QueueService] Initializing pg-boss with DATABASE_URL...');
+      
       this.boss = new PgBoss({
         connectionString: dbUrl,
+        // Cloud SQL Connector 호환성을 위한 추가 설정
+        max: 5,
+        connectionTimeoutMillis: 30000,
       });
 
       this.boss.on('error', (error: Error) => {
@@ -51,14 +56,17 @@ export class QueueService {
       });
 
       await this.boss.start();
+      console.log('[QueueService] pg-boss started');
       
       // Create queue if not exists (pg-boss v10+ requires explicit queue creation)
       await this.boss.createQueue(QUEUE_NAME);
+      console.log('[QueueService] Queue created:', QUEUE_NAME);
       
       this.initialized = true;
       console.log('[QueueService] pg-boss initialized successfully');
     } catch (error) {
       console.error('[QueueService] Failed to initialize pg-boss:', error);
+      // 초기화 실패해도 서버는 계속 실행 (큐 기능만 비활성화)
     }
   }
 
