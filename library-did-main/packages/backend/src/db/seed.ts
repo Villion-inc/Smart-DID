@@ -11,7 +11,7 @@ export async function seedDatabase(): Promise<void> {
 
   // Create admin user
   const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin1234';
   const passwordHash = await bcrypt.hash(adminPassword, 10);
   
   await prisma.adminUser.upsert({

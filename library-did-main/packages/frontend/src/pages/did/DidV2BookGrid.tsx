@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getBooksByAge } from '../../api/did.api';
 import type { DidBook, AgeGroup } from '../../types';
 import { DidV2Layout } from './DidV2Layout';
+import { VideoPopup } from '../../components/VideoPopup';
 
 const AGE_LABELS: Record<AgeGroup, string> = {
   preschool: '4-6세',
@@ -11,7 +12,7 @@ const AGE_LABELS: Record<AgeGroup, string> = {
 };
 
 /**
- * 연령별 도서 3×3 그리드 (키오스크 세로 화면)
+ * 연령별 추천도서 카드 리스트 (3권) + 영상 팝업
  */
 export function DidV2BookGrid() {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ export function DidV2BookGrid() {
   const ageGroup = (group || 'elementary') as AgeGroup;
   const [books, setBooks] = useState<DidBook[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,7 +28,7 @@ export function DidV2BookGrid() {
       setLoading(true);
       try {
         const list = await getBooksByAge(ageGroup);
-        if (!cancelled) setBooks(list.slice(0, 9));
+        if (!cancelled) setBooks(list.slice(0, 3));
       } catch (e) {
         if (!cancelled) setBooks([]);
       }
@@ -39,37 +41,58 @@ export function DidV2BookGrid() {
 
   return (
     <DidV2Layout title={`${AGE_LABELS[ageGroup]} 추천도서`}>
-      <div className="flex flex-1 flex-col py-4">
-        <div className="grid w-full grid-cols-3 gap-3 sm:gap-4">
-          {(loading ? [] : books).map((book) => (
+      <div className="flex flex-1 flex-col gap-4 py-4">
+        {(loading ? [] : books).map((book) => (
+          <div
+            key={book.id}
+            className="flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-md"
+          >
+            {/* Card body: cover + info → click to detail page */}
             <button
-              key={book.id}
               type="button"
               onClick={() => navigate(`/did/video/${book.id}`)}
-              className="flex flex-col items-center transition active:scale-[0.97]"
+              className="flex gap-4 p-4 text-left transition active:bg-gray-50"
             >
+              {/* Cover image */}
               <div
-                className="relative w-full overflow-hidden rounded-xl"
+                className="h-32 w-24 shrink-0 rounded-xl"
                 style={{
-                  aspectRatio: '3/4',
                   background: book.coverImageUrl
                     ? `url(${book.coverImageUrl}) center/cover no-repeat`
                     : 'linear-gradient(180deg, #E0F0F8 0%, #C8E8D0 100%)',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
                 }}
-              >
-                {!book.coverImageUrl && (
-                  <div className="absolute inset-0 flex items-center justify-center text-3xl sm:text-4xl">
-                    📚
-                  </div>
+              />
+              {/* Info */}
+              <div className="flex min-w-0 flex-1 flex-col justify-center">
+                <h3 className="text-lg font-bold text-gray-800 line-clamp-2 sm:text-xl">
+                  {book.title || '제목'}
+                </h3>
+                <p className="mt-1 text-sm text-gray-500 sm:text-base">
+                  {book.author || '저자'}
+                </p>
+                {book.category && (
+                  <span
+                    className="mt-2 w-fit rounded-full px-3 py-1 text-xs font-medium text-gray-600 sm:text-sm"
+                    style={{ background: 'rgba(107, 184, 214, 0.2)' }}
+                  >
+                    #{book.category}
+                  </span>
                 )}
               </div>
-              <span className="mt-2 w-full truncate text-center text-sm font-medium text-gray-800 sm:text-base">
-                {book.title || '제목'}
-              </span>
             </button>
-          ))}
-        </div>
+            {/* Watch video button */}
+            <button
+              type="button"
+              onClick={() => setSelectedBookId(book.id)}
+              className="flex h-12 w-full items-center justify-center gap-2 border-t border-gray-100 text-base font-semibold transition active:bg-gray-50 sm:h-14 sm:text-lg"
+              style={{ color: '#4DA3C4' }}
+            >
+              🎬 영상 보기
+            </button>
+          </div>
+        ))}
+
         {loading && (
           <div className="flex flex-1 items-center justify-center">
             <p className="text-base text-gray-500 sm:text-lg">불러오는 중...</p>
@@ -81,6 +104,14 @@ export function DidV2BookGrid() {
           </div>
         )}
       </div>
+
+      {/* Video popup modal */}
+      {selectedBookId && (
+        <VideoPopup
+          bookId={selectedBookId}
+          onClose={() => setSelectedBookId(null)}
+        />
+      )}
     </DidV2Layout>
   );
 }

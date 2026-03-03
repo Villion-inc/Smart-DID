@@ -558,9 +558,9 @@ const LIBRARIAN_PICK_IDS = ['BK006', 'BK007', 'BK009', 'BK010', 'BK016', 'BK017'
 // 유아 (Preschool): Picture books and simple stories
 const PRESCHOOL_IDS = ['BK002', 'BK005', 'BK012', 'BK019', 'BK034'];
 // 초등 (Elementary): Children's literature, science, adventure
-const ELEMENTARY_IDS = ['BK001', 'BK003', 'BK011', 'BK013', 'BK014', 'BK016', 'BK021', 'BK023', 'BK026', 'BK027', 'BK028', 'BK029', 'BK030', 'BK031', 'BK032', 'BK035'];
+const ELEMENTARY_IDS = ['BK003', 'BK013', 'BK016', 'BK001', 'BK011', 'BK014', 'BK021', 'BK023', 'BK026', 'BK027', 'BK028', 'BK029', 'BK030', 'BK031', 'BK032', 'BK035'];
 // 청소년 (Teen): World literature, deeper themes, teen novels
-const TEEN_IDS = ['BK006', 'BK007', 'BK008', 'BK009', 'BK010', 'BK017', 'BK018', 'BK020', 'BK022', 'BK025', 'BK033'];
+const TEEN_IDS = ['BK006', 'BK010', 'BK018', 'BK007', 'BK008', 'BK009', 'BK017', 'BK020', 'BK022', 'BK025', 'BK033'];
 
 export class AlpasService {
   /**
@@ -626,7 +626,10 @@ export class AlpasService {
         return [];
     }
 
-    return MOCK_BOOKS.filter((book) => ids.includes(book.id));
+    // Return books in the order defined by the IDs array
+    return ids
+      .map((id) => MOCK_BOOKS.find((book) => book.id === id))
+      .filter((book): book is Book => book !== undefined);
   }
 
   /**
