@@ -25,6 +25,7 @@ export function DidV2BookDetail() {
     'NONE' | 'QUEUED' | 'GENERATING' | 'READY' | 'FAILED'
   >('NONE');
   const [videoEnded, setVideoEnded] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Load book detail
@@ -92,19 +93,20 @@ export function DidV2BookDetail() {
     };
   }, [bookId, bookDetail, pollVideoStatus]);
 
-  // Auto-play when video becomes ready
-  useEffect(() => {
-    if (videoRef.current && videoUrl && videoStatus === 'READY') {
+  const handlePlay = () => {
+    if (videoRef.current) {
+      setIsPlaying(true);
       videoRef.current.play().catch((e) => {
-        console.log('Autoplay blocked:', e);
+        console.log('Play blocked:', e);
+        setIsPlaying(false);
       });
     }
-  }, [videoUrl, videoStatus]);
+  };
 
-  // 다시보기 핸들러
   const handleReplay = () => {
     if (videoRef.current) {
       setVideoEnded(false);
+      setIsPlaying(true);
       videoRef.current.currentTime = 0;
       videoRef.current.play();
     }
@@ -138,17 +140,16 @@ export function DidV2BookDetail() {
                 src={resolvedVideoUrl}
                 className="h-full w-full object-contain"
                 playsInline
-                autoPlay
                 muted={false}
                 onEnded={() => setVideoEnded(true)}
                 onPlay={() => setVideoEnded(false)}
               />
-              {/* 영상 종료 시 다시보기 오버레이 */}
-              {videoEnded && (
+              {/* 재생 전 또는 종료 후 재생 버튼 표시 */}
+              {(!isPlaying || videoEnded) && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                   <button
                     type="button"
-                    onClick={handleReplay}
+                    onClick={videoEnded ? handleReplay : handlePlay}
                     className="flex h-20 w-20 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform active:scale-90 sm:h-24 sm:w-24"
                   >
                     <svg 

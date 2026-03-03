@@ -19,6 +19,7 @@ export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
     'NONE' | 'QUEUED' | 'GENERATING' | 'READY' | 'FAILED'
   >('NONE');
   const [videoEnded, setVideoEnded] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoRequestedRef = useRef(false);
@@ -100,18 +101,20 @@ export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
     };
   }, [bookId, bookDetail, pollVideoStatus]);
 
-  // Auto-play when video becomes ready
-  useEffect(() => {
-    if (videoRef.current && videoUrl && videoStatus === 'READY') {
+  const handlePlay = () => {
+    if (videoRef.current) {
+      setIsPlaying(true);
       videoRef.current.play().catch((e) => {
-        console.log('Autoplay blocked:', e);
+        console.log('Play blocked:', e);
+        setIsPlaying(false);
       });
     }
-  }, [videoUrl, videoStatus]);
+  };
 
   const handleReplay = () => {
     if (videoRef.current) {
       setVideoEnded(false);
+      setIsPlaying(true);
       videoRef.current.currentTime = 0;
       videoRef.current.play();
     }
@@ -157,16 +160,16 @@ export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
                 src={resolvedVideoUrl}
                 className="h-full w-full object-contain"
                 playsInline
-                autoPlay
                 muted={false}
                 onEnded={() => setVideoEnded(true)}
                 onPlay={() => setVideoEnded(false)}
               />
-              {videoEnded && (
+              {/* 재생 전 또는 종료 후 재생 버튼 표시 */}
+              {(!isPlaying || videoEnded) && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                   <button
                     type="button"
-                    onClick={handleReplay}
+                    onClick={videoEnded ? handleReplay : handlePlay}
                     className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform active:scale-90"
                   >
                     <svg className="h-8 w-8 translate-x-0.5 text-gray-800" fill="currentColor" viewBox="0 0 24 24">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { getBooksByAge } from '../../api/did.api';
 import type { DidBook, AgeGroup } from '../../types';
 import { DidV2Layout } from './DidV2Layout';
@@ -15,7 +15,6 @@ const AGE_LABELS: Record<AgeGroup, string> = {
  * 연령별 추천도서 카드 리스트 (3권) + 영상 팝업
  */
 export function DidV2BookGrid() {
-  const navigate = useNavigate();
   const { group } = useParams<{ group: string }>();
   const ageGroup = (group || 'elementary') as AgeGroup;
   const [books, setBooks] = useState<DidBook[]>([]);
@@ -47,12 +46,8 @@ export function DidV2BookGrid() {
             key={book.id}
             className="flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-md"
           >
-            {/* Card body: cover + info → click to detail page */}
-            <button
-              type="button"
-              onClick={() => navigate(`/did/video/${book.id}`)}
-              className="flex gap-4 p-4 text-left transition active:bg-gray-50"
-            >
+            {/* Card body: cover + info (클릭 비활성화) */}
+            <div className="flex gap-4 p-4">
               {/* Cover image */}
               <div
                 className="h-32 w-24 shrink-0 rounded-xl"
@@ -80,7 +75,7 @@ export function DidV2BookGrid() {
                   </span>
                 )}
               </div>
-            </button>
+            </div>
             {/* Watch video button */}
             <button
               type="button"
