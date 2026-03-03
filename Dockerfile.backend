@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -9,33 +9,21 @@ COPY library-did-main/package*.json ./
 COPY library-did-main/packages/shared/package*.json ./packages/shared/
 COPY library-did-main/packages/backend/package*.json ./packages/backend/
 
-# postinstall만 스킵하고 나머지는 정상 설치
 RUN npm install --legacy-peer-deps --ignore-scripts
-# 타입 선언 패키지 수동 설치
-RUN npm install --legacy-peer-deps @types/uuid winston bullmq
+RUN npm install --legacy-peer-deps @types/uuid winston
 
 COPY library-did-main/packages/shared ./packages/shared
 COPY library-did-main/packages/backend ./packages/backend
 COPY library-did-main/tsconfig.json ./
 
-# Prisma generate
+# Prisma generate (클라이언트만 생성, DB 연결 불필요)
 RUN npx prisma generate --schema=./packages/backend/prisma/schema.prisma
-
-# Prisma DB 초기화 (절대 경로로 SQLite 파일 생성)
-ENV DATABASE_URL=file:/app/packages/backend/prisma/dev.db
-RUN npx prisma db push --schema=./packages/backend/prisma/schema.prisma --skip-generate
 
 # 빌드
 RUN npm run build --workspace=@smart-did/shared
 RUN npm run build --workspace=@smart-did/backend
 
-# 시드 데이터 삽입 (GCS 영상 레코드 포함)
-RUN node -e "require('./packages/backend/dist/db/seed.js').seedDatabase().then(() => console.log('Seed completed')).catch(e => { console.error(e); process.exit(1); })"
-
-# DB 파일 생성 확인
-RUN ls -la ./packages/backend/prisma/ && test -f ./packages/backend/prisma/dev.db
-
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
@@ -46,22 +34,12 @@ COPY --from=builder /app/packages/backend/dist ./dist
 COPY --from=builder /app/packages/shared/dist ./shared
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/backend/package*.json ./
-
-# prisma 폴더 전체 복사 (schema + dev.db 포함)
 COPY --from=builder /app/packages/backend/prisma ./prisma
-
-# Storage 디렉토리 생성 및 테스트 영상 복사
-RUN mkdir -p ./storage/videos
-COPY library-did-main/packages/worker/storage/videos/*.mp4 ./storage/videos/
-COPY library-did-main/packages/worker/storage/videos/*.vtt ./storage/videos/
 
 ENV NODE_ENV=production
 ENV PORT=8080
 
-# DB 파일 존재 확인
-RUN ls -la ./prisma/
-
 EXPOSE 8080
 
-# 시작 시 DB를 /tmp로 복사 후 서버 실행 (Cloud Run 읽기 전용 파일시스템 우회)
-CMD sh -c "cp /app/prisma/dev.db /tmp/dev.db && DATABASE_URL=file:/tmp/dev.db node dist/index.js"
+# 시작 시 마이그레이션 실행 후 서버 시작
+CMD sh -c "npx prisma migrate deploy --schema=./prisma/schema.prisma && node dist/index.js"
