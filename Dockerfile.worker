@@ -19,8 +19,14 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# FFmpeg 설치 (영상 병합용)
-RUN apk add --no-cache ffmpeg
+# FFmpeg + 한글 폰트 + fontconfig 설치
+RUN apk add --no-cache ffmpeg fontconfig font-noto-cjk \
+    && fc-cache -f -v
+
+# 폰트 경로 심볼릭 링크 (코드 호환성)
+RUN mkdir -p /usr/share/fonts/truetype/nanum \
+    && ln -sf /usr/share/fonts/noto/NotoSansCJK-Regular.ttc /usr/share/fonts/truetype/nanum/NanumGothic.ttf \
+    && ln -sf /usr/share/fonts/noto/NotoSansCJK-Bold.ttc /usr/share/fonts/truetype/nanum/NanumGothicBold.ttf
 
 COPY --from=builder /app/packages/worker/dist ./dist
 COPY --from=builder /app/packages/shared/dist ./shared
