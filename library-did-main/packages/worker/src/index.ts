@@ -37,7 +37,7 @@ async function main() {
     logger.info(`Health check server listening on port ${PORT}`);
   });
 
-  const boss = await createWorker();
+  const worker = await createWorker();
   isHealthy = true;
 
   logger.info('Worker started successfully');
@@ -46,7 +46,7 @@ async function main() {
     logger.info('SIGTERM received, shutting down gracefully...');
     isHealthy = false;
     healthServer.close();
-    await boss.stop();
+    await worker.close();
     process.exit(0);
   });
 
@@ -54,7 +54,7 @@ async function main() {
     logger.info('SIGINT received, shutting down gracefully...');
     isHealthy = false;
     healthServer.close();
-    await boss.stop();
+    await worker.close();
     process.exit(0);
   });
 }

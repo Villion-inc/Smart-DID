@@ -1,9 +1,8 @@
-import { PgBoss } from 'pg-boss';
+import { Queue } from 'bullmq';
 import { config } from '../config';
 import { videoRepository } from '../repositories/video.repository';
 import { notificationRepository } from '../repositories/notification.repository';
 
-// Video job data type (matches @smart-did/shared)
 export interface VideoJobData {
   bookId: string;
   title: string;
@@ -19,59 +18,62 @@ export interface VideoJobData {
 const QUEUE_NAME = 'video-generation';
 
 /**
- * Queue Service (pg-boss based)
- * - PostgreSQL 기반 큐 (Redis 불필요)
+ * Queue Service (BullMQ + Redis based)
+ * - Redis 기반 큐 (Cloud Memorystore)
  * - 중복 생성 방지: 이미 QUEUED/GENERATING 상태면 큐에 추가하지 않음
  * - 우선순위 지원: 관리자 요청 > 사용자 요청
  */
 export class QueueService {
-  private boss: PgBoss | null = null;
+  private queue: Queue | null = null;
   private initialized = false;
 
-  private getDatabaseUrl(): string | null {
-    return process.env.DATABASE_URL || null;
+  private getRedisConfig() {
+    const host = process.env.REDIS_HOST;
+    const port = parseInt(process.env.REDIS_PORT || '6379', 10);
+    
+    if (!host) {
+      return null;
+    }
+    
+    return { host, port };
   }
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    const dbUrl = this.getDatabaseUrl();
-    if (!dbUrl) {
-      console.warn('[QueueService] DATABASE_URL not configured, queue disabled');
+    const redisConfig = this.getRedisConfig();
+    if (!redisConfig) {
+      console.warn('[QueueService] REDIS_HOST not configured, queue disabled');
       return;
     }
 
     try {
-      console.log('[QueueService] Initializing pg-boss with DATABASE_URL...');
+      console.log(`[QueueService] Initializing BullMQ with Redis at ${redisConfig.host}:${redisConfig.port}...`);
       
-      this.boss = new PgBoss({
-        connectionString: dbUrl,
-        // Cloud SQL Connector 호환성을 위한 추가 설정
-        max: 5,
-        connectionTimeoutMillis: 30000,
+      this.queue = new Queue(QUEUE_NAME, {
+        connection: redisConfig,
+        defaultJobOptions: {
+          removeOnComplete: 100,
+          removeOnFail: 50,
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 5000,
+          },
+        },
       });
 
-      this.boss.on('error', (error: Error) => {
-        console.error('[QueueService] pg-boss error:', error);
-      });
-
-      await this.boss.start();
-      console.log('[QueueService] pg-boss started');
-      
-      // Create queue if not exists (pg-boss v10+ requires explicit queue creation)
-      await this.boss.createQueue(QUEUE_NAME);
-      console.log('[QueueService] Queue created:', QUEUE_NAME);
+      await this.queue.waitUntilReady();
       
       this.initialized = true;
-      console.log('[QueueService] pg-boss initialized successfully');
+      console.log('[QueueService] BullMQ initialized successfully');
     } catch (error) {
-      console.error('[QueueService] Failed to initialize pg-boss:', error);
-      // 초기화 실패해도 서버는 계속 실행 (큐 기능만 비활성화)
+      console.error('[QueueService] Failed to initialize BullMQ:', error);
     }
   }
 
   private isQueueEnabled(): boolean {
-    return this.initialized && this.boss !== null;
+    return this.initialized && this.queue !== null;
   }
 
   /**
@@ -91,9 +93,11 @@ export class QueueService {
     if (existingRecord) {
       const { status } = existingRecord;
       if (status === 'QUEUED' || status === 'GENERATING') {
+        console.log(`[QueueService] Job already exists for ${bookId} with status ${status}`);
         return null;
       }
       if (status === 'READY' && existingRecord.videoUrl) {
+        console.log(`[QueueService] Video already ready for ${bookId}`);
         return null;
       }
     }
@@ -134,11 +138,12 @@ export class QueueService {
     }
 
     try {
-      const jobId = await this.boss!.send(QUEUE_NAME, jobData, {
+      const job = await this.queue!.add(QUEUE_NAME, jobData, {
         priority,
-        singletonKey: bookId, // 같은 bookId는 중복 방지
+        jobId: bookId,
       });
-      return jobId;
+      console.log(`[QueueService] Job added: ${job.id} for book ${bookId}`);
+      return job.id || null;
     } catch (error) {
       console.error('[QueueService] Failed to add job:', error);
       return null;
@@ -212,15 +217,14 @@ export class QueueService {
     }
 
     try {
-      const queues = await this.boss!.getQueues();
-      const queue = queues.find((q: { name: string }) => q.name === QUEUE_NAME);
-      return {
-        waiting: (queue as any)?.size || 0,
-        active: 0,
-        completed: 0,
-        failed: 0,
-        delayed: 0,
-      };
+      const [waiting, active, completed, failed, delayed] = await Promise.all([
+        this.queue!.getWaitingCount(),
+        this.queue!.getActiveCount(),
+        this.queue!.getCompletedCount(),
+        this.queue!.getFailedCount(),
+        this.queue!.getDelayedCount(),
+      ]);
+      return { waiting, active, completed, failed, delayed };
     } catch {
       return { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 };
     }
@@ -242,22 +246,42 @@ export class QueueService {
   > {
     if (!this.isQueueEnabled()) return [];
 
-    // pg-boss doesn't have a direct method to list waiting jobs
-    // We can query from VideoRecord with QUEUED status instead
-    return [];
+    try {
+      const jobs = await this.queue!.getWaiting(0, limit - 1);
+      return jobs.map((job) => ({
+        jobId: job.id || '',
+        bookId: job.data.bookId,
+        title: job.data.title,
+        priority: job.opts?.priority || 10,
+        addedAt: new Date(job.timestamp),
+      }));
+    } catch {
+      return [];
+    }
   }
 
   /**
    * 특정 작업 취소
    */
   async cancelJob(bookId: string): Promise<boolean> {
-    // DB에서 QUEUED/GENERATING 상태인 경우 NONE으로 변경
     const record = await videoRepository.findByBookId(bookId);
     if (record && (record.status === 'QUEUED' || record.status === 'GENERATING')) {
       await videoRepository.update(bookId, {
         status: 'NONE',
         errorMessage: 'Cancelled by admin',
       });
+
+      if (this.isQueueEnabled()) {
+        try {
+          const job = await this.queue!.getJob(bookId);
+          if (job) {
+            await job.remove();
+          }
+        } catch (error) {
+          console.error('[QueueService] Failed to remove job from queue:', error);
+        }
+      }
+
       return true;
     }
     return false;
@@ -274,6 +298,18 @@ export class QueueService {
         retryCount: record.retryCount + 1,
         errorMessage: null,
       });
+
+      if (this.isQueueEnabled()) {
+        try {
+          const job = await this.queue!.getJob(bookId);
+          if (job) {
+            await job.retry();
+          }
+        } catch (error) {
+          console.error('[QueueService] Failed to retry job:', error);
+        }
+      }
+
       return true;
     }
     return false;
@@ -290,25 +326,32 @@ export class QueueService {
   }
 
   /**
-   * pg-boss 인스턴스 반환 (worker에서 사용)
+   * BullMQ Queue 인스턴스 반환
    */
-  getBoss(): PgBoss | null {
-    return this.boss;
+  getQueue(): Queue | null {
+    return this.queue;
   }
 
   /**
-   * 큐 정리 (완료/실패된 작업 삭제) - pg-boss는 자동으로 아카이브하므로 no-op
+   * 큐 정리 (완료/실패된 작업 삭제)
    */
   async cleanQueue(): Promise<void> {
-    // pg-boss handles archiving automatically via archiveCompletedAfterSeconds
+    if (!this.isQueueEnabled()) return;
+
+    try {
+      await this.queue!.clean(1000 * 60 * 60 * 24 * 7, 1000, 'completed');
+      await this.queue!.clean(1000 * 60 * 60 * 24 * 7, 1000, 'failed');
+    } catch (error) {
+      console.error('[QueueService] Failed to clean queue:', error);
+    }
   }
 
   /**
    * 큐 종료
    */
   async stop(): Promise<void> {
-    if (this.boss) {
-      await this.boss.stop();
+    if (this.queue) {
+      await this.queue.close();
       this.initialized = false;
     }
   }

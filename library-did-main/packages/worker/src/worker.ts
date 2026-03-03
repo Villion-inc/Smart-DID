@@ -1,5 +1,4 @@
-import { PgBoss } from 'pg-boss';
-import type { Job } from 'pg-boss';
+import { Worker, Job } from 'bullmq';
 import { VideoJobData, VideoGenerationRequest } from '@smart-did/shared';
 import { config } from './config';
 import { logger } from './config/logger';
@@ -29,73 +28,81 @@ function toVideoGenerationRequest(jobData: VideoJobData): VideoGenerationRequest
 }
 
 /**
- * Video generation worker using pg-boss
+ * Video generation worker using BullMQ
  * Pipeline V7 (12s Short Trailer) 실행 후 완료/실패 시 Backend 내부 콜백으로 VideoRecord 갱신
  */
-export async function createWorker(): Promise<PgBoss> {
-  const dbUrl = config.databaseUrl;
-  if (!dbUrl) {
-    throw new Error('DATABASE_URL not configured');
+export async function createWorker(): Promise<Worker> {
+  const redisHost = process.env.REDIS_HOST;
+  const redisPort = parseInt(process.env.REDIS_PORT || '6379', 10);
+
+  if (!redisHost) {
+    throw new Error('REDIS_HOST not configured');
   }
 
-  const boss = new PgBoss({
-    connectionString: dbUrl,
-  });
+  logger.info(`Connecting to Redis at ${redisHost}:${redisPort}...`);
 
-  boss.on('error', (error: Error) => {
-    logger.error('pg-boss error:', error);
-  });
-
-  await boss.start();
-  logger.info('pg-boss started successfully');
-
-  // Create queue if not exists (pg-boss v10+ requires explicit queue creation)
-  await boss.createQueue(QUEUE_NAME);
-  logger.info(`Queue ${QUEUE_NAME} created/verified`);
-
-  // Register job handler (pg-boss v10+ passes array of jobs)
-  await boss.work<VideoJobData>(
+  const worker = new Worker<VideoJobData>(
     QUEUE_NAME,
-    { localConcurrency: config.worker.concurrency },
-    async (jobs: Job<VideoJobData>[]) => {
-      for (const job of jobs) {
-        const { bookId } = job.data;
-        logger.info(`Processing job ${job.id} for book ${bookId}`);
+    async (job: Job<VideoJobData>) => {
+      const { bookId } = job.data;
+      logger.info(`Processing job ${job.id} for book ${bookId}`);
 
-        try {
-          const request = toVideoGenerationRequest(job.data);
-          const result = await pipelineOrchestrator.execute(request);
+      try {
+        const request = toVideoGenerationRequest(job.data);
+        const result = await pipelineOrchestrator.execute(request);
 
-          if (result.status === 'completed') {
-            await notifyBackendVideoCallback({
-              bookId,
-              status: 'READY',
-              videoUrl: result.videoUrl,
-              subtitleUrl: result.subtitleUrl,
-            });
-            logger.info(`Job ${job.id} completed successfully`);
-          } else {
-            await notifyBackendVideoCallback({
-              bookId,
-              status: 'FAILED',
-              errorMessage: result.error || 'Video generation failed',
-            });
-            throw new Error(result.error || 'Video generation failed');
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+        if (result.status === 'completed') {
+          await notifyBackendVideoCallback({
+            bookId,
+            status: 'READY',
+            videoUrl: result.videoUrl,
+            subtitleUrl: result.subtitleUrl,
+          });
+          logger.info(`Job ${job.id} completed successfully`);
+          return { success: true, videoUrl: result.videoUrl };
+        } else {
           await notifyBackendVideoCallback({
             bookId,
             status: 'FAILED',
-            errorMessage: message,
+            errorMessage: result.error || 'Video generation failed',
           });
-          logger.error(`Job ${job.id} failed:`, error);
-          throw error;
+          throw new Error(result.error || 'Video generation failed');
         }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await notifyBackendVideoCallback({
+          bookId,
+          status: 'FAILED',
+          errorMessage: message,
+        });
+        logger.error(`Job ${job.id} failed:`, error);
+        throw error;
       }
+    },
+    {
+      connection: {
+        host: redisHost,
+        port: redisPort,
+      },
+      concurrency: config.worker.concurrency,
     }
   );
 
+  worker.on('completed', (job) => {
+    logger.info(`Job ${job.id} has completed`);
+  });
+
+  worker.on('failed', (job, err) => {
+    logger.error(`Job ${job?.id} has failed with error: ${err.message}`);
+  });
+
+  worker.on('error', (err) => {
+    logger.error('Worker error:', err);
+  });
+
+  await worker.waitUntilReady();
+  logger.info('BullMQ Worker started successfully');
   logger.info(`Worker registered for queue: ${QUEUE_NAME}`);
-  return boss;
+
+  return worker;
 }
