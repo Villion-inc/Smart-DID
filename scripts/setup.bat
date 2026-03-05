@@ -172,17 +172,26 @@ if %errorlevel% neq 0 (
     echo ========================================
     echo.
     echo   도서관 내부망(ALPAS) 연결이 안 됩니다.
-    echo   설치는 계속 진행됩니다.
     echo.
-    echo   ALPAS 없이 사용 가능한 기능:
-    echo     - 추천도서 조회 (홈 화면)
-    echo     - 영상 재생
-    echo     - 관리자 페이지
+    echo   [1] 클라우드 베타 버전 사용 (로컬 설치 중단)
+    echo       - 별도 설치 없이 바로 사용
+    echo       - 검색/신착 기능은 공개 테스트 데이터 사용
     echo.
-    echo   ALPAS 연결 후 사용 가능한 기능:
-    echo     - 도서 검색
-    echo     - 신착도서 조회
+    echo   [2] 로컬 설치 계속 진행 (검색/신착 제외)
+    echo       - 추천도서, 영상 재생, 관리자 페이지는 정상 사용
+    echo       - 검색/신착은 ALPAS 연결 후 사용 가능
     echo.
+    choice /C 12 /N /M "  선택하세요 (1 또는 2): "
+    if %errorlevel% equ 1 (
+        echo.
+        echo   클라우드 베타 버전으로 이동합니다...
+        timeout /t 2 /nobreak > nul
+        start "" "%CLOUD_URL%"
+        pause
+        exit /b 0
+    )
+    echo.
+    echo   로컬 설치를 계속 진행합니다...
 )
 cd ..\..
 
