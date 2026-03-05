@@ -167,12 +167,22 @@ cd packages\backend
 call npx tsx scripts/test-alpas.ts
 if %errorlevel% neq 0 (
     echo.
-    echo [실패] ALPAS 연동 실패. 클라우드 베타 버전으로 이동합니다.
-    echo   URL: %CLOUD_URL%
-    timeout /t 3 /nobreak > nul
-    start "" "%CLOUD_URL%"
-    pause
-    exit /b 1
+    echo ========================================
+    echo   [경고] ALPAS 연동 실패
+    echo ========================================
+    echo.
+    echo   도서관 내부망(ALPAS) 연결이 안 됩니다.
+    echo   설치는 계속 진행됩니다.
+    echo.
+    echo   ALPAS 없이 사용 가능한 기능:
+    echo     - 추천도서 조회 (홈 화면)
+    echo     - 영상 재생
+    echo     - 관리자 페이지
+    echo.
+    echo   ALPAS 연결 후 사용 가능한 기능:
+    echo     - 도서 검색
+    echo     - 신착도서 조회
+    echo.
 )
 cd ..\..
 
