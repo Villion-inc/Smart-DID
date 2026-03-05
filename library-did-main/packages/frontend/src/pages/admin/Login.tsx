@@ -139,9 +139,6 @@ export const AdminLogin: React.FC = () => {
               </button>
             </form>
 
-            <p className="mt-4 text-center text-xs text-gray-400">
-              기본 계정: admin / changeme123
-            </p>
           </div>
         </main>
       </div>

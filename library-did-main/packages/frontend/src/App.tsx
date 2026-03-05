@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import { AdminLogin } from './pages/admin/Login';
 import { AdminDashboard } from './pages/admin/Dashboard';
@@ -11,6 +11,19 @@ import { DidV2BookDetail } from './pages/did/DidV2BookDetail';
 import { DidV2NewArrivals } from './pages/did/DidV2NewArrivals';
 import { DidV2Search } from './pages/did/DidV2Search';
 import { DidV2Location } from './pages/did/DidV2Location';
+
+const CLOUD_ADMIN_URL = import.meta.env.VITE_CLOUD_ADMIN_URL as string | undefined;
+
+const CloudAdminRedirect = () => {
+  const location = useLocation();
+  useEffect(() => {
+    if (CLOUD_ADMIN_URL) {
+      const path = location.pathname.replace(/^\/admin/, '');
+      window.location.href = CLOUD_ADMIN_URL + '/admin' + (path || '/login');
+    }
+  }, [location]);
+  return null;
+};
 
 function App() {
   const { initialize } = useAuthStore();
@@ -38,11 +51,17 @@ function App() {
         <Route path="/pip/:bookId" element={<DidV2BookDetail />} />
 
         {/* Admin 관리자 페이지 */}
-        <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
-        <Route path="/admin/login" element={<AdminLogin />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/recommend" element={<AdminRecommendBook />} />
-        <Route path="/admin/videos" element={<VideoManagement />} />
+        {CLOUD_ADMIN_URL ? (
+          <Route path="/admin/*" element={<CloudAdminRedirect />} />
+        ) : (
+          <>
+            <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/recommend" element={<AdminRecommendBook />} />
+            <Route path="/admin/videos" element={<VideoManagement />} />
+          </>
+        )}
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/did" replace />} />

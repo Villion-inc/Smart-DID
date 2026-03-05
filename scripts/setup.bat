@@ -8,9 +8,12 @@ echo   (Node.js + 프로젝트 빌드)
 echo ========================================
 echo.
 echo   DB/영상: GCP 클라우드 사용
-echo   영상 생성: 클라우드 Worker 처리
+echo   영상 생성: 클라우드 Admin에서 처리
 echo   로컬: Backend + Frontend만 실행
 echo.
+
+:: 클라우드 베타 URL
+set "CLOUD_URL=https://did-frontend-730268485621.asia-northeast3.run.app"
 
 :: 관리자 권한 확인
 net session >nul 2>&1
@@ -27,7 +30,7 @@ where node >nul 2>nul
 if %errorlevel% equ 0 (
     echo [확인] Node.js가 이미 설치되어 있습니다.
     node --version
-    goto :install_project
+    goto :setup_env
 )
 
 echo [1/6] Node.js 다운로드 중...
@@ -69,13 +72,25 @@ del "%DOWNLOAD_PATH%" >nul 2>nul
 :: ========================================
 :: 2. 환경변수 설정
 :: ========================================
-:install_project
+:setup_env
 echo.
 cd /d "%~dp0..\library-did-main"
 
-:: .env 파일 존재 여부 확인
 if exist ".env" (
     echo [확인] 환경변수 파일(.env)이 이미 존재합니다.
+    echo.
+    echo   ALPAS 설정이 도서관 내부망 주소로 되어 있는지 확인하세요.
+    echo   현재 ALPAS 설정:
+    echo.
+    findstr /B "ALPAS_" ".env"
+    echo.
+    echo   수정이 필요하면 Y, 그대로 진행하려면 아무 키나 누르세요.
+    choice /C YN /N /M "  .env 수정하시겠습니까? (Y/N): "
+    if %errorlevel% equ 1 (
+        start notepad ".env"
+        echo   메모장에서 수정 후 저장하고 아무 키나 누르세요...
+        pause
+    )
 ) else (
     echo [3/6] 환경변수 파일 생성 중...
     copy "%~dp0.env.template" ".env" >nul
@@ -94,15 +109,31 @@ if exist ".env" (
     echo ========================================
     echo.
 
-    :: 메모장으로 .env 파일 열기
     start notepad ".env"
-
-    echo 환경변수 확인 후 아무 키나 누르면 계속 진행합니다...
+    echo   환경변수 확인 후 아무 키나 누르면 계속 진행합니다...
     pause
 )
 
 :: ========================================
-:: 3. 프로젝트 설치
+:: 3. ALPAS 연동 테스트
+:: ========================================
+echo.
+echo [확인] ALPAS 연동 테스트 중...
+cd packages\backend
+call npx tsx scripts/test-alpas.ts
+if %errorlevel% neq 0 (
+    echo.
+    echo [실패] ALPAS 연동 실패. 클라우드 베타 버전으로 이동합니다.
+    echo   URL: %CLOUD_URL%
+    timeout /t 3 /nobreak > nul
+    start "" "%CLOUD_URL%"
+    pause
+    exit /b 1
+)
+cd ..\..
+
+:: ========================================
+:: 4. 프로젝트 설치
 :: ========================================
 echo.
 echo [4/6] 의존성 설치 중... (약 3-5분 소요)
@@ -136,7 +167,7 @@ echo ========================================
 echo.
 echo   start-all.bat을 더블클릭하여 실행하세요.
 echo.
-echo   ※ 영상 생성은 클라우드에서 처리됩니다.
+echo   ※ 영상 생성은 클라우드 Admin에서 처리됩니다.
 echo   ※ Redis 설치는 필요하지 않습니다.
 echo.
 pause
