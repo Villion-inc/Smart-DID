@@ -119,6 +119,7 @@ if exist ".env" (
 :: ========================================
 echo.
 echo [확인] ALPAS 연동 테스트 중...
+copy ".env" "packages\backend\.env" >nul 2>nul
 cd packages\backend
 call npx tsx scripts/test-alpas.ts
 if %errorlevel% neq 0 (
@@ -141,6 +142,8 @@ call npm install --legacy-peer-deps
 
 echo.
 echo [5/6] Prisma 설정 중...
+:: .env를 backend에도 복사 (Prisma가 현재 디렉토리에서 .env를 찾음)
+copy ".env" "packages\backend\.env" >nul 2>nul
 cd packages\backend
 call npx prisma generate
 call npx prisma db push --accept-data-loss
