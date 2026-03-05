@@ -30,7 +30,7 @@ where node >nul 2>nul
 if %errorlevel% equ 0 (
     echo [확인] Node.js가 이미 설치되어 있습니다.
     node --version
-    goto :setup_env
+    goto :setup_gcp
 )
 
 echo [1/6] Node.js 다운로드 중...
@@ -70,7 +70,50 @@ node --version
 del "%DOWNLOAD_PATH%" >nul 2>nul
 
 :: ========================================
-:: 2. 환경변수 설정
+:: 2. GCP 인증 (영상 파일 접근용, 최초 1회만)
+:: ========================================
+:setup_gcp
+echo.
+if exist "%APPDATA%\gcloud\application_default_credentials.json" (
+    echo [확인] GCP 인증이 이미 설정되어 있습니다.
+    goto :setup_env
+)
+
+where gcloud >nul 2>nul
+if %errorlevel% neq 0 (
+    echo [알림] Google Cloud SDK 설치 중...
+    echo        (영상 파일 접근에 필요합니다)
+    echo.
+    set "GCLOUD_INSTALLER=%TEMP%\GoogleCloudSDKInstaller.exe"
+    powershell -Command "& {[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://dl.google.com/dl/cloudsdk/channels/rapid/GoogleCloudSDKInstaller.exe' -OutFile '%GCLOUD_INSTALLER%'}"
+    if exist "%GCLOUD_INSTALLER%" (
+        "%GCLOUD_INSTALLER%" /S
+        set "PATH=%PATH%;C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin;%LOCALAPPDATA%\Google\Cloud SDK\google-cloud-sdk\bin"
+        timeout /t 5 /nobreak > nul
+    ) else (
+        echo [경고] Google Cloud SDK 다운로드 실패. 영상 재생이 안 될 수 있습니다.
+        echo        https://cloud.google.com/sdk/docs/install 에서 수동 설치해주세요.
+        pause
+    )
+)
+
+where gcloud >nul 2>nul
+if %errorlevel% equ 0 (
+    echo.
+    echo ========================================
+    echo   GCP 인증 (최초 1회)
+    echo ========================================
+    echo.
+    echo   브라우저가 열리면 Google 계정으로 로그인하세요.
+    echo   (영상 파일 접근 권한을 위한 인증입니다)
+    echo.
+    call gcloud auth application-default login --project=asanlibrary
+    echo.
+    echo [확인] GCP 인증 완료
+)
+
+:: ========================================
+:: 3. 환경변수 설정
 :: ========================================
 :setup_env
 echo.
@@ -115,7 +158,7 @@ if exist ".env" (
 )
 
 :: ========================================
-:: 3. ALPAS 연동 테스트
+:: 4. ALPAS 연동 테스트
 :: ========================================
 echo.
 echo [확인] ALPAS 연동 테스트 중...
@@ -134,14 +177,14 @@ if %errorlevel% neq 0 (
 cd ..\..
 
 :: ========================================
-:: 4. 프로젝트 설치
+:: 5. 프로젝트 설치
 :: ========================================
 echo.
-echo [4/6] 의존성 설치 중... (약 3-5분 소요)
+echo [5/7] 의존성 설치 중... (약 3-5분 소요)
 call npm install --legacy-peer-deps
 
 echo.
-echo [5/6] Prisma 설정 중...
+echo [6/7] Prisma 설정 중...
 :: .env를 backend에도 복사 (Prisma가 현재 디렉토리에서 .env를 찾음)
 copy ".env" "packages\backend\.env" >nul 2>nul
 cd packages\backend
@@ -150,7 +193,7 @@ call npx prisma db push --accept-data-loss
 cd ..\..
 
 echo.
-echo [6/6] 빌드 중...
+echo [7/7] 빌드 중...
 call npm run build --workspace=@smart-did/shared
 if %errorlevel% neq 0 (
     echo [경고] 공유 패키지 빌드 실패, 계속 진행합니다...
