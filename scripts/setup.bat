@@ -1,238 +1,272 @@
-﻿@echo off
+@echo off
 chcp 65001 > nul
-title 스마트 DID 로컬 설치
+setlocal enabledelayedexpansion
+title Smart DID Local Setup
 
 echo ========================================
-echo   스마트 DID 로컬 설치
-echo   (Node.js + 프로젝트 빌드)
+echo   Smart DID Local Setup
+echo   (Node.js + Project Build)
 echo ========================================
 echo.
-echo   DB/영상: GCP 클라우드 사용
-echo   영상 생성: 클라우드 Admin에서 처리
-echo   로컬: Backend + Frontend만 실행
+echo   DB/Video: GCP Cloud
+echo   Video Gen: Cloud Admin
+echo   Local: Backend + Frontend only
 echo.
 
-:: 클라우드 베타 URL
+:: Cloud Beta URL
 set "CLOUD_URL=https://did-frontend-730268485621.asia-northeast3.run.app"
 
-:: 관리자 권한 확인
+:: ========================================
+:: 1. Admin check
+:: ========================================
 net session >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [알림] 관리자 권한으로 실행합니다...
-    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+if !errorlevel! neq 0 (
+    echo [Info] Requesting admin privileges...
+    powershell -Command "Start-Process cmd -ArgumentList '/c \"\"%~f0\"\"' -Verb RunAs"
     exit /b
 )
 
 :: ========================================
-:: 1. Node.js 설치
+:: 2. Node.js install
 :: ========================================
 where node >nul 2>nul
-if %errorlevel% equ 0 (
-    echo [확인] Node.js가 이미 설치되어 있습니다.
+if !errorlevel! equ 0 (
+    echo [OK] Node.js already installed.
     node --version
     goto :setup_gcp
 )
 
-echo [1/6] Node.js 다운로드 중...
-echo      (인터넷 연결이 필요합니다)
-echo.
+echo [1/6] Node.js download...
 
-set "NODE_VERSION=20.11.1"
-set "NODE_INSTALLER=node-v%NODE_VERSION%-x64.msi"
-set "NODE_URL=https://nodejs.org/dist/v%NODE_VERSION%/%NODE_INSTALLER%"
-set "DOWNLOAD_PATH=%TEMP%\%NODE_INSTALLER%"
+set "NODE_URL=https://nodejs.org/dist/v20.11.1/node-v20.11.1-x64.msi"
+set "DOWNLOAD_PATH=%TEMP%\node-v20.11.1-x64.msi"
 
 powershell -Command "& {[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%NODE_URL%' -OutFile '%DOWNLOAD_PATH%'}"
 
 if not exist "%DOWNLOAD_PATH%" (
-    echo [오류] Node.js 다운로드 실패
-    echo       https://nodejs.org/ 에서 수동 설치해주세요.
+    echo [Error] Node.js download failed.
+    echo         Please install manually: https://nodejs.org/
     pause
     exit /b 1
 )
 
-echo [2/6] Node.js 설치 중...
+echo [2/6] Installing Node.js...
 msiexec /i "%DOWNLOAD_PATH%" /passive /norestart
 
 set "PATH=%PATH%;C:\Program Files\nodejs"
 timeout /t 5 /nobreak > nul
 
 where node >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [알림] Node.js 설치 완료. PC를 재시작한 후 다시 실행해주세요.
+if !errorlevel! neq 0 (
+    echo [Info] Node.js installed. Please restart PC and run again.
     del "%DOWNLOAD_PATH%" >nul 2>nul
     pause
     exit /b 0
 )
 
-echo [확인] Node.js 설치 완료:
+echo [OK] Node.js installed:
 node --version
 del "%DOWNLOAD_PATH%" >nul 2>nul
 
 :: ========================================
-:: 2. GCP 인증 (영상 파일 접근용, 최초 1회만)
+:: 3. GCP Auth (for video access, one-time)
 :: ========================================
 :setup_gcp
 echo.
 if exist "%APPDATA%\gcloud\application_default_credentials.json" (
-    echo [확인] GCP 인증이 이미 설정되어 있습니다.
+    echo [OK] GCP auth already configured.
     goto :setup_env
 )
 
 where gcloud >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [알림] Google Cloud SDK 설치 중...
-    echo        (영상 파일 접근에 필요합니다)
-    echo.
+if !errorlevel! neq 0 (
+    echo [Info] Google Cloud SDK not found. Installing...
     set "GCLOUD_INSTALLER=%TEMP%\GoogleCloudSDKInstaller.exe"
-    powershell -Command "& {[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://dl.google.com/dl/cloudsdk/channels/rapid/GoogleCloudSDKInstaller.exe' -OutFile '%GCLOUD_INSTALLER%'}"
-    if exist "%GCLOUD_INSTALLER%" (
-        "%GCLOUD_INSTALLER%" /S
-        set "PATH=%PATH%;C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin;%LOCALAPPDATA%\Google\Cloud SDK\google-cloud-sdk\bin"
+    powershell -Command "& {[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://dl.google.com/dl/cloudsdk/channels/rapid/GoogleCloudSDKInstaller.exe' -OutFile '!GCLOUD_INSTALLER!'}"
+    if exist "!GCLOUD_INSTALLER!" (
+        "!GCLOUD_INSTALLER!" /S
+        set "PATH=!PATH!;C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin;%LOCALAPPDATA%\Google\Cloud SDK\google-cloud-sdk\bin"
         timeout /t 5 /nobreak > nul
     ) else (
-        echo [경고] Google Cloud SDK 다운로드 실패. 영상 재생이 안 될 수 있습니다.
-        echo        https://cloud.google.com/sdk/docs/install 에서 수동 설치해주세요.
+        echo [Warning] Google Cloud SDK download failed.
+        echo           Video playback may not work.
+        echo           Manual install: https://cloud.google.com/sdk/docs/install
         pause
     )
 )
 
 where gcloud >nul 2>nul
-if %errorlevel% equ 0 (
+if !errorlevel! equ 0 (
     echo.
     echo ========================================
-    echo   GCP 인증 (최초 1회)
+    echo   GCP Auth (one-time)
     echo ========================================
     echo.
-    echo   브라우저가 열리면 Google 계정으로 로그인하세요.
-    echo   (영상 파일 접근 권한을 위한 인증입니다)
+    echo   Browser will open. Sign in with Google account.
     echo.
     call gcloud auth application-default login --project=asanlibrary
     echo.
-    echo [확인] GCP 인증 완료
+    echo [OK] GCP auth complete.
 )
 
 :: ========================================
-:: 3. 환경변수 설정
+:: 4. Environment variables
 :: ========================================
 :setup_env
 echo.
 cd /d "%~dp0..\library-did-main"
+if !errorlevel! neq 0 (
+    echo [Error] Cannot find library-did-main folder.
+    echo         Expected: %~dp0..\library-did-main
+    pause
+    exit /b 1
+)
+
+echo [OK] Project dir: %CD%
 
 if exist ".env" (
-    echo [확인] 환경변수 파일(.env)이 이미 존재합니다.
+    echo [OK] .env file exists.
     echo.
-    echo   ALPAS 설정이 도서관 내부망 주소로 되어 있는지 확인하세요.
-    echo   현재 ALPAS 설정:
+    echo   Check ALPAS settings:
     echo.
     findstr /B "ALPAS_" ".env"
     echo.
-    echo   수정이 필요하면 Y, 그대로 진행하려면 아무 키나 누르세요.
-    choice /C YN /N /M "  .env 수정하시겠습니까? (Y/N): "
-    if %errorlevel% equ 1 (
+    choice /C YN /N /M "  Edit .env? (Y/N): "
+    if !errorlevel! equ 1 (
         start notepad ".env"
-        echo   메모장에서 수정 후 저장하고 아무 키나 누르세요...
+        echo   Save and close notepad, then press any key...
         pause
     )
 ) else (
-    echo [3/6] 환경변수 파일 생성 중...
+    echo [3/6] Creating .env file...
     copy "%~dp0.env.template" ".env" >nul
+    if not exist ".env" (
+        echo [Error] Failed to create .env file.
+        echo         Template: %~dp0.env.template
+        pause
+        exit /b 1
+    )
     echo.
     echo ========================================
-    echo   환경변수 설정 확인
+    echo   Environment Setup
     echo ========================================
     echo.
-    echo   .env 파일이 생성되었습니다.
-    echo   메모장에서 ALPAS 설정을 확인하세요:
+    echo   .env file created.
+    echo   Edit ALPAS settings in notepad:
     echo.
-    echo   - ALPAS_API_URL  (도서관 API 주소)
-    echo   - ALPAS_API_KEY  (도서관 API 키)
-    echo   - ALPAS_LIB_NO   (도서관 번호)
-    echo.
-    echo ========================================
+    echo   - ALPAS_API_URL  (Library API URL)
+    echo   - ALPAS_API_KEY  (Library API Key)
+    echo   - ALPAS_LIB_NO   (Library Number)
     echo.
 
     start notepad ".env"
-    echo   환경변수 확인 후 아무 키나 누르면 계속 진행합니다...
+    echo   Edit .env, save, then press any key...
     pause
 )
 
 :: ========================================
-:: 4. ALPAS 연동 테스트
+:: 5. npm install (BEFORE ALPAS test)
 :: ========================================
 echo.
-echo [확인] ALPAS 연동 테스트 중...
-copy ".env" "packages\backend\.env" >nul 2>nul
-cd packages\backend
-call npx tsx scripts/test-alpas.ts
-if %errorlevel% neq 0 (
-    echo.
-    echo ========================================
-    echo   [경고] ALPAS 연동 실패
-    echo ========================================
-    echo.
-    echo   도서관 내부망(ALPAS) 연결이 안 됩니다.
-    echo.
-    echo   [1] 클라우드 베타 버전 사용 (로컬 설치 중단)
-    echo       - 별도 설치 없이 바로 사용
-    echo       - 검색/신착 기능은 공개 테스트 데이터 사용
-    echo.
-    echo   [2] 로컬 설치 계속 진행 (검색/신착 제외)
-    echo       - 추천도서, 영상 재생, 관리자 페이지는 정상 사용
-    echo       - 검색/신착은 ALPAS 연결 후 사용 가능
-    echo.
-    choice /C 12 /N /M "  선택하세요 (1 또는 2): "
-    if %errorlevel% equ 1 (
-        echo.
-        echo   클라우드 베타 버전으로 이동합니다...
-        timeout /t 2 /nobreak > nul
-        start "" "%CLOUD_URL%"
-        pause
-        exit /b 0
-    )
-    echo.
-    echo   로컬 설치를 계속 진행합니다...
-)
-cd ..\..
-
-:: ========================================
-:: 5. 프로젝트 설치
-:: ========================================
-echo.
-echo [5/7] 의존성 설치 중... (약 3-5분 소요)
+echo [4/6] Installing dependencies... (3-5 min)
 call npm install --legacy-peer-deps
+if !errorlevel! neq 0 (
+    echo [Error] npm install failed.
+    echo         Check Node.js and network connection.
+    pause
+    exit /b 1
+)
+
+:: ========================================
+:: 6. ALPAS connectivity test (AFTER npm install)
+:: ========================================
+echo.
+echo [5/6] Testing ALPAS connection...
+
+:: First, quick check with PowerShell (no tsx needed)
+for /f "tokens=*" %%A in ('findstr /B "ALPAS_API_URL=" ".env"') do set "%%A"
+if "!ALPAS_API_URL!"=="" goto :alpas_skip
+if "!ALPAS_API_URL!"=="YOUR_ALPAS_API_URL_HERE" goto :alpas_skip
+
+echo   Testing connection to !ALPAS_API_URL!...
+powershell -Command "& {try { $r = Invoke-WebRequest -Uri '!ALPAS_API_URL!' -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop; exit 0 } catch { exit 1 }}" >nul 2>&1
+if !errorlevel! equ 0 (
+    echo   [OK] ALPAS server reachable.
+    goto :alpas_done
+)
 
 echo.
-echo [6/7] Prisma 설정 중...
-:: .env를 backend에도 복사 (Prisma가 현재 디렉토리에서 .env를 찾음)
+echo ========================================
+echo   [Warning] ALPAS connection failed
+echo ========================================
+echo.
+echo   Cannot reach ALPAS server: !ALPAS_API_URL!
+echo.
+echo   [1] Use Cloud Beta (stop local install)
+echo       - No installation needed
+echo       - Uses test data for search
+echo.
+echo   [2] Continue local install (without search)
+echo       - Recommendations, video, admin work fine
+echo       - Search available after ALPAS connection
+echo.
+choice /C 12 /N /M "  Choose (1 or 2): "
+if !errorlevel! equ 1 (
+    echo.
+    echo   Opening Cloud Beta...
+    timeout /t 2 /nobreak > nul
+    start "" "%CLOUD_URL%"
+    pause
+    exit /b 0
+)
+echo.
+echo   Continuing local install...
+goto :alpas_done
+
+:alpas_skip
+echo   ALPAS_API_URL not set. Skipping test.
+echo   Search/new arrivals will use mock data.
+
+:alpas_done
+
+:: Copy .env to backend
 copy ".env" "packages\backend\.env" >nul 2>nul
+
+:: ========================================
+:: 7. Prisma setup
+:: ========================================
+echo.
+echo [6/6] Prisma setup...
 cd packages\backend
 call npx prisma generate
 call npx prisma db push --accept-data-loss
 cd ..\..
 
+:: ========================================
+:: 8. Build
+:: ========================================
 echo.
-echo [7/7] 빌드 중...
+echo [7/7] Building...
 call npm run build --workspace=@smart-did/shared
-if %errorlevel% neq 0 (
-    echo [경고] 공유 패키지 빌드 실패, 계속 진행합니다...
+if !errorlevel! neq 0 (
+    echo [Warning] Shared package build failed, continuing...
 )
 
 call npm run build --workspace=@smart-did/backend
-if %errorlevel% neq 0 (
-    echo [오류] 백엔드 빌드 실패
+if !errorlevel! neq 0 (
+    echo [Error] Backend build failed.
     pause
     exit /b 1
 )
 
 echo.
 echo ========================================
-echo   설치 완료!
+echo   Setup Complete!
 echo ========================================
 echo.
-echo   start-all.bat을 더블클릭하여 실행하세요.
+echo   Run start-all.bat to start the server.
 echo.
-echo   ※ 영상 생성은 클라우드 Admin에서 처리됩니다.
-echo   ※ Redis 설치는 필요하지 않습니다.
+echo   * Video generation: handled by Cloud Admin
+echo   * Redis: not required
 echo.
 pause
