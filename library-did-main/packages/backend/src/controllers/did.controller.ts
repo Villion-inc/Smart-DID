@@ -15,6 +15,25 @@ import { toPublicVideoUrl, toPublicSubtitleUrl } from '../utils/storage';
  */
 export class DidController {
   /**
+   * GET /api/did/alpas-status
+   * ALPAS API 연결 상태 확인
+   */
+  async checkAlpasStatus(_request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const books = await alpasService.searchBooks('도서');
+      return reply.send({
+        success: true,
+        data: { connected: books.length > 0 },
+      });
+    } catch {
+      return reply.send({
+        success: true,
+        data: { connected: false },
+      });
+    }
+  }
+
+  /**
    * GET /api/did/new-arrivals
    * Returns newly arrived books for DID display
    */

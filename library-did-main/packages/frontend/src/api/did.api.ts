@@ -48,6 +48,18 @@ export interface PopularVideo {
  */
 
 /**
+ * Check ALPAS API connectivity
+ */
+export const checkAlpasStatus = async (): Promise<boolean> => {
+  try {
+    const response = await apiClient.get<ApiResponse<{ connected: boolean }>>('/did/alpas-status');
+    return response.data.data?.connected ?? false;
+  } catch {
+    return false;
+  }
+};
+
+/**
  * Fetch newly arrived books for DID display
  */
 export const getNewArrivals = async (): Promise<DidBook[]> => {

@@ -11,6 +11,13 @@ import { didController } from '../controllers/did.controller';
  */
 export async function didRoutes(fastify: FastifyInstance) {
   // =====================
+  // ALPAS Status
+  // =====================
+
+  // Check ALPAS API connectivity
+  fastify.get('/did/alpas-status', didController.checkAlpasStatus.bind(didController));
+
+  // =====================
   // Book Discovery
   // =====================
 
