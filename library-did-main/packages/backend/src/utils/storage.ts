@@ -1,20 +1,14 @@
 /**
  * DB에 저장된 비디오 경로를 공개 URL로 변환.
- * GCS 사용 시 직접 GCS URL을 반환하여 프록시 없이 빠르게 서빙.
+ * 항상 백엔드 프록시 경로(/api/videos/)를 사용.
+ * (GCS 버킷이 조직 정책으로 공개 불가하므로 직접 URL 사용 불가)
  */
-const GCS_BASE = process.env.GCS_PUBLIC_BASE_URL || '';
-const STORAGE_TYPE = (process.env.STORAGE_TYPE || 'local').toLowerCase();
-
 export function toPublicVideoUrl(videoUrl: string | null | undefined): string | null {
   if (!videoUrl) return null;
 
-  // 이미 GCS 절대 URL이면 그대로
-  if (videoUrl.startsWith('https://storage.googleapis.com/')) {
-    return videoUrl;
-  }
-
   // 파일명 추출
   const filename = videoUrl
+    .replace(/^https:\/\/storage\.googleapis\.com\/[^/]+\//, '') // GCS 절대 URL에서 파일명 추출
     .replace(/^\/api\/videos\//, '')
     .replace(/^\/videos\//, '')
     .replace(/^\.\//, '')
@@ -22,13 +16,8 @@ export function toPublicVideoUrl(videoUrl: string | null | undefined): string | 
 
   if (!filename) return null;
 
-  // GCS 사용 시 직접 GCS URL 반환 (프록시 없이 빠름)
-  if (STORAGE_TYPE === 'gcs' && GCS_BASE) {
-    return `${GCS_BASE}/${filename}`;
-  }
-
-  // 로컬 스토리지는 프록시 경로
-  return `/videos/${filename}`;
+  // 항상 백엔드 프록시 경로 사용
+  return `/api/videos/${filename}`;
 }
 
 /**
