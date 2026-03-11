@@ -40,6 +40,7 @@ async function main() {
     const allowedOrigins = [
       'https://did-frontend-730268485621.asia-northeast3.run.app',
       'https://smart-did-730268485621.asia-southeast1.run.app',
+      'http://34.22.107.18',
       /^http:\/\/localhost(:\d+)?$/,
     ];
     

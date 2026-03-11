@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminLogin } from './pages/admin/Login';
 import { AdminDashboard } from './pages/admin/Dashboard';
 import { AdminRecommendBook } from './pages/admin/AdminRecommendBook';
@@ -57,9 +58,9 @@ function App() {
           <>
             <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
             <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/recommend" element={<AdminRecommendBook />} />
-            <Route path="/admin/videos" element={<VideoManagement />} />
+            <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/recommend" element={<ProtectedRoute><AdminRecommendBook /></ProtectedRoute>} />
+            <Route path="/admin/videos" element={<ProtectedRoute><VideoManagement /></ProtectedRoute>} />
           </>
         )}
 

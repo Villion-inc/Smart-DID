@@ -13,15 +13,22 @@ import { config } from '../config';
 export async function videoRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { filename: string } }>('/videos/:filename', async (request, reply) => {
     const { filename } = request.params;
-    if (!filename || filename.includes('..') || filename.includes('/')) {
+    if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
       return reply.code(400).send({ error: 'Invalid filename' });
     }
 
     const ext = path.extname(filename).toLowerCase();
+    if (!['.mp4', '.vtt', '.webm'].includes(ext)) {
+      return reply.code(400).send({ error: 'Invalid file type' });
+    }
     const contentType = ext === '.vtt' ? 'text/vtt' : 'video/mp4';
 
-    // 1) 로컬 파일 확인
+    // 1) 로컬 파일 확인 (경로 탐색 방지)
     const filePath = path.join(config.storage.path, filename);
+    const resolvedPath = path.resolve(filePath);
+    if (!resolvedPath.startsWith(path.resolve(config.storage.path))) {
+      return reply.code(400).send({ error: 'Invalid filename' });
+    }
     try {
       await fs.access(filePath);
       const stream = createReadStream(filePath);
