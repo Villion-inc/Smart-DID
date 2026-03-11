@@ -3,8 +3,8 @@ version: '3.8'
 services:
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    # ports:
+    #   - "6379:6379"  # 외부 노출 불필요 (컨테이너 내부 통신만 사용)
     volumes:
       - redis_data:/data
     healthcheck:

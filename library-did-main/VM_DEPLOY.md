@@ -82,17 +82,31 @@ git clone https://github.com/Villion-inc/Smart-DID.git .
 
 ```
 cat > /opt/smart-did/.env << 'EOF'
-DATABASE_URL=file:./prod.db
-JWT_SECRET=여기에시크릿키
-INTERNAL_API_SECRET=여기에내부시크릿키
-GEMINI_API_KEY=여기에제미니키
+NODE_ENV=production
+PORT=3001
+API_PREFIX=/api
+LOG_LEVEL=info
+DATABASE_URL=postgresql://postgres:gentatestuser123*A@34.47.84.34:5432/smart-did
+JWT_SECRET=EKqk5qtI2xOAerJsYdxfLOXcQpnXgjkuhy+oYF+hIRs=
+JWT_EXPIRES_IN=3600
+INTERNAL_API_SECRET=VSMXmsPDC0RR5z5DT32Otl4v64Xr6WXHH24UAktupfU=
+REDIS_HOST=redis
+REDIS_PORT=6379
+STORAGE_TYPE=gcs
+STORAGE_PATH=./storage/videos
+GCS_BUCKET=smart-did-storage-1
+GCS_PUBLIC_BASE_URL=https://storage.googleapis.com/smart-did-storage-1
 ALPAS_USE_MOCK=false
-ALPAS_API_URL=여기에알파스URL
-ALPAS_API_KEY=여기에알파스키
+ALPAS_API_URL=http://10.10.11.13:28180/METIS/HOMEPAGE/API
+ALPAS_API_KEY=
+ALPAS_LIB_NO=144045
+ALPAS_MANAGE_CODE=CH
+ALPAS_NETWORK_ADAPTER_ID=DE6E94C866F74ED00E783FA9EBCB8C6FEB860D567EB1AD25DF1964D5037029ED
+NAVER_CLIENT_ID=xLfYHST49wkb7cWVjKPW
+NAVER_CLIENT_SECRET=cbfL2TkYqu
+VITE_API_URL=/api
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=여기에비밀번호
-NAVER_CLIENT_ID=여기에네이버ID
-NAVER_CLIENT_SECRET=여기에네이버시크릿
+ADMIN_PASSWORD=@admin1234@
 EOF
 ```
 
@@ -144,3 +158,12 @@ cd /opt/smart-did && docker compose down
 ```
 cd /opt/smart-did && git pull && docker compose up -d --build
 ```
+
+---
+
+## 보안 참고
+
+- SSH 접속: GCP IAP(Identity-Aware Proxy) 통해서만 가능 (GCP Console SSH 버튼 또는 gcloud compute ssh)
+- 외부에서 열린 포트: 80(HTTP), 443(HTTPS)만 허용
+- Redis: 외부 노출 안 됨 (컨테이너 내부 통신만)
+- Cloud SQL: 34.22.107.18 IP만 승인된 네트워크에 추가 필요
