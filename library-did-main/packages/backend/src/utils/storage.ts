@@ -6,17 +6,20 @@
 export function toPublicVideoUrl(videoUrl: string | null | undefined): string | null {
   if (!videoUrl) return null;
 
+  // 이미 /api/videos/ 경로면 그대로 반환
+  if (videoUrl.startsWith('/api/videos/')) {
+    return videoUrl;
+  }
+
   // 파일명 추출
   const filename = videoUrl
-    .replace(/^https:\/\/storage\.googleapis\.com\/[^/]+\//, '') // GCS 절대 URL에서 파일명 추출
-    .replace(/^\/api\/videos\//, '')
+    .replace(/^https:\/\/storage\.googleapis\.com\/[^/]+\//, '')
     .replace(/^\/videos\//, '')
     .replace(/^\.\//, '')
     .split('/').pop();
 
   if (!filename) return null;
 
-  // 항상 백엔드 프록시 경로 사용
   return `/api/videos/${filename}`;
 }
 
