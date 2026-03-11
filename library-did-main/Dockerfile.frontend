@@ -13,7 +13,7 @@ COPY package*.json ./
 COPY packages/shared/package*.json ./packages/shared/
 COPY packages/frontend/package*.json ./packages/frontend/
 
-RUN npm install
+RUN npm install --ignore-scripts
 
 COPY packages/shared ./packages/shared
 COPY packages/frontend ./packages/frontend
