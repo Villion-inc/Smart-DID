@@ -27,9 +27,10 @@ temp/
 *.db-journal
 dump.rdb
 
-# IDE / local tools
+# IDE / Editor
 .idea/
 .claude/
+.cursor/
 *.swp
 *.swo
 

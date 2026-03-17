@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   redis:
     image: redis:7-alpine
@@ -19,10 +17,11 @@ services:
       dockerfile: Dockerfile.backend
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DATABASE_URL=${DATABASE_URL:-file:./dev.db}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET:-your-secret-key}
@@ -33,7 +32,6 @@ services:
       - NAVER_CLIENT_ID=${NAVER_CLIENT_ID:-}
       - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET:-}
       - ALPAS_USE_MOCK=${ALPAS_USE_MOCK:-true}
-      - ALPAS_USE_MOCK=${ALPAS_USE_MOCK:-false}
       - ALPAS_API_URL=${ALPAS_API_URL:-}
       - ALPAS_API_KEY=${ALPAS_API_KEY:-}
       - ALPAS_LIB_NO=${ALPAS_LIB_NO:-}
@@ -54,11 +52,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.worker
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-internal-secret}
       - BACKEND_URL=http://backend:3000
       - STORAGE_TYPE=${STORAGE_TYPE:-local}
       - STORAGE_PATH=./storage/videos
@@ -85,8 +84,8 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        - VITE_BASE_PATH=${VITE_BASE_PATH:-}
-        - VITE_API_URL=${VITE_API_URL:-}
+        - VITE_BASE_PATH=
+        - VITE_API_URL=/api
     ports:
       - "80:80"
     depends_on:
