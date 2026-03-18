@@ -31,7 +31,13 @@ COPY --from=builder /app/packages/backend/prisma ./prisma
 ENV NODE_ENV=production
 ENV PORT=3000
 
+# 비root 유저 생성
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN chown -R appuser:appgroup /app
+
 EXPOSE 3000
+
+USER appuser
 
 # Prisma migrate deploy + seed + start
 CMD sh -c "npx prisma db push --accept-data-loss --schema=./prisma/schema.prisma && node dist/db/seed.js 2>/dev/null; node dist/index.js"

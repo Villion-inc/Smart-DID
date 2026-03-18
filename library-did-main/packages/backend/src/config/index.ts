@@ -91,5 +91,26 @@ export const config = {
   logLevel: process.env.LOG_LEVEL || 'warn',
 
   /** Worker 콜백용 (비공개 API) */
-  internalApiSecret: process.env.INTERNAL_API_SECRET || process.env.JWT_SECRET || 'internal-secret',
+  internalApiSecret: process.env.INTERNAL_API_SECRET || '',
 };
+
+// Production 환경 필수 시크릿 검증
+function validateProductionConfig() {
+  if (config.nodeEnv !== 'production') return;
+  const errors: string[] = [];
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'your-secret-key-change-in-production')
+    errors.push('JWT_SECRET must be set in production');
+  if (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD === 'admin1234')
+    errors.push('ADMIN_PASSWORD must be changed from default');
+  if (!process.env.INTERNAL_API_SECRET)
+    errors.push('INTERNAL_API_SECRET must be set in production');
+  if (!process.env.DATABASE_URL)
+    errors.push('DATABASE_URL must be set in production');
+  if (errors.length > 0) {
+    console.error('\n=== SECURITY ERROR: Missing required production config ===');
+    errors.forEach(e => console.error(`  - ${e}`));
+    console.error('Server startup aborted.\n');
+    process.exit(1);
+  }
+}
+validateProductionConfig();

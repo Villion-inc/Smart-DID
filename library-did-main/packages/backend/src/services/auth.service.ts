@@ -18,7 +18,7 @@ export class AuthService {
   }
 
   async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, 10);
+    return bcrypt.hash(password, 12);
   }
 
   async createUser(data: { username: string; password: string; role?: string }): Promise<AdminUser> {

@@ -17,6 +17,7 @@ import prisma from './config/database';
 import { schedulerService } from './services/scheduler.service';
 import { queueService } from './services/queue.service';
 import { initAlpasService } from './services/alpas.service';
+import { setupAuditLogging } from './plugins/audit';
 
 const fastify = Fastify({
   logger: {
@@ -53,7 +54,19 @@ async function main() {
     });
 
     await fastify.register(helmet, {
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: config.nodeEnv === 'production' ? {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "https://shopping-phinf.pstatic.net", "https://storage.googleapis.com"],
+          mediaSrc: ["'self'", "https://storage.googleapis.com"],
+          connectSrc: ["'self'"],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+        },
+      } : false,
       crossOriginResourcePolicy: { policy: 'cross-origin' },
       crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
     });
@@ -114,9 +127,27 @@ async function main() {
       });
     }
 
+    // 감사 로깅 (관리자 작업 기록)
+    setupAuditLogging(fastify);
+
     // Register routes
     await fastify.register(healthRoutes, { prefix: config.apiPrefix });
-    await fastify.register(authRoutes, { prefix: config.apiPrefix });
+
+    // Auth 라우트에 별도 rate limit 적용 (5회/분 — 브루트포스 방지)
+    await fastify.register(async (instance) => {
+      await instance.register(rateLimit, {
+        max: 5,
+        timeWindow: '1 minute',
+        keyGenerator: (req) => req.ip,
+        errorResponseBuilder: () => ({
+          success: false,
+          error: '로그인 시도가 너무 많습니다. 1분 후 다시 시도해주세요.',
+          statusCode: 429,
+        }),
+      });
+      await instance.register(authRoutes, { prefix: config.apiPrefix });
+    });
+
     await fastify.register(bookRoutes, { prefix: config.apiPrefix });
     await fastify.register(adminRoutes, { prefix: config.apiPrefix });
     await fastify.register(didRoutes, { prefix: config.apiPrefix });

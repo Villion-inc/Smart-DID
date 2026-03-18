@@ -71,7 +71,7 @@ export function DidV2Search() {
               onClick={() => setKeyboardVisible(true)}
             >
               <div
-                className="flex min-h-[44px] items-center rounded-xl border-2 border-blue-200 bg-white px-4 py-3 sm:min-h-[52px] sm:px-5 sm:py-4"
+                className="flex min-h-[2.75rem] items-center rounded-xl border-2 border-blue-200 bg-white px-4 py-3 sm:min-h-[3.25rem] sm:px-5 sm:py-4"
                 style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
               >
                 <span className="flex-1 text-base sm:text-lg">
@@ -98,7 +98,7 @@ export function DidV2Search() {
             >
               <div className="flex items-center gap-2 sm:gap-3">
                 <div
-                  className="flex min-h-[38px] flex-1 items-center rounded-xl border-2 border-blue-200 bg-white px-3 py-2 sm:min-h-[44px] sm:px-4 sm:py-2.5"
+                  className="flex min-h-[2.375rem] flex-1 items-center rounded-xl border-2 border-blue-200 bg-white px-3 py-2 sm:min-h-[2.75rem] sm:px-4 sm:py-2.5"
                   style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
                 >
                   <span className="flex-1 truncate text-sm sm:text-base">

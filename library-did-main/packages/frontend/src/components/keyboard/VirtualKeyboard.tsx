@@ -82,7 +82,7 @@ export function VirtualKeyboard({
           <div
             key={rowIdx}
             className="flex gap-1 sm:gap-1.5"
-            style={{ height: rowIdx === 3 ? 42 : 46 }}
+            style={{ height: rowIdx === 3 ? '2.625rem' : '2.875rem' }}
           >
             {row.map((keyDef, keyIdx) => (
               <KeyboardKey

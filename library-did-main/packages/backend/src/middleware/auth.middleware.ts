@@ -1,5 +1,11 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 
+interface JwtPayload {
+  id: string;
+  username: string;
+  role: string;
+}
+
 /**
  * Middleware to verify JWT token
  * Fastify JWT automatically attaches decoded token to request.user
@@ -21,7 +27,7 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
 export async function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
   try {
     await request.jwtVerify();
-    const user = (request as any).user;
+    const user = request.user as JwtPayload;
 
     if (!user || user.role !== 'admin') {
       return reply.code(403).send({

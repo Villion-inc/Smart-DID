@@ -34,4 +34,12 @@ COPY --from=builder /app/packages/worker/package*.json ./
 
 ENV NODE_ENV=production
 
+# 비root 유저 생성
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN mkdir -p /app/storage/videos /app/temp \
+    && chown -R appuser:appgroup /app/storage /app/temp
+RUN chown -R appuser:appgroup /app
+
+USER appuser
+
 CMD ["node", "dist/index.js"]

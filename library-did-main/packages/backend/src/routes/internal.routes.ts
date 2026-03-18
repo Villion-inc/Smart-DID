@@ -1,8 +1,21 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import crypto from 'crypto';
 import { config } from '../config';
 import { videoRepository } from '../repositories/video.repository';
 import { VideoStatus } from '../types';
 import { alpasService } from '../services/alpas.service';
+
+function timingSafeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // 길이가 다르면 상수 시간 비교를 위해 동일 길이로 맞춤
+    const dummy = Buffer.alloc(bufA.length);
+    crypto.timingSafeEqual(dummy, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 interface VideoCallbackBody {
   bookId: string;
@@ -28,7 +41,7 @@ export async function internalRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest<{ Querystring: BookSearchQuery }>, reply: FastifyReply) => {
       const received = String(request.headers['x-internal-secret'] ?? '').trim();
       const expected = String(config.internalApiSecret ?? '').trim();
-      if (!expected || received !== expected) {
+      if (!expected || !timingSafeCompare(received, expected)) {
         return reply.code(401).send({ success: false, error: 'Unauthorized' });
       }
 
@@ -44,7 +57,7 @@ export async function internalRoutes(fastify: FastifyInstance) {
         fastify.log.error(error);
         return reply.code(500).send({
           success: false,
-          error: error.message || 'Failed to search books via Alpas',
+          error: 'Internal server error',
         });
       }
     }
@@ -59,15 +72,8 @@ export async function internalRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest<{ Body: VideoCallbackBody }>, reply: FastifyReply) => {
       const received = String(request.headers['x-internal-secret'] ?? '').trim();
       const expected = String(config.internalApiSecret ?? '').trim();
-      if (!expected || received !== expected) {
-        fastify.log.warn(
-          {
-            headerPresent: received.length > 0,
-            expectedLen: expected.length,
-            receivedLen: received.length,
-          },
-          'video-callback: Unauthorized'
-        );
+      if (!expected || !timingSafeCompare(received, expected)) {
+        fastify.log.warn('video-callback: Unauthorized');
         return reply.code(401).send({ success: false, error: 'Unauthorized' });
       }
 
@@ -118,7 +124,7 @@ export async function internalRoutes(fastify: FastifyInstance) {
         fastify.log.error(error);
         return reply.code(500).send({
           success: false,
-          error: error.message || 'Failed to update video record',
+          error: 'Internal server error',
         });
       }
     }
