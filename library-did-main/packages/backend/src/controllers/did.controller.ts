@@ -5,6 +5,50 @@ import { recommendationRepository } from '../repositories/recommendation.reposit
 import { queueService } from '../services/queue.service';
 import { cacheManagerService } from '../services/cache-manager.service';
 import { toPublicVideoUrl, toPublicSubtitleUrl } from '../utils/storage';
+import { naverBookService } from '../services/naver-book.service';
+
+// 네이버 표지 캐시 (title+author → imageUrl)
+const coverCache = new Map<string, string | null>();
+
+/**
+ * 표지 URL이 없거나 picsum(더미)이면 네이버 API로 실제 표지를 가져옴
+ */
+async function enrichCoverUrl(
+  title: string,
+  author?: string,
+  currentUrl?: string,
+): Promise<string | undefined> {
+  // 이미 실제 표지가 있으면 그대로
+  if (currentUrl && !currentUrl.includes('picsum.photos')) {
+    return currentUrl;
+  }
+
+  const cacheKey = `${title}|${author || ''}`;
+  if (coverCache.has(cacheKey)) {
+    return coverCache.get(cacheKey) || undefined;
+  }
+
+  try {
+    const naverUrl = await naverBookService.searchCoverImage(title, author);
+    coverCache.set(cacheKey, naverUrl);
+    return naverUrl || undefined;
+  } catch {
+    coverCache.set(cacheKey, null);
+    return undefined;
+  }
+}
+
+/** 배열의 표지를 일괄 보강 */
+async function enrichBookCovers<T extends { title: string; author: string; coverImageUrl?: string }>(
+  books: T[],
+): Promise<T[]> {
+  return Promise.all(
+    books.map(async (book) => ({
+      ...book,
+      coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl),
+    })),
+  );
+}
 
 /**
  * DID Controller
@@ -35,14 +79,14 @@ export class DidController {
       const books = await alpasService.getNewArrivals();
 
       // Return minimal fields optimized for DID UI
-      const didBooks = books.map((book) => ({
+      const didBooks = await enrichBookCovers(books.map((book) => ({
         id: book.id,
         title: book.title,
         author: book.author,
         coverImageUrl: book.coverImageUrl,
         shelfCode: book.shelfCode,
         category: book.category,
-      }));
+      })));
 
       return reply.send({
         success: true,
@@ -65,14 +109,14 @@ export class DidController {
       const books = await alpasService.getLibrarianPicks();
 
       // Return minimal fields optimized for DID UI
-      const didBooks = books.map((book) => ({
+      const didBooks = await enrichBookCovers(books.map((book) => ({
         id: book.id,
         title: book.title,
         author: book.author,
         coverImageUrl: book.coverImageUrl,
         shelfCode: book.shelfCode,
         category: book.category,
-      }));
+      })));
 
       return reply.send({
         success: true,
@@ -113,7 +157,7 @@ export class DidController {
       // (관리자가 등록한 추천도서만 표시, mock fallback 없음)
       const recommendations = await recommendationRepository.getByAgeGroup(group.toLowerCase());
 
-      const didBooks = recommendations.map((rec) => ({
+      const didBooks = await enrichBookCovers(recommendations.map((rec) => ({
         id: rec.bookId,
         title: rec.title,
         author: rec.author,
@@ -123,7 +167,7 @@ export class DidController {
         hasVideo: false,
         publisher: rec.publisher,
         summary: rec.summary,
-      }));
+      })));
 
       // 각 추천도서의 영상 상태 확인
       const booksWithVideoStatus = await Promise.all(
@@ -180,7 +224,7 @@ export class DidController {
             shelfCode: book.shelfCode,
             callNumber: book.callNumber,
             category: book.category,
-            coverImageUrl: book.coverImageUrl,
+            coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl),
             isAvailable: book.isAvailable,
           },
         });
@@ -199,7 +243,7 @@ export class DidController {
             publisher: videoRecord.publisher || '',
             summary: videoRecord.summary || '',
             category: videoRecord.category || '',
-            coverImageUrl: videoRecord.coverImageUrl || `https://picsum.photos/seed/${bookId}/300/400`,
+            coverImageUrl: await enrichCoverUrl(videoRecord.title, videoRecord.author || '', videoRecord.coverImageUrl || undefined),
             isAvailable: true,
           },
         });
@@ -422,15 +466,17 @@ export class DidController {
       const limit = request.query.limit ? parseInt(request.query.limit, 10) : 20;
       const videos = await videoRepository.getReadyVideosOrderByRanking(limit);
 
-      // 각 영상에 책 정보 추가
+      // 각 영상에 책 정보 추가 + 표지 보강
       const videosWithBooks = await Promise.all(
         videos.map(async (video) => {
           const book = await alpasService.getBookDetail(video.bookId);
+          const title = book?.title || video.title || '알 수 없음';
+          const author = book?.author || video.author || '알 수 없음';
           return {
             bookId: video.bookId,
-            title: book?.title || '알 수 없음',
-            author: book?.author || '알 수 없음',
-            coverImageUrl: book?.coverImageUrl,
+            title,
+            author,
+            coverImageUrl: await enrichCoverUrl(title, author, book?.coverImageUrl),
             videoUrl: toPublicVideoUrl(video.videoUrl),
             requestCount: video.requestCount,
             rankingScore: video.rankingScore,
@@ -484,7 +530,7 @@ export class DidController {
             title: book.title,
             author: book.author,
             publisher: book.publisher,
-            coverImageUrl: book.coverImageUrl,
+            coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl),
             shelfCode: book.shelfCode,
             category: book.category,
             videoStatus: videoRecord?.status || 'NONE',

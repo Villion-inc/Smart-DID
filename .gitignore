@@ -39,3 +39,4 @@ dump.rdb
 # library-did-main/packages/worker/storage/videos/*.vtt
 genta_video_engine/
 library-did-main/gcp-key.json
+library-did-main/VM_DEPLOY.md

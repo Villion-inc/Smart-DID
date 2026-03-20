@@ -1,15 +1,37 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getNewArrivals } from '../../api/did.api';
+import { getNewArrivals, getVideoStatus } from '../../api/did.api';
 import type { DidBook } from '../../types';
 import { DidV2Layout } from './DidV2Layout';
 
+const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (basePath ? `${basePath}/api` : '/api');
+
+interface BookWithVideo {
+  book: DidBook;
+  videoUrl: string;
+}
+
+function resolveVideoUrl(url: string): string {
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('/videos/')) return `${API_BASE_URL}${url}`;
+  return `${API_BASE_URL}/videos/${url.replace(/^\//, '')}`;
+}
+
 /**
  * 새로 들어온 책 (키오스크 세로 화면)
+ * 상단: 영상이 있는 신착도서 자동 재생
+ * 하단: 전체 신착도서 목록
  */
 export function DidV2NewArrivals() {
   const navigate = useNavigate();
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   const [books, setBooks] = useState<DidBook[]>([]);
+  const [booksWithVideo, setBooksWithVideo] = useState<BookWithVideo[]>([]);
+  const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,22 +40,78 @@ export function DidV2NewArrivals() {
       setLoading(true);
       try {
         const list = await getNewArrivals();
-        if (!cancelled) setBooks(list.slice(0, 8));
-      } catch (e) {
+        if (cancelled) return;
+        setBooks(list.slice(0, 8));
+
+        // 각 책의 영상 상태 확인
+        const videoResults = await Promise.all(
+          list.slice(0, 8).map(async (book) => {
+            try {
+              const status = await getVideoStatus(book.id);
+              if (status.status === 'READY' && status.videoUrl) {
+                return { book, videoUrl: status.videoUrl };
+              }
+            } catch { /* ignore */ }
+            return null;
+          })
+        );
+        if (!cancelled) {
+          setBooksWithVideo(videoResults.filter((r): r is BookWithVideo => r !== null));
+        }
+      } catch {
         if (!cancelled) setBooks([]);
       }
       if (!cancelled) setLoading(false);
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
+
+  const handleVideoEnded = useCallback(() => {
+    setCurrentVideoIdx(prev => (prev + 1) % booksWithVideo.length);
+  }, [booksWithVideo.length]);
+
+  useEffect(() => {
+    if (videoRef.current && booksWithVideo.length > 0) {
+      videoRef.current.load();
+      videoRef.current.play().catch(() => {});
+    }
+  }, [currentVideoIdx, booksWithVideo]);
+
+  const currentVideo = booksWithVideo.length > 0 ? booksWithVideo[currentVideoIdx] : null;
 
   return (
     <DidV2Layout title="새로 들어온 책">
       <div className="flex flex-1 flex-col py-4">
+        {/* 상단: 영상 자동 재생 */}
+        {currentVideo && (
+          <div
+            className="relative mb-4 w-full overflow-hidden rounded-2xl"
+            style={{ aspectRatio: '16/9' }}
+          >
+            <video
+              ref={videoRef}
+              src={resolveVideoUrl(currentVideo.videoUrl)}
+              autoPlay
+              muted
+              playsInline
+              onEnded={handleVideoEnded}
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+              <p className="text-lg font-bold text-white sm:text-xl">{currentVideo.book.title}</p>
+              <p className="text-sm text-gray-200 sm:text-base">{currentVideo.book.author}</p>
+            </div>
+            {booksWithVideo.length > 1 && (
+              <div className="absolute right-3 top-3 rounded-full bg-black/50 px-2 py-1 text-xs text-white">
+                {currentVideoIdx + 1} / {booksWithVideo.length}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 하단: 도서 목록 */}
         <p className="mb-4 text-center text-base text-gray-600 sm:text-lg">
-          ✨ 이번 주 새로 들어온 책이에요!
+          이번 주 새로 들어온 책이에요!
         </p>
 
         <div className="flex flex-1 flex-col gap-3 overflow-auto sm:gap-4">
@@ -89,7 +167,7 @@ export function DidV2NewArrivals() {
                   </span>
                   <div className="mt-1 flex flex-wrap gap-1 sm:gap-2">
                     <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700 sm:text-sm">
-                      ✨ 신작
+                      신작
                     </span>
                     {book.category && (
                       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 sm:text-sm">

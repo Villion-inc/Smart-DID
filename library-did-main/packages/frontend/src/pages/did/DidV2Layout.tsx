@@ -1,11 +1,16 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
-import { checkAlpasStatus } from '../../api/did.api';
 
 const ASPECT_RATIO = 9 / 16;
 const DESIGN_WIDTH = 640; // 기준 너비 (px) — 이 너비 이상이면 비례 확대
 const IDLE_TIMEOUT_MS = 60_000; // 60초 무조작 시 홈 복귀
 const WARNING_BEFORE_MS = 10_000; // 복귀 10초 전 경고 표시
+
+const TABS = [
+  { label: '추천도서', path: '/did', match: (p: string) => p === '/did' || p === '/did/' },
+  { label: '신착도서', path: '/did/new', match: (p: string) => p.includes('/did/new') },
+  { label: '도서검색', path: '/did/search', match: (p: string) => p.includes('/search') },
+] as const;
 
 /**
  * 키오스크 세로 화면용 DID 레이아웃
@@ -28,7 +33,6 @@ export function DidV2Layout({
   const isHome = location.pathname === '/did' || location.pathname === '/did/';
 
   const [isLandscape, setIsLandscape] = useState(false);
-  const [alpasConnected, setAlpasConnected] = useState(false);
   const [idleWarning, setIdleWarning] = useState(false);
   const [countdown, setCountdown] = useState(
     Math.floor(WARNING_BEFORE_MS / 1000),
@@ -61,10 +65,6 @@ export function DidV2Layout({
       document.documentElement.style.fontSize = '';
       window.removeEventListener('resize', update);
     };
-  }, []);
-
-  useEffect(() => {
-    checkAlpasStatus().then(setAlpasConnected);
   }, []);
 
   // 유휴 타이머: 홈이 아닌 페이지에서 일정 시간 무조작 시 홈으로 자동 복귀
@@ -157,78 +157,34 @@ export function DidV2Layout({
         {children}
       </main>
 
-      {/* Bottom navigation bar */}
+      {/* Bottom navigation bar — 3탭 균등 배치 */}
       {!hideFooter && (
         <footer
-          className="flex w-full shrink-0 items-center justify-between px-4 py-4 sm:px-6 sm:py-5"
+          className="flex w-full shrink-0 items-center gap-2 px-4 py-4 sm:gap-3 sm:px-6 sm:py-5"
           style={{
             background: 'rgba(255,255,255,0.85)',
             borderTop: '1px solid rgba(0,0,0,0.05)',
           }}
         >
-          <div className="flex gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/did')}
-              className="flex h-12 items-center justify-center rounded-2xl px-4 text-base font-semibold transition active:scale-95 sm:h-14 sm:px-6 sm:text-lg"
-              style={{
-                background: isHome
-                  ? 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)'
-                  : '#F0F0F0',
-                color: isHome ? '#2D5A6B' : '#666',
-              }}
-            >
-              홈
-            </button>
-            {alpasConnected && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => navigate('/did/search')}
-                  className="flex h-12 items-center justify-center rounded-2xl px-4 text-base font-semibold transition active:scale-95 sm:h-14 sm:px-6 sm:text-lg"
-                  style={{
-                    background: location.pathname.includes('/search')
-                      ? 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)'
-                      : '#F0F0F0',
-                    color: location.pathname.includes('/search') ? '#2D5A6B' : '#666',
-                  }}
-                >
-                  검색
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/did/new')}
-                  className="flex h-12 items-center justify-center rounded-2xl px-4 text-base font-semibold transition active:scale-95 sm:h-14 sm:px-6 sm:text-lg"
-                  style={{
-                    background: location.pathname.includes('/did/new')
-                      ? 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)'
-                      : '#F0F0F0',
-                    color: location.pathname.includes('/did/new') ? '#2D5A6B' : '#666',
-                  }}
-                >
-                  신작 도서
-                </button>
-              </>
-            )}
-          </div>
-          <div className="flex gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="flex h-12 w-12 items-center justify-center rounded-2xl text-xl font-bold text-gray-500 transition active:scale-95 sm:h-14 sm:w-14 sm:text-2xl"
-              style={{ background: '#F0F0F0' }}
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(1)}
-              className="flex h-12 w-12 items-center justify-center rounded-2xl text-xl font-bold text-gray-500 transition active:scale-95 sm:h-14 sm:w-14 sm:text-2xl"
-              style={{ background: '#F0F0F0' }}
-            >
-              ›
-            </button>
-          </div>
+          {TABS.map((tab) => {
+            const active = tab.match(location.pathname);
+            return (
+              <button
+                key={tab.path}
+                type="button"
+                onClick={() => navigate(tab.path)}
+                className="flex flex-1 items-center justify-center rounded-2xl h-12 text-base font-semibold transition active:scale-95 sm:h-14 sm:text-lg"
+                style={{
+                  background: active
+                    ? 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)'
+                    : '#F0F0F0',
+                  color: active ? '#2D5A6B' : '#666',
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </footer>
       )}
 

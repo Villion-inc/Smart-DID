@@ -25,7 +25,7 @@ export function DidV2Location() {
 
   return (
     <DidV2Layout title="위치 안내">
-      <div className="flex min-h-full flex-col items-center justify-center px-4 py-6">
+      <div className="flex flex-col items-center px-4 py-6">
         <p className="mb-6 text-center text-2xl font-bold text-gray-800 sm:mb-8 sm:text-3xl">
           📍 이 책은 여기 있어요!
         </p>
