@@ -123,16 +123,16 @@ export class DidController {
    */
   async getLibrarianPicks(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const books = await alpasService.getLibrarianPicks();
+      // DB recommendations 테이블에서 관리자가 등록한 추천도서 조회
+      const recommendations = await recommendationRepository.getAll();
 
-      // Return minimal fields optimized for DID UI
-      const didBooks = await enrichBookCovers(books.map((book) => ({
-        id: book.id,
-        title: book.title,
-        author: book.author,
-        coverImageUrl: book.coverImageUrl,
-        shelfCode: book.shelfCode,
-        category: book.category,
+      const didBooks = await enrichBookCovers(recommendations.map((rec) => ({
+        id: rec.bookId,
+        title: rec.title,
+        author: rec.author,
+        coverImageUrl: rec.coverImageUrl || undefined,
+        shelfCode: '',
+        category: rec.category,
       })));
 
       return reply.send({
