@@ -9,7 +9,7 @@ import { naverBookService } from '../services/naver-book.service';
 
 // 네이버 표지 캐시 (title+author → imageUrl)
 const coverCache = new Map<string, string | null>();
-const COVER_TIMEOUT_MS = 2000; // 네이버 API 타임아웃 (2초)
+const COVER_TIMEOUT_MS = 5000; // 네이버 API 타임아웃 (5초)
 
 /** 타임아웃 래퍼 */
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
@@ -51,7 +51,7 @@ async function enrichCoverUrl(
   }
 }
 
-/** 배열의 표지를 일괄 보강 (전체 5초 타임아웃) */
+/** 배열의 표지를 일괄 보강 (전체 10초 타임아웃) */
 async function enrichBookCovers<T extends { title: string; author: string; coverImageUrl?: string }>(
   books: T[],
 ): Promise<T[]> {
@@ -62,7 +62,7 @@ async function enrichBookCovers<T extends { title: string; author: string; cover
         coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl),
       })),
     ),
-    5000,
+    10000,
     books, // 타임아웃 시 원본 그대로 반환
   );
 }

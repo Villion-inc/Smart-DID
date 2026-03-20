@@ -101,11 +101,6 @@ export function DidV2NewArrivals() {
               <p className="text-lg font-bold text-white sm:text-xl">{currentVideo.book.title}</p>
               <p className="text-sm text-gray-200 sm:text-base">{currentVideo.book.author}</p>
             </div>
-            {booksWithVideo.length > 1 && (
-              <div className="absolute right-3 top-3 rounded-full bg-black/50 px-2 py-1 text-xs text-white">
-                {currentVideoIdx + 1} / {booksWithVideo.length}
-              </div>
-            )}
           </div>
         )}
 

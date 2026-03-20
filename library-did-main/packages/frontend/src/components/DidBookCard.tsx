@@ -15,7 +15,7 @@ export const DidBookCard = ({ book, onClick }: DidBookCardProps) => {
   return (
     <div
       onClick={onClick}
-      className="flex-shrink-0 w-64 h-96 bg-white rounded-2xl shadow-xl overflow-hidden cursor-pointer
+      className="flex-shrink-0 w-64 bg-white rounded-2xl shadow-xl overflow-hidden cursor-pointer
                  transform transition-transform active:scale-95 hover:shadow-2xl"
     >
       {/* Book Cover Image */}
@@ -46,7 +46,7 @@ export const DidBookCard = ({ book, onClick }: DidBookCardProps) => {
       </div>
 
       {/* Book Info */}
-      <div className="p-6 flex flex-col justify-between h-40">
+      <div className="p-4 flex flex-col gap-1">
         {/* Title */}
         <h3 className="text-xl font-bold text-gray-900 line-clamp-2 mb-2">
           {book.title}
