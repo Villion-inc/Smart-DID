@@ -43,6 +43,7 @@ export class AdminController {
   async addRecommendation(
     request: FastifyRequest<{
       Body: {
+        bookId?: string;
         ageGroup: string;
         title: string;
         author: string;
@@ -54,7 +55,7 @@ export class AdminController {
     }>,
     reply: FastifyReply
   ) {
-    const { ageGroup, title, author, publisher, summary, coverImageUrl, category } = request.body;
+    const { bookId, ageGroup, title, author, publisher, summary, coverImageUrl, category } = request.body;
 
     // Validate age group
     const validGroups = ['preschool', 'elementary', 'teen'];
@@ -80,6 +81,7 @@ export class AdminController {
       }
 
       const recommendation = await recommendationRepository.create({
+        bookId,
         ageGroup,
         title,
         author,

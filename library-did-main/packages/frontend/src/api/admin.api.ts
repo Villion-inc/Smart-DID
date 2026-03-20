@@ -77,6 +77,7 @@ export interface RecommendationData {
 }
 
 export interface AddRecommendationInput {
+  bookId?: string;
   ageGroup: string;
   title: string;
   author: string;

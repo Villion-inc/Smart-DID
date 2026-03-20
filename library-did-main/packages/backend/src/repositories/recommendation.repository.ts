@@ -17,6 +17,7 @@ export class RecommendationRepository {
   }
 
   async create(data: {
+    bookId?: string;
     ageGroup: string;
     title: string;
     author: string;
@@ -26,7 +27,7 @@ export class RecommendationRepository {
     category?: string;
     sortOrder?: number;
   }): Promise<Recommendation> {
-    const bookId = `REC-${crypto.randomUUID()}`;
+    const bookId = data.bookId || `REC-${crypto.randomUUID()}`;
 
     // sortOrder 자동 계산: 해당 연령 그룹의 마지막 순서 + 1
     let sortOrder = data.sortOrder ?? 0;
