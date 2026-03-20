@@ -34,6 +34,7 @@ function toVideoGenerationRequest(jobData: VideoJobData): VideoGenerationRequest
 export async function createWorker(): Promise<Worker> {
   const redisHost = process.env.REDIS_HOST;
   const redisPort = parseInt(process.env.REDIS_PORT || '6379', 10);
+  const redisPassword = process.env.REDIS_PASSWORD || undefined;
 
   if (!redisHost) {
     throw new Error('REDIS_HOST not configured');
@@ -89,6 +90,7 @@ export async function createWorker(): Promise<Worker> {
       connection: {
         host: redisHost,
         port: redisPort,
+        password: redisPassword,
       },
       concurrency: config.worker.concurrency,
     }
