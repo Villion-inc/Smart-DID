@@ -124,11 +124,11 @@ export function DidV2Home() {
 
         {/* 중간: 랜덤 영상 보기 버튼 */}
         {hasVideos && (
-          <div className="flex shrink-0 justify-center px-4 py-4">
+          <div className="flex shrink-0 justify-center px-4 py-2">
             <button
               type="button"
               onClick={handleRandomVideo}
-              className="w-full rounded-2xl px-8 py-5 text-xl font-bold text-white shadow-lg transition active:scale-95 sm:text-2xl"
+              className="rounded-full px-8 py-3 text-base font-bold text-white shadow-md transition active:scale-95 sm:text-lg"
               style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
             >
               🎬 랜덤 영상 보기
