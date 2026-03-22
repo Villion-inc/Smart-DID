@@ -374,6 +374,13 @@ export class AlpasRealService {
       const books = list.map((book, index) =>
         this.mapAnyToBook(book as Record<string, unknown>, String(index))
       );
+      // 제목에 키워드가 포함된 책을 우선 정렬
+      const kw = keyword.trim().toLowerCase();
+      books.sort((a, b) => {
+        const aTitle = a.title.toLowerCase().includes(kw) ? 0 : 1;
+        const bTitle = b.title.toLowerCase().includes(kw) ? 0 : 1;
+        return aTitle - bTitle;
+      });
       // 검색 결과를 캐시에 저장
       books.forEach((book) => this.cacheBook(book));
       return books;
