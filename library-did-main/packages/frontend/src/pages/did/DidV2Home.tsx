@@ -93,7 +93,7 @@ export function DidV2Home() {
         {/* 상단: 영상 (화면 50%) */}
         {currentVideo ? (
           <div
-            className="relative w-full shrink-0 overflow-hidden rounded-2xl"
+            className="relative w-full shrink-0 overflow-hidden rounded-2xl bg-black"
             style={{ height: '50%' }}
           >
             <video

@@ -149,7 +149,7 @@ export function DidV2Layout({
       {/* Bottom navigation — 4탭, 높이 키움, 명확한 버튼 스타일 */}
       {!hideFooter && (
         <footer
-          className="flex w-full shrink-0 items-center gap-1.5 px-3 py-3 sm:gap-2 sm:px-4 sm:py-4"
+          className="flex w-full shrink-0 items-center gap-2 px-3 py-4 sm:gap-3 sm:px-4 sm:py-5"
           style={{
             background: 'rgba(255,255,255,0.95)',
             borderTop: '2px solid rgba(0,0,0,0.08)',
@@ -162,7 +162,7 @@ export function DidV2Layout({
                 key={tab.path}
                 type="button"
                 onClick={() => navigate(tab.path)}
-                className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2.5 text-xs font-bold transition active:scale-95 sm:py-3 sm:text-sm"
+                className="flex flex-1 items-center justify-center rounded-2xl py-4 text-base font-bold transition active:scale-95 sm:py-5 sm:text-lg"
                 style={{
                   background: active
                     ? 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)'
