@@ -44,18 +44,19 @@ async function enrichCoverUrl(
       '__TIMEOUT__' as any,
     );
     if (naverUrl === '__TIMEOUT__') {
-      // 타임아웃 — 원본 유지, 다음 요청에서 재시도
+      console.log(`[Cover] TIMEOUT: "${title}"`);
       return currentUrl;
     }
     if (naverUrl) {
-      // 네이버에서 찾음 — 캐시
+      console.log(`[Cover] OK: "${title}" → ${naverUrl.substring(0, 50)}...`);
       coverCache.set(cacheKey, naverUrl);
       return naverUrl;
     }
-    // 네이버에 없음 — 캐시하고 원본 유지
+    console.log(`[Cover] NOT FOUND: "${title}"`);
     coverCache.set(cacheKey, null);
     return currentUrl;
-  } catch {
+  } catch (err: any) {
+    console.log(`[Cover] ERROR: "${title}" → ${err.message}`);
     return currentUrl;
   }
 }
