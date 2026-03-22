@@ -20,19 +20,22 @@ function resolveVideoUrl(url: string): string {
   return `${API_BASE_URL}/videos/${url.replace(/^\//, '')}`;
 }
 
+const PAGE_SIZE = 20;
+
 /**
  * 새로 들어온 책 (키오스크 세로 화면)
  * 상단: 영상이 있는 신착도서 자동 재생
- * 하단: 전체 신착도서 목록
+ * 하단: 20권씩 페이지네이션
  */
 export function DidV2NewArrivals() {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const [books, setBooks] = useState<DidBook[]>([]);
+  const [allBooks, setAllBooks] = useState<DidBook[]>([]);
   const [booksWithVideo, setBooksWithVideo] = useState<BookWithVideo[]>([]);
   const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,7 +44,7 @@ export function DidV2NewArrivals() {
       try {
         const list = await getNewArrivals();
         if (cancelled) return;
-        setBooks(list);
+        setAllBooks(list);
 
         // 각 책의 영상 상태 확인
         const videoResults = await Promise.all(
@@ -59,7 +62,7 @@ export function DidV2NewArrivals() {
           setBooksWithVideo(videoResults.filter((r): r is BookWithVideo => r !== null));
         }
       } catch {
-        if (!cancelled) setBooks([]);
+        if (!cancelled) setAllBooks([]);
       }
       if (!cancelled) setLoading(false);
     })();
@@ -79,13 +82,16 @@ export function DidV2NewArrivals() {
 
   const currentVideo = booksWithVideo.length > 0 ? booksWithVideo[currentVideoIdx] : null;
 
+  const totalPages = Math.ceil(allBooks.length / PAGE_SIZE);
+  const pagedBooks = allBooks.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
   return (
     <DidV2Layout title="새로 들어온 책">
       <div className="flex flex-1 flex-col py-4">
         {/* 상단: 영상 자동 재생 */}
         {currentVideo && (
           <div
-            className="relative mb-4 w-full overflow-hidden rounded-2xl"
+            className="relative mb-4 w-full overflow-hidden rounded-2xl bg-black"
             style={{ aspectRatio: '16/9' }}
           >
             <video
@@ -104,24 +110,32 @@ export function DidV2NewArrivals() {
           </div>
         )}
 
-        {/* 하단: 도서 목록 */}
-        <p className="mb-4 text-center text-base text-gray-600 sm:text-lg">
-          이번 주 새로 들어온 책이에요!
-        </p>
+        {/* 페이지 안내 */}
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-base font-bold text-gray-700 sm:text-lg">
+            이번 주 새로 들어온 책이에요!
+          </p>
+          {totalPages > 1 && (
+            <p className="text-sm text-gray-500">
+              {page + 1} / {totalPages}
+            </p>
+          )}
+        </div>
 
+        {/* 도서 목록 */}
         <div className="flex flex-1 flex-col gap-3 overflow-auto sm:gap-4">
           {loading && (
             <div className="flex flex-1 items-center justify-center">
               <p className="text-base text-gray-500 sm:text-lg">불러오는 중...</p>
             </div>
           )}
-          {!loading && books.length === 0 && (
+          {!loading && allBooks.length === 0 && (
             <div className="flex flex-1 items-center justify-center">
               <p className="text-base text-gray-500 sm:text-lg">신착 도서가 없습니다.</p>
             </div>
           )}
           {!loading &&
-            books.map((book) => (
+            pagedBooks.map((book) => (
               <button
                 key={book.id}
                 type="button"
@@ -129,7 +143,6 @@ export function DidV2NewArrivals() {
                 className="flex w-full items-center gap-3 rounded-2xl p-3 text-left transition active:scale-[0.98] sm:gap-4 sm:p-4"
                 style={{ background: 'rgba(255,255,255,0.85)' }}
               >
-                {/* Cover Image with NEW badge */}
                 <div className="relative h-20 w-14 shrink-0 sm:h-24 sm:w-16">
                   <div
                     className="h-full w-full rounded-lg"
@@ -144,7 +157,6 @@ export function DidV2NewArrivals() {
                       <div className="flex h-full w-full items-center justify-center text-2xl">📚</div>
                     )}
                   </div>
-                  {/* NEW Badge */}
                   <div
                     className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white sm:h-6 sm:w-6 sm:text-xs"
                     style={{ background: '#FF6B6B' }}
@@ -152,7 +164,6 @@ export function DidV2NewArrivals() {
                     N
                   </div>
                 </div>
-                {/* Book Info */}
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-base font-bold text-gray-800 sm:text-lg">
                     {book.title}
@@ -175,6 +186,30 @@ export function DidV2NewArrivals() {
               </button>
             ))}
         </div>
+
+        {/* 페이지네이션 버튼 */}
+        {!loading && totalPages > 1 && (
+          <div className="flex shrink-0 gap-3 pt-4">
+            <button
+              type="button"
+              disabled={page === 0}
+              onClick={() => setPage(p => p - 1)}
+              className="flex h-14 flex-1 items-center justify-center rounded-2xl text-base font-bold transition active:scale-95 disabled:opacity-30 sm:h-16 sm:text-lg"
+              style={{ background: 'rgba(255,255,255,0.8)' }}
+            >
+              ← 이전
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage(p => p + 1)}
+              className="flex h-14 flex-1 items-center justify-center rounded-2xl text-base font-bold text-white transition active:scale-95 disabled:opacity-30 sm:h-16 sm:text-lg"
+              style={{ background: 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)' }}
+            >
+              다음 →
+            </button>
+          </div>
+        )}
       </div>
     </DidV2Layout>
   );
