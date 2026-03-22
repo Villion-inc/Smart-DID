@@ -25,15 +25,12 @@ export async function warmCoverCache(): Promise<void> {
     const books = await alpasService.getNewArrivals();
     console.log(`[Cover] Warming cache: ${books.length} books to process`);
 
-    const BATCH = 10;
+    // 1개씩 순차 처리 + 딜레이 (네이버 API rate limit 방지)
     let ok = 0;
-
-    for (let i = 0; i < books.length; i += BATCH) {
-      const batch = books.slice(i, i + BATCH);
-      await Promise.all(
-        batch.map(b => enrichCoverUrl(b.title, b.author, b.coverImageUrl)),
-      );
-      ok += batch.length;
+    for (const book of books) {
+      await enrichCoverUrl(book.title, book.author, book.coverImageUrl);
+      ok++;
+      await new Promise(r => setTimeout(r, 300));
     }
 
     const cached = [...coverCache.values()].filter(v => v !== null).length;
@@ -113,25 +110,17 @@ async function enrichCoverUrl(
   }
 }
 
-/** 배열의 표지를 일괄 보강 (10개씩 병렬 처리) */
+/** 배열의 표지를 일괄 보강 (캐시 히트는 즉시, 미스만 순차) */
 async function enrichBookCovers<T extends { title: string; author: string; coverImageUrl?: string }>(
   books: T[],
 ): Promise<T[]> {
-  const BATCH_SIZE = 10;
-  const result: T[] = [];
-
-  for (let i = 0; i < books.length; i += BATCH_SIZE) {
-    const batch = books.slice(i, i + BATCH_SIZE);
-    const enriched = await Promise.all(
-      batch.map(async (book) => ({
-        ...book,
-        coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl),
-      })),
-    );
-    result.push(...enriched);
-  }
-
-  return result;
+  // 캐시에 있으면 즉시 반환 (대부분 warmCoverCache에서 사전 로딩됨)
+  return Promise.all(
+    books.map(async (book) => ({
+      ...book,
+      coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl),
+    })),
+  );
 }
 
 /**
