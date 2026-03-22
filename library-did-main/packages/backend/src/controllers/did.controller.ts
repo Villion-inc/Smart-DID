@@ -60,20 +60,25 @@ async function enrichCoverUrl(
   }
 }
 
-/** 배열의 표지를 일괄 보강 (전체 10초 타임아웃) */
+/** 배열의 표지를 일괄 보강 (20개씩 동시 처리) */
 async function enrichBookCovers<T extends { title: string; author: string; coverImageUrl?: string }>(
   books: T[],
 ): Promise<T[]> {
-  return withTimeout(
-    Promise.all(
-      books.map(async (book) => ({
+  const BATCH_SIZE = 20;
+  const result: T[] = [];
+
+  for (let i = 0; i < books.length; i += BATCH_SIZE) {
+    const batch = books.slice(i, i + BATCH_SIZE);
+    const enriched = await Promise.all(
+      batch.map(async (book) => ({
         ...book,
         coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl),
       })),
-    ),
-    10000,
-    books, // 타임아웃 시 원본 그대로 반환
-  );
+    );
+    result.push(...enriched);
+  }
+
+  return result;
 }
 
 /**
