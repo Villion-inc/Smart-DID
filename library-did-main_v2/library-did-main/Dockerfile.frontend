@@ -1,0 +1,44 @@
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# GCP beta: base path = / (default)
+# 도서관 서버: VITE_BASE_PATH=/METIS
+ARG VITE_BASE_PATH=
+ARG VITE_API_URL=
+ENV VITE_BASE_PATH=${VITE_BASE_PATH}
+ENV VITE_API_URL=${VITE_API_URL}
+
+COPY package*.json ./
+COPY packages/shared/package*.json ./packages/shared/
+COPY packages/frontend/package*.json ./packages/frontend/
+
+RUN npm install --ignore-scripts
+
+COPY packages/shared ./packages/shared
+COPY packages/frontend ./packages/frontend
+COPY tsconfig.json ./
+
+RUN npm run build --workspace=@smart-did/shared
+RUN npm run build --workspace=@smart-did/frontend
+
+FROM nginx:alpine
+
+# VITE_BASE_PATH가 있으면 해당 경로로, 없으면 root(/)로 배치
+ARG VITE_BASE_PATH=
+COPY --from=builder /app/packages/frontend/dist /usr/share/nginx/html
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# 비root 유저: nginx alpine은 nginx 유저가 이미 존재
+RUN chown -R nginx:nginx /usr/share/nginx/html \
+    && chown -R nginx:nginx /var/cache/nginx \
+    && chown -R nginx:nginx /var/log/nginx \
+    && touch /var/run/nginx.pid \
+    && chown nginx:nginx /var/run/nginx.pid
+
+EXPOSE 80
+
+USER nginx
+
+CMD ["nginx", "-g", "daemon off;"]
