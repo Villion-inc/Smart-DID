@@ -46,3 +46,7 @@ dump.rdb
 
 # Claude
 .claude/
+
+# Worker 로컬 생성 미디어
+packages/worker/storage/videos/*.mp4
+packages/worker/storage/videos/*.vtt

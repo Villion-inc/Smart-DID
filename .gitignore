@@ -34,9 +34,9 @@ dump.rdb
 *.swp
 *.swo
 
-# Worker generated media (테스트용 영상은 포함)
-# library-did-main/packages/worker/storage/videos/*.mp4
-# library-did-main/packages/worker/storage/videos/*.vtt
+# Worker 생성 영상/자막 (로컬·테스트 산출물 — Git에 올리지 않음)
+**/packages/worker/storage/videos/*.mp4
+**/packages/worker/storage/videos/*.vtt
 genta_video_engine/
 library-did-main/gcp-key.json
 library-did-main/VM_DEPLOY.md
