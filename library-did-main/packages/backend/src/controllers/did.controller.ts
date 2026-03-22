@@ -20,6 +20,21 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
 }
 
 /**
+ * 네이버 검색용 제목 클리닝
+ * 괄호, 시리즈 번호, 부제, 저자명 접미사 등 제거
+ */
+function cleanTitleForSearch(title: string): string {
+  return title
+    .replace(/\(.*?\)/g, '')          // (괄호 내용) 제거
+    .replace(/\[.*?\]/g, '')          // [괄호 내용] 제거
+    .replace(/[=＝].*/g, '')          // = 이후 영문 부제 제거
+    .replace(/:\s*.{15,}/g, '')       // : 이후 긴 부제 제거 (15자 이상)
+    .replace(/\.\s*\d+.*/g, '')       // . 시리즈 번호 제거 (예: ". 9, 에너지")
+    .replace(/\d+\.\d+$/g, '')        // 끝에 붙은 버전 번호 (예: "2.0")
+    .trim();
+}
+
+/**
  * 표지 URL이 없거나 picsum(더미)이면 네이버 API로 실제 표지를 가져옴
  */
 async function enrichCoverUrl(
@@ -38,7 +53,8 @@ async function enrichCoverUrl(
   }
 
   try {
-    const naverUrl = await withTimeout(
+    // 1차: 원본 제목으로 검색
+    let naverUrl = await withTimeout(
       naverBookService.searchCoverImage(title, author),
       COVER_TIMEOUT_MS,
       '__TIMEOUT__' as any,
@@ -47,6 +63,23 @@ async function enrichCoverUrl(
       console.log(`[Cover] TIMEOUT: "${title}"`);
       return currentUrl;
     }
+
+    // 2차: 못 찾으면 클리닝된 제목으로 재검색
+    if (!naverUrl) {
+      const cleaned = cleanTitleForSearch(title);
+      if (cleaned && cleaned !== title) {
+        naverUrl = await withTimeout(
+          naverBookService.searchCoverImage(cleaned, author),
+          COVER_TIMEOUT_MS,
+          '__TIMEOUT__' as any,
+        );
+        if (naverUrl === '__TIMEOUT__') {
+          console.log(`[Cover] TIMEOUT (retry): "${cleaned}"`);
+          return currentUrl;
+        }
+      }
+    }
+
     if (naverUrl) {
       console.log(`[Cover] OK: "${title}" → ${naverUrl.substring(0, 50)}...`);
       coverCache.set(cacheKey, naverUrl);
