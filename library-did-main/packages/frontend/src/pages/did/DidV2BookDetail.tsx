@@ -255,18 +255,26 @@ export function DidV2BookDetail() {
           </div>
         )}
 
-        {/* Action button */}
-        <div className="mt-auto shrink-0 pt-4 sm:pt-5">
+        {/* Action buttons */}
+        <div className="mt-auto flex shrink-0 gap-3 pt-4 sm:pt-5">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="flex h-16 w-1/3 items-center justify-center rounded-2xl text-base font-semibold text-gray-700 transition active:scale-[0.98] sm:h-20 sm:text-lg"
+            style={{ background: 'rgba(255,255,255,0.8)' }}
+          >
+            ← 돌아가기
+          </button>
           <button
             type="button"
             onClick={() => navigate(`/did/location/${bookId}`)}
-            className="flex h-16 w-full items-center justify-center rounded-2xl text-lg font-bold text-white transition active:scale-[0.98] sm:h-20 sm:text-xl"
+            className="flex h-16 flex-1 items-center justify-center rounded-2xl text-lg font-bold text-white transition active:scale-[0.98] sm:h-20 sm:text-xl"
             style={{
               background: 'linear-gradient(180deg, #6BB8D6 0%, #4DA3C4 100%)',
               boxShadow: '0 4px 16px rgba(77, 163, 196, 0.35)',
             }}
           >
-            📖 읽어볼래요! 위치 보기
+            📖 위치 보기
           </button>
         </div>
       </div>
