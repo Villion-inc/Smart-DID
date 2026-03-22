@@ -2,21 +2,17 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 
 const ASPECT_RATIO = 9 / 16;
-const DESIGN_WIDTH = 640; // 기준 너비 (px) — 이 너비 이상이면 비례 확대
-const IDLE_TIMEOUT_MS = 60_000; // 60초 무조작 시 홈 복귀
-const WARNING_BEFORE_MS = 10_000; // 복귀 10초 전 경고 표시
+const DESIGN_WIDTH = 640;
+const IDLE_TIMEOUT_MS = 60_000;
+const WARNING_BEFORE_MS = 10_000;
 
 const TABS = [
-  { label: '추천도서', path: '/did', match: (p: string) => p === '/did' || p === '/did/' },
-  { label: '신착도서', path: '/did/new', match: (p: string) => p.includes('/did/new') },
-  { label: '도서검색', path: '/did/search', match: (p: string) => p.includes('/search') },
+  { label: '홈', path: '/did', match: (p: string) => p === '/did' || p === '/did/' },
+  { label: '추천', path: '/did/recommend', match: (p: string) => p.includes('/did/recommend') || p.includes('/did/age') },
+  { label: '신착', path: '/did/new', match: (p: string) => p.includes('/did/new') },
+  { label: '검색', path: '/did/search', match: (p: string) => p.includes('/search') },
 ] as const;
 
-/**
- * 키오스크 세로 화면용 DID 레이아웃
- * - 세로 화면(모바일/키오스크): 화면 꽉 채움
- * - 가로 화면(데스크탑): 9:16 비율 유지하며 중앙 배치
- */
 export function DidV2Layout({
   children,
   title,
@@ -42,7 +38,6 @@ export function DidV2Layout({
   const warningTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const countdownRef = useRef<ReturnType<typeof setInterval>>();
 
-  // 화면 방향 감지 + 키오스크 동적 폰트 스케일링
   useEffect(() => {
     const update = () => {
       const vw = window.innerWidth;
@@ -50,7 +45,6 @@ export function DidV2Layout({
       const landscape = vw > vh;
       setIsLandscape(landscape);
 
-      // DID 컨테이너의 실제 너비 계산
       const effectiveWidth = landscape ? vh * ASPECT_RATIO : vw;
       const scale = effectiveWidth / DESIGN_WIDTH;
       if (scale > 1) {
@@ -67,7 +61,6 @@ export function DidV2Layout({
     };
   }, []);
 
-  // 유휴 타이머: 홈이 아닌 페이지에서 일정 시간 무조작 시 홈으로 자동 복귀
   useEffect(() => {
     if (isHome) return;
 
@@ -78,7 +71,6 @@ export function DidV2Layout({
       clearTimeout(warningTimerRef.current);
       clearInterval(countdownRef.current);
 
-      // 경고 타이머
       warningTimerRef.current = setTimeout(() => {
         setIdleWarning(true);
         let sec = Math.floor(WARNING_BEFORE_MS / 1000);
@@ -89,7 +81,6 @@ export function DidV2Layout({
         }, 1000);
       }, IDLE_TIMEOUT_MS - WARNING_BEFORE_MS);
 
-      // 홈 복귀 타이머
       idleTimerRef.current = setTimeout(() => {
         navigate('/did');
       }, IDLE_TIMEOUT_MS);
@@ -117,7 +108,7 @@ export function DidV2Layout({
       <div
         className="relative flex flex-col overflow-hidden"
         style={{
-          fontFamily: 'Pretendard, sans-serif',
+          fontFamily: '"Noto Sans KR", "Pretendard", sans-serif',
           background: 'linear-gradient(180deg, #E8F4FC 0%, #D4EAD6 100%)',
           width: isLandscape ? `calc(100vh * ${ASPECT_RATIO})` : '100%',
           height: '100%',
@@ -130,7 +121,6 @@ export function DidV2Layout({
           className="flex w-full shrink-0 items-center justify-between px-4 py-3 sm:px-6 sm:py-4"
           style={{ background: 'rgba(255,255,255,0.4)' }}
         >
-          {/* Left: Title */}
           <div className="min-w-0 flex-1">
             {title ? (
               <h1 className="max-w-full truncate text-xl font-bold text-gray-800 sm:text-2xl md:text-3xl">
@@ -143,7 +133,6 @@ export function DidV2Layout({
               </div>
             )}
           </div>
-          {/* Right: Logo */}
           <img
             src="/logos/kkumsaem-logo.png"
             alt="꿈샘 어린이청소년도서관"
@@ -157,13 +146,13 @@ export function DidV2Layout({
         {children}
       </main>
 
-      {/* Bottom navigation bar — 3탭 균등 배치 */}
+      {/* Bottom navigation — 4탭, 높이 키움, 명확한 버튼 스타일 */}
       {!hideFooter && (
         <footer
-          className="flex w-full shrink-0 items-center gap-2 px-4 py-4 sm:gap-3 sm:px-6 sm:py-5"
+          className="flex w-full shrink-0 items-center gap-1.5 px-3 py-3 sm:gap-2 sm:px-4 sm:py-4"
           style={{
-            background: 'rgba(255,255,255,0.85)',
-            borderTop: '1px solid rgba(0,0,0,0.05)',
+            background: 'rgba(255,255,255,0.95)',
+            borderTop: '2px solid rgba(0,0,0,0.08)',
           }}
         >
           {TABS.map((tab) => {
@@ -173,15 +162,17 @@ export function DidV2Layout({
                 key={tab.path}
                 type="button"
                 onClick={() => navigate(tab.path)}
-                className="flex flex-1 items-center justify-center rounded-2xl h-12 text-base font-semibold transition active:scale-95 sm:h-14 sm:text-lg"
+                className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2.5 text-xs font-bold transition active:scale-95 sm:py-3 sm:text-sm"
                 style={{
                   background: active
                     ? 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)'
                     : '#F0F0F0',
-                  color: active ? '#2D5A6B' : '#666',
+                  color: active ? '#1a3a4a' : '#888',
+                  boxShadow: active ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                  border: active ? '2px solid rgba(45,90,107,0.3)' : '2px solid transparent',
                 }}
               >
-                {tab.label}
+                <span>{tab.label}</span>
               </button>
             );
           })}

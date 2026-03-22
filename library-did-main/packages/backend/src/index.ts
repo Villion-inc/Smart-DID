@@ -177,6 +177,9 @@ async function main() {
     // Start scheduler for periodic tasks (cache cleanup, etc.)
     schedulerService.start();
     fastify.log.info('Scheduler service started');
+
+    // 백그라운드: 신착도서 표지 캐시 사전 로딩
+    import('./controllers/did.controller').then(m => m.warmCoverCache()).catch(() => {});
   } catch (error) {
     fastify.log.error(error);
     await prisma.$disconnect();

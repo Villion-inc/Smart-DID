@@ -10,6 +10,42 @@ import { naverBookService } from '../services/naver-book.service';
 // 네이버 표지 캐시 (title+author → imageUrl)
 const coverCache = new Map<string, string | null>();
 const COVER_TIMEOUT_MS = 5000; // 네이버 API 타임아웃 (5초)
+let coverCacheWarmed = false;
+
+/**
+ * 서버 시작 시 신착도서 표지를 미리 캐시 (백그라운드)
+ * 3개씩 배치 처리 + 딜레이로 네이버 API 속도 제한 준수
+ */
+export async function warmCoverCache(): Promise<void> {
+  if (coverCacheWarmed) return;
+  coverCacheWarmed = true;
+
+  try {
+    console.log('[Cover] Warming cache: fetching new arrivals...');
+    const books = await alpasService.getNewArrivals();
+    console.log(`[Cover] Warming cache: ${books.length} books to process`);
+
+    const BATCH = 3;
+    const DELAY = 500;
+    let ok = 0;
+
+    for (let i = 0; i < books.length; i += BATCH) {
+      const batch = books.slice(i, i + BATCH);
+      await Promise.all(
+        batch.map(b => enrichCoverUrl(b.title, b.author, b.coverImageUrl)),
+      );
+      ok += batch.length;
+      if (i + BATCH < books.length) {
+        await new Promise(r => setTimeout(r, DELAY));
+      }
+    }
+
+    const cached = [...coverCache.values()].filter(v => v !== null).length;
+    console.log(`[Cover] Cache warmed: ${cached}/${ok} covers found`);
+  } catch (err: any) {
+    console.error(`[Cover] Cache warming failed: ${err.message}`);
+  }
+}
 
 /** 타임아웃 래퍼 */
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
@@ -81,11 +117,12 @@ async function enrichCoverUrl(
   }
 }
 
-/** 배열의 표지를 일괄 보강 (20개씩 동시 처리) */
+/** 배열의 표지를 일괄 보강 (3개씩 동시 처리 + 딜레이) */
 async function enrichBookCovers<T extends { title: string; author: string; coverImageUrl?: string }>(
   books: T[],
 ): Promise<T[]> {
-  const BATCH_SIZE = 20;
+  const BATCH_SIZE = 3;
+  const DELAY_MS = 300;
   const result: T[] = [];
 
   for (let i = 0; i < books.length; i += BATCH_SIZE) {
@@ -97,6 +134,9 @@ async function enrichBookCovers<T extends { title: string; author: string; cover
       })),
     );
     result.push(...enriched);
+    if (i + BATCH_SIZE < books.length) {
+      await new Promise(r => setTimeout(r, DELAY_MS));
+    }
   }
 
   return result;

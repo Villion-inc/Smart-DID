@@ -12,6 +12,7 @@ import { DidV2BookDetail } from './pages/did/DidV2BookDetail';
 import { DidV2NewArrivals } from './pages/did/DidV2NewArrivals';
 import { DidV2Search } from './pages/did/DidV2Search';
 import { DidV2Location } from './pages/did/DidV2Location';
+import { DidV2Recommend } from './pages/did/DidV2Recommend';
 
 const CLOUD_ADMIN_URL = import.meta.env.VITE_CLOUD_ADMIN_URL as string | undefined;
 
@@ -43,6 +44,7 @@ function App() {
         <Route path="/did" element={<DidV2Home />} />
         <Route path="/did/age/:group" element={<DidV2BookGrid />} />
         <Route path="/did/video/:bookId" element={<DidV2BookDetail />} />
+        <Route path="/did/recommend" element={<DidV2Recommend />} />
         <Route path="/did/new" element={<DidV2NewArrivals />} />
         <Route path="/did/search" element={<DidV2Search />} />
         <Route path="/did/location/:bookId" element={<DidV2Location />} />
