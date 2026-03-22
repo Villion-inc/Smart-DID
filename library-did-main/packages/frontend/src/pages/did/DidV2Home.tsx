@@ -63,7 +63,10 @@ export function DidV2Home() {
 
   const handleRandomVideo = () => {
     if (videos.length === 0) return;
-    const random = videos[Math.floor(Math.random() * videos.length)];
+    // 현재 재생 중인 영상을 제외하고 랜덤 선택
+    const others = videos.filter((_, i) => i !== currentVideoIdx);
+    const pool = others.length > 0 ? others : videos;
+    const random = pool[Math.floor(Math.random() * pool.length)];
     setRandomVideo(random);
     setShowRandomVideo(true);
   };
