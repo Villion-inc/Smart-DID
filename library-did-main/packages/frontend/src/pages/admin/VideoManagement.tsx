@@ -188,7 +188,7 @@ export const VideoManagement: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {videos.map((video) => {
+            {videos.filter(v => v.status !== 'NONE').map((video) => {
               const statusStyle = STATUS_COLORS[video.status] || STATUS_COLORS.NONE;
               return (
                 <div
@@ -271,7 +271,7 @@ export const VideoManagement: React.FC = () => {
               );
             })}
             <p className="text-center text-xs text-gray-400">
-              총 {videos.length}개의 영상 기록
+              총 {videos.filter(v => v.status !== 'NONE').length}개의 영상 기록
             </p>
           </div>
         )}
