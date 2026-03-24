@@ -40,7 +40,7 @@ export async function generateV4Scripts(
     try {
       const result = await model.generateContent({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.6, maxOutputTokens: 4000 },
+        generationConfig: { temperature: 0.6, maxOutputTokens: 8000 },
       });
 
       const response = await result.response;

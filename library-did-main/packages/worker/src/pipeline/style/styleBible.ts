@@ -53,7 +53,7 @@ export async function buildStyleBible(bookFacts: BookFacts): Promise<StyleBible>
       ],
       generationConfig: {
         temperature: 0.5,
-        maxOutputTokens: 2000,
+        maxOutputTokens: 4000,
       },
     });
 

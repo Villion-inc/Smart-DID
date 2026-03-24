@@ -33,7 +33,7 @@ export async function buildBookFacts(candidate: BookCandidate): Promise<BookFact
       ],
       generationConfig: {
         temperature: 0.3, // Low temperature for factual extraction
-        maxOutputTokens: 2000,
+        maxOutputTokens: 4000,
       },
     });
 
