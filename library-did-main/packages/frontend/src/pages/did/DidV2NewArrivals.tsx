@@ -69,8 +69,21 @@ export function DidV2NewArrivals() {
     return () => { cancelled = true; };
   }, []);
 
+  // 랜덤 다음 영상
   const handleVideoEnded = useCallback(() => {
-    setCurrentVideoIdx(prev => (prev + 1) % booksWithVideo.length);
+    if (booksWithVideo.length <= 1) return;
+    setCurrentVideoIdx(prev => {
+      let next: number;
+      do { next = Math.floor(Math.random() * booksWithVideo.length); } while (next === prev);
+      return next;
+    });
+  }, [booksWithVideo.length]);
+
+  // 최초 랜덤 시작
+  useEffect(() => {
+    if (booksWithVideo.length > 0) {
+      setCurrentVideoIdx(Math.floor(Math.random() * booksWithVideo.length));
+    }
   }, [booksWithVideo.length]);
 
   useEffect(() => {
