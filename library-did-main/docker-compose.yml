@@ -67,7 +67,7 @@ services:
       - GCS_BUCKET=${GCS_BUCKET:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
       - NAVER_CLIENT_ID=${NAVER_CLIENT_ID:-}
       - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET:-}
       - VEO_API_KEY=${VEO_API_KEY:-}
