@@ -111,9 +111,18 @@ export function DidV2Home() {
               onEnded={handleVideoEnded}
               className="h-full w-full object-cover"
             />
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-              <p className="text-lg font-bold text-white sm:text-xl">{currentVideo.title}</p>
-              <p className="text-sm text-gray-200 sm:text-base">{currentVideo.author}</p>
+            <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between bg-gradient-to-t from-black/70 to-transparent p-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-lg font-bold text-white sm:text-xl">{currentVideo.title}</p>
+                <p className="text-sm text-gray-200 sm:text-base">{currentVideo.author}</p>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleRandomVideo(); }}
+                className="ml-3 shrink-0 rounded-full bg-white/20 px-4 py-2 text-sm font-bold text-white backdrop-blur-sm transition active:scale-95 sm:text-base"
+              >
+                다른 영상 보기
+              </button>
             </div>
           </div>
         ) : (
@@ -122,20 +131,6 @@ export function DidV2Home() {
             style={{ height: '50%' }}
           >
             <p className="text-base text-gray-400">영상이 아직 없습니다</p>
-          </div>
-        )}
-
-        {/* 중간: 랜덤 영상 보기 버튼 */}
-        {hasVideos && (
-          <div className="flex shrink-0 justify-center px-4 py-2">
-            <button
-              type="button"
-              onClick={handleRandomVideo}
-              className="rounded-full px-8 py-3 text-base font-bold text-white shadow-md transition active:scale-95 sm:text-lg"
-              style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
-            >
-              🎬 랜덤 영상 보기
-            </button>
           </div>
         )}
 
