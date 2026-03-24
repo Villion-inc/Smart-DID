@@ -39,4 +39,11 @@ dump.rdb
 **/packages/worker/storage/videos/*.vtt
 genta_video_engine/
 library-did-main/gcp-key.json
-library-did-main/VM_DEPLOY.md
+
+# 마크다운·엑셀 (저장소에 올리지 않음) — README.md만 예외
+*.md
+!README.md
+!**/README.md
+*.xlsx
+*.xls
+*.xlsm
