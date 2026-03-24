@@ -30,7 +30,7 @@ export async function planScenes(
   console.log(`[Planner] Planning scenes for: "${bookFacts.canonicalTitle}"`);
 
   const genAI = new GoogleGenerativeAI(config.geminiApiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({ model: config.gemini.model });
 
   const prompt = buildPlanningPrompt(bookFacts, styleBible);
 
@@ -77,7 +77,7 @@ export async function generateSceneScripts(
   console.log('[Planner] Generating full scene scripts...');
 
   const genAI = new GoogleGenerativeAI(config.geminiApiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({ model: config.gemini.model });
 
   const scripts: SceneScriptV2[] = [];
 
