@@ -6,6 +6,7 @@ import { queueService } from '../services/queue.service';
 import { cacheManagerService } from '../services/cache-manager.service';
 import { bestsellerSeedService } from '../services/bestseller-seed.service';
 import { recommendationRepository } from '../repositories/recommendation.repository';
+import { settingsRepository } from '../repositories/settings.repository';
 import { naverBookService } from '../services/naver-book.service';
 import { VideoUpdateInput, VideoStatusQueryInput } from '../schemas/video.schema';
 import { VideoStatus } from '../types';
@@ -498,6 +499,25 @@ export class AdminController {
         cache: cacheStats,
       },
     });
+  }
+  // =====================
+  // Site Settings
+  // =====================
+
+  async getSettings(_request: FastifyRequest, reply: FastifyReply) {
+    const settings = await settingsRepository.getAll();
+    return reply.send({ success: true, data: settings });
+  }
+
+  async updateSettings(
+    request: FastifyRequest<{ Body: Record<string, string> }>,
+    reply: FastifyReply,
+  ) {
+    const entries = Object.entries(request.body);
+    for (const [key, value] of entries) {
+      await settingsRepository.set(key, value);
+    }
+    return reply.send({ success: true, message: '설정이 저장되었습니다.' });
   }
 }
 

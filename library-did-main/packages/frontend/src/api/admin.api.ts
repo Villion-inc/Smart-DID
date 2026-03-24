@@ -270,4 +270,16 @@ export const adminApi = {
     );
     return response.data.data!;
   },
+
+  // =====================
+  // Site Settings
+  // =====================
+  async getSettings(): Promise<Record<string, string>> {
+    const response = await apiClient.get<ApiResponse<Record<string, string>>>('/admin/settings');
+    return response.data.data!;
+  },
+
+  async updateSettings(settings: Record<string, string>): Promise<void> {
+    await apiClient.put('/admin/settings', settings);
+  },
 };

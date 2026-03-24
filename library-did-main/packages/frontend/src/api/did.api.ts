@@ -48,6 +48,18 @@ export interface PopularVideo {
  */
 
 /**
+ * Get site settings for DID display
+ */
+export const getSiteSettings = async (): Promise<Record<string, string>> => {
+  try {
+    const response = await apiClient.get<ApiResponse<Record<string, string>>>('/did/settings');
+    return response.data.data || {};
+  } catch {
+    return {};
+  }
+};
+
+/**
  * Check ALPAS API connectivity
  */
 export const checkAlpasStatus = async (): Promise<boolean> => {

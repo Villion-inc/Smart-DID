@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getLibrarianPicks } from '../../api/did.api';
+import { getLibrarianPicks, getSiteSettings } from '../../api/did.api';
 import type { DidBook } from '../../types';
 import { DidV2Layout } from './DidV2Layout';
 
@@ -11,14 +11,22 @@ export function DidV2Recommend() {
   const navigate = useNavigate();
   const [books, setBooks] = useState<DidBook[]>([]);
   const [loading, setLoading] = useState(true);
+  const [description, setDescription] = useState('사서가 추천하는 도서 목록이에요!');
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const list = await getLibrarianPicks();
-        if (!cancelled) setBooks(list);
+        const [list, settings] = await Promise.all([
+          getLibrarianPicks(),
+          getSiteSettings().catch(() => ({} as Record<string, string>)),
+        ]);
+        if (!cancelled) {
+          setBooks(list);
+          const desc = (settings as Record<string, string>)['recommend.description'];
+          if (desc) setDescription(desc);
+        }
       } catch {
         if (!cancelled) setBooks([]);
       }
@@ -31,7 +39,7 @@ export function DidV2Recommend() {
     <DidV2Layout title="추천도서">
       <div className="flex flex-1 flex-col py-4">
         <p className="mb-4 text-center text-base text-gray-600 sm:text-lg">
-          사서가 추천하는 도서 목록이에요!
+          {description}
         </p>
 
         <div className="flex flex-1 flex-col gap-3 overflow-auto sm:gap-4">

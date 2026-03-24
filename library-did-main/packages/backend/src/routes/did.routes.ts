@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { didController } from '../controllers/did.controller';
+import { settingsRepository } from '../repositories/settings.repository';
 
 /**
  * DID Routes
@@ -16,6 +17,12 @@ export async function didRoutes(fastify: FastifyInstance) {
 
   // Check ALPAS API connectivity
   fastify.get('/did/alpas-status', didController.checkAlpasStatus.bind(didController));
+
+  // Site settings (공개)
+  fastify.get('/did/settings', async (_req, reply) => {
+    const settings = await settingsRepository.getAll();
+    return reply.send({ success: true, data: settings });
+  });
 
   // =====================
   // Book Discovery

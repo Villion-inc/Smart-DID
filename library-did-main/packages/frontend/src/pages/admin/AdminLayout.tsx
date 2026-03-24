@@ -6,6 +6,7 @@ const NAV_TABS = [
   { label: '대시보드', path: '/admin/dashboard' },
   { label: '영상 관리', path: '/admin/videos' },
   { label: '도서 등록', path: '/admin/recommend' },
+  { label: '설정', path: '/admin/settings' },
 ] as const;
 
 const ASPECT_RATIO = 9 / 16;

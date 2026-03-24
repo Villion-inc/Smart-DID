@@ -64,4 +64,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.get('/admin/notifications', adminController.getNotifications.bind(adminController));
   fastify.patch('/admin/notifications/:id/read', adminController.markNotificationAsRead.bind(adminController));
   fastify.post('/admin/notifications/mark-all-read', adminController.markAllNotificationsAsRead.bind(adminController));
+
+  // =====================
+  // Site Settings
+  // =====================
+  fastify.get('/admin/settings', adminController.getSettings.bind(adminController));
+  fastify.put('/admin/settings', adminController.updateSettings.bind(adminController));
 }
