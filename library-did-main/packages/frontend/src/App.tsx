@@ -6,6 +6,7 @@ import { AdminLogin } from './pages/admin/Login';
 import { AdminDashboard } from './pages/admin/Dashboard';
 import { AdminRecommendBook } from './pages/admin/AdminRecommendBook';
 import { VideoManagement } from './pages/admin/VideoManagement';
+import { AdminSettings } from './pages/admin/AdminSettings';
 import { DidV2Home } from './pages/did/DidV2Home';
 import { DidV2BookGrid } from './pages/did/DidV2BookGrid';
 import { DidV2BookDetail } from './pages/did/DidV2BookDetail';
@@ -63,6 +64,7 @@ function App() {
             <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/recommend" element={<ProtectedRoute><AdminRecommendBook /></ProtectedRoute>} />
             <Route path="/admin/videos" element={<ProtectedRoute><VideoManagement /></ProtectedRoute>} />
+            <Route path="/admin/settings" element={<ProtectedRoute><AdminSettings /></ProtectedRoute>} />
           </>
         )}
 
