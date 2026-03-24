@@ -48,7 +48,7 @@ export const AdminDashboard: React.FC = () => {
       const ready = dashboard?.videos?.ready ?? 0;
       const completed = queue?.completed ?? 0;
       const costPerOne = 1000;
-      const budget = 1_000_000;
+      const budget = 50_000;
       const usedCost = completed * costPerOne;
       const remainingBudget = Math.max(0, budget - usedCost);
       setStats({

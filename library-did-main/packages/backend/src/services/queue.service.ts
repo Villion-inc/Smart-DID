@@ -89,6 +89,14 @@ export class QueueService {
   ): Promise<string | null> {
     const { bookId } = jobData;
 
+    // 0. 영상 생성 제한: READY 상태 영상 50개 초과 시 거부
+    const MAX_VIDEOS = 50;
+    const readyCount = await videoRepository.countByStatus('READY');
+    if (readyCount >= MAX_VIDEOS) {
+      console.log(`[QueueService] Video limit reached (${readyCount}/${MAX_VIDEOS}), rejecting ${bookId}`);
+      return null;
+    }
+
     // 1. 중복 체크: 이미 QUEUED/GENERATING 상태인지 확인
     const existingRecord = await videoRepository.findByBookId(bookId);
     if (existingRecord) {

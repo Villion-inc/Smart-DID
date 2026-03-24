@@ -100,7 +100,7 @@ export function DidV2Home() {
         {currentVideo ? (
           <div
             className="relative w-full shrink-0 overflow-hidden rounded-2xl bg-black"
-            style={{ height: '50%' }}
+            style={{ height: '65%' }}
           >
             <video
               ref={videoRef}
@@ -121,14 +121,14 @@ export function DidV2Home() {
                 onClick={(e) => { e.stopPropagation(); handleRandomVideo(); }}
                 className="ml-3 shrink-0 rounded-full bg-white/20 px-4 py-2 text-sm font-bold text-white backdrop-blur-sm transition active:scale-95 sm:text-base"
               >
-                다른 영상 보기
+                랜덤 영상 보기
               </button>
             </div>
           </div>
         ) : (
           <div
             className="flex w-full shrink-0 items-center justify-center rounded-2xl bg-gray-100"
-            style={{ height: '50%' }}
+            style={{ height: '65%' }}
           >
             <p className="text-base text-gray-400">영상이 아직 없습니다</p>
           </div>
