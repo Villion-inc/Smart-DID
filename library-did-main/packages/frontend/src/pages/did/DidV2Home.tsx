@@ -1,9 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DidV2Layout } from './DidV2Layout';
-import { getPopularVideos, getLibrarianPicks } from '../../api/did.api';
+import { getPopularVideos } from '../../api/did.api';
 import type { PopularVideo } from '../../api/did.api';
-import type { DidBook } from '../../types';
 
 const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '';
 const API_BASE_URL =
@@ -22,7 +21,6 @@ export function DidV2Home() {
 
   const [videos, setVideos] = useState<PopularVideo[]>([]);
   const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
-  const [librarianPicks, setLibrarianPicks] = useState<DidBook[]>([]);
   const [loading, setLoading] = useState(true);
 
   // 랜덤 영상 팝업
@@ -35,16 +33,9 @@ export function DidV2Home() {
     (async () => {
       setLoading(true);
       try {
-        const [popularRes, picksRes] = await Promise.all([
-          getPopularVideos(10).catch(() => [] as PopularVideo[]),
-          getLibrarianPicks().catch(() => [] as DidBook[]),
-        ]);
-        if (cancelled) return;
-        setVideos(popularRes.filter(v => v.videoUrl));
-        setLibrarianPicks(picksRes);
-      } catch {
-        // ignore
-      }
+        const popularRes = await getPopularVideos(10).catch(() => [] as PopularVideo[]);
+        if (!cancelled) setVideos(popularRes.filter(v => v.videoUrl));
+      } catch { /* ignore */ }
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -63,7 +54,6 @@ export function DidV2Home() {
 
   const handleRandomVideo = () => {
     if (videos.length === 0) return;
-    // 현재 재생 중인 영상을 제외하고 랜덤 선택
     const others = videos.filter((_, i) => i !== currentVideoIdx);
     const pool = others.length > 0 ? others : videos;
     const random = pool[Math.floor(Math.random() * pool.length)];
@@ -136,75 +126,58 @@ export function DidV2Home() {
           </div>
         )}
 
-        {/* 하단: 추천도서 가로 스크롤 (표지, 제목, 저자만) */}
-        {librarianPicks.length > 0 && (
-          <div className="min-h-0 flex-1">
-            <p className="mb-2 px-1 text-sm font-bold text-gray-700 sm:text-base">추천도서</p>
-            <div
-              className="flex gap-3 overflow-x-auto pb-2"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        {/* 하단: 바로가기 메뉴 3개 */}
+        <div className="flex min-h-0 flex-1 items-center gap-3 px-2">
+          {[
+            { label: '추천도서', sub: '사서 추천', path: '/did/recommend' },
+            { label: '신착도서', sub: '새로 들어온 책', path: '/did/new' },
+            { label: '도서검색', sub: '직접 찾아보기', path: '/did/search' },
+          ].map((item) => (
+            <button
+              key={item.path}
+              type="button"
+              onClick={() => navigate(item.path)}
+              className="flex flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl py-6 transition active:scale-95 sm:py-7"
+              style={{
+                background: 'rgba(255,255,255,0.8)',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+              }}
             >
-              {librarianPicks.map((book) => (
-                <div
-                  key={book.id}
-                  onClick={() => navigate(`/did/video/${book.id}`)}
-                  className="flex w-28 shrink-0 cursor-pointer flex-col items-center transition active:scale-95 sm:w-32"
-                >
-                  <div
-                    className="mb-1.5 h-36 w-24 rounded-xl shadow-md sm:h-40 sm:w-28"
-                    style={{
-                      background: book.coverImageUrl
-                        ? `url(${book.coverImageUrl}) center/cover no-repeat`
-                        : 'linear-gradient(135deg, #a8d8ea 0%, #d4ead6 100%)',
-                    }}
-                  >
-                    {!book.coverImageUrl && (
-                      <div className="flex h-full w-full items-center justify-center text-3xl">📚</div>
-                    )}
-                  </div>
-                  <p className="w-full truncate text-center text-xs font-bold text-gray-800 sm:text-sm">
-                    {book.title}
-                  </p>
-                  <p className="w-full truncate text-center text-[10px] text-gray-500 sm:text-xs">
-                    {book.author}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+              <span className="text-lg font-bold text-gray-800 sm:text-xl">
+                {item.label}
+              </span>
+              <span className="text-xs text-gray-500 sm:text-sm">{item.sub}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* 랜덤 영상 팝업 */}
+      {/* 랜덤 영상 팝업 — 풀스크린 */}
       {showRandomVideo && randomVideo && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black"
           onClick={() => setShowRandomVideo(false)}
         >
-          <div
-            className="relative w-full max-w-lg overflow-hidden rounded-2xl"
+          <video
+            ref={randomVideoRef}
+            src={resolveVideoUrl(randomVideo.videoUrl)}
+            autoPlay
+            playsInline
+            controls
+            className="h-full w-full object-contain"
             onClick={(e) => e.stopPropagation()}
-          >
-            <video
-              ref={randomVideoRef}
-              src={resolveVideoUrl(randomVideo.videoUrl)}
-              autoPlay
-              playsInline
-              controls
-              className="w-full"
-            />
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-              <p className="text-lg font-bold text-white">{randomVideo.title}</p>
-              <p className="text-sm text-gray-300">{randomVideo.author}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowRandomVideo(false)}
-              className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-xl text-white"
-            >
-              ✕
-            </button>
+          />
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+            <p className="text-xl font-bold text-white sm:text-2xl">{randomVideo.title}</p>
+            <p className="text-base text-gray-300 sm:text-lg">{randomVideo.author}</p>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowRandomVideo(false)}
+            className="absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-2xl text-white"
+          >
+            ✕
+          </button>
         </div>
       )}
     </DidV2Layout>

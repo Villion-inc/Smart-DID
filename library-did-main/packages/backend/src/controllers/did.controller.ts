@@ -151,8 +151,15 @@ export class DidController {
     try {
       const books = await alpasService.getNewArrivals();
 
+      // 1층 신착도서 코너 우선 정렬
+      const sorted = [...books].sort((a, b) => {
+        const aFirst = a.shelfCode?.includes('1층') ? 0 : 1;
+        const bFirst = b.shelfCode?.includes('1층') ? 0 : 1;
+        return aFirst - bFirst;
+      });
+
       // Return minimal fields optimized for DID UI
-      const didBooks = await enrichBookCovers(books.map((book) => ({
+      const didBooks = await enrichBookCovers(sorted.map((book) => ({
         id: book.id,
         title: book.title,
         author: book.author,

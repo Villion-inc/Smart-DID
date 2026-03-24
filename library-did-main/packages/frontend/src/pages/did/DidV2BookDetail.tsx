@@ -237,17 +237,24 @@ export function DidV2BookDetail() {
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="mt-auto shrink-0 space-y-3 pt-4 sm:pt-5">
+        {/* Action buttons — 가로 배치 */}
+        <div className="mt-auto flex shrink-0 gap-2 pt-4 sm:gap-3 sm:pt-5">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="flex h-14 items-center justify-center rounded-2xl px-4 text-sm font-semibold text-gray-600 transition active:scale-[0.98] sm:h-16 sm:px-5 sm:text-base"
+            style={{ background: 'rgba(255,255,255,0.7)' }}
+          >
+            ← 돌아가기
+          </button>
           {showRequestButton && (
             <button
               type="button"
               onClick={handleRequestVideo}
               disabled={requesting}
-              className="flex h-16 w-full items-center justify-center rounded-2xl text-lg font-bold text-white transition active:scale-[0.98] disabled:opacity-50 sm:h-20 sm:text-xl"
+              className="flex h-14 items-center justify-center rounded-2xl px-4 text-sm font-bold text-white transition active:scale-[0.98] disabled:opacity-50 sm:h-16 sm:px-5 sm:text-base"
               style={{
                 background: 'linear-gradient(180deg, #5B9BD5 0%, #3A7BBF 100%)',
-                boxShadow: '0 4px 16px rgba(58, 123, 191, 0.35)',
               }}
             >
               {requesting ? '요청 중...' : '🎬 영상 생성'}
@@ -255,31 +262,23 @@ export function DidV2BookDetail() {
           )}
           {isProcessing && (
             <div
-              className="flex h-16 w-full items-center justify-center gap-2 rounded-2xl text-lg font-bold sm:h-20 sm:text-xl"
+              className="flex h-14 items-center justify-center gap-1.5 rounded-2xl px-4 text-sm font-bold sm:h-16 sm:px-5 sm:text-base"
               style={{ background: 'rgba(102,126,234,0.15)', color: '#667eea' }}
             >
-              <div className="h-5 w-5 animate-spin rounded-full border-3 border-current border-t-transparent" />
-              {videoStatus === 'QUEUED' ? '대기 중...' : '영상 생성 중...'}
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              {videoStatus === 'QUEUED' ? '대기 중' : '생성 중'}
             </div>
           )}
           <button
             type="button"
             onClick={() => navigate(`/did/location/${bookId}`)}
-            className="flex h-16 w-full items-center justify-center rounded-2xl text-lg font-bold text-white transition active:scale-[0.98] sm:h-20 sm:text-xl"
+            className="flex h-14 flex-1 items-center justify-center rounded-2xl text-sm font-bold text-white transition active:scale-[0.98] sm:h-16 sm:text-base"
             style={{
               background: 'linear-gradient(180deg, #6BB8D6 0%, #4DA3C4 100%)',
               boxShadow: '0 4px 16px rgba(77, 163, 196, 0.35)',
             }}
           >
-            📍 이 책의 위치 보기
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="flex h-12 w-full items-center justify-center rounded-2xl text-base font-semibold text-gray-600 transition active:scale-[0.98] sm:h-14 sm:text-lg"
-            style={{ background: 'rgba(255,255,255,0.7)' }}
-          >
-            ← 돌아가기
+            📍 위치 보기
           </button>
         </div>
       </div>
