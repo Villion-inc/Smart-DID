@@ -14,6 +14,7 @@ import { DidV2NewArrivals } from './pages/did/DidV2NewArrivals';
 import { DidV2Search } from './pages/did/DidV2Search';
 import { DidV2Location } from './pages/did/DidV2Location';
 import { DidV2Recommend } from './pages/did/DidV2Recommend';
+import { PageTransition } from './components/PageTransition';
 
 const CLOUD_ADMIN_URL = import.meta.env.VITE_CLOUD_ADMIN_URL as string | undefined;
 
@@ -39,6 +40,7 @@ function App() {
 
   return (
     <BrowserRouter basename={basename}>
+      <PageTransition>
       <Routes>
         {/* DID 메인 (900×1600 북메이트 추천도서) */}
         <Route path="/" element={<Navigate to="/did" replace />} />
@@ -71,6 +73,7 @@ function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/did" replace />} />
       </Routes>
+      </PageTransition>
     </BrowserRouter>
   );
 }
