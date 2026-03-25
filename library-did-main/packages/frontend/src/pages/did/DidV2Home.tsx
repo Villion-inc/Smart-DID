@@ -94,7 +94,7 @@ export function DidV2Home() {
   }
 
   return (
-    <DidV2Layout>
+    <DidV2Layout hideFooter>
       <div className="flex flex-1 flex-col">
         {/* 상단: 영상 (화면 50%) */}
         {currentVideo ? (
