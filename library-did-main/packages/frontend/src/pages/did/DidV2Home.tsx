@@ -96,11 +96,11 @@ export function DidV2Home() {
   return (
     <DidV2Layout hideFooter>
       <div className="flex flex-1 flex-col">
-        {/* 상단: 영상 (화면 50%) */}
+        {/* 상단: 영상 */}
         {currentVideo ? (
           <div
             className="relative w-full shrink-0 overflow-hidden rounded-2xl bg-black"
-            style={{ height: '65%' }}
+            style={{ height: '70%' }}
           >
             <video
               ref={videoRef}
@@ -128,27 +128,28 @@ export function DidV2Home() {
         ) : (
           <div
             className="flex w-full shrink-0 items-center justify-center rounded-2xl bg-gray-100"
-            style={{ height: '65%' }}
+            style={{ height: '70%' }}
           >
             <p className="text-base text-gray-400">영상이 아직 없습니다</p>
           </div>
         )}
 
         {/* 하단: 바로가기 메뉴 3개 */}
-        <div className="flex min-h-0 flex-1 items-center gap-3 px-2">
+        <div className="flex flex-1 items-center gap-3 px-2">
           {[
-            { label: '추천도서', sub: '사서 추천', path: '/did/recommend' },
-            { label: '신착도서', sub: '새로 들어온 책', path: '/did/new' },
-            { label: '도서검색', sub: '직접 찾아보기', path: '/did/search' },
+            { label: '추천도서', sub: '사서 추천', path: '/did/recommend', accent: '#4DA3C4' },
+            { label: '신착도서', sub: '새로 들어온 책', path: '/did/new', accent: '#5BB88C' },
+            { label: '도서검색', sub: '직접 찾아보기', path: '/did/search', accent: '#8B7EC8' },
           ].map((item) => (
             <button
               key={item.path}
               type="button"
               onClick={() => navigate(item.path)}
-              className="flex flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl py-6 transition active:scale-95 sm:py-7"
+              className="flex flex-1 flex-col items-center justify-center gap-1 rounded-2xl py-4 transition active:scale-95 sm:py-5"
               style={{
-                background: 'rgba(255,255,255,0.8)',
+                background: 'rgba(255,255,255,0.85)',
                 boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+                borderBottom: `3px solid ${item.accent}`,
               }}
             >
               <span className="text-lg font-bold text-gray-800 sm:text-xl">
