@@ -162,13 +162,13 @@ export function DidV2Home() {
   // ─── 기본 홈 화면 ───
   return (
     <DidV2Layout hideFooter>
-      <div className="flex flex-1 flex-col gap-3">
-        {/* 상단: 영상 */}
-        <div className="shrink-0">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-1">
+        {/* 영상 */}
+        <div className="w-full shrink-0">
           {currentVideo ? (
             <div
-              className="relative w-full overflow-hidden rounded-2xl bg-black"
-              style={{ aspectRatio: '16 / 9' }}
+              className="relative w-full overflow-hidden rounded-3xl bg-black"
+              style={{ aspectRatio: '16 / 9', boxShadow: '0 8px 30px rgba(0,0,0,0.15)' }}
             >
               <video
                 ref={videoRef}
@@ -221,27 +221,27 @@ export function DidV2Home() {
         )}
 
         {/* 하단: 바로가기 메뉴 3개 */}
-        <div className="flex shrink-0 gap-3 px-1">
+        <div className="flex w-full shrink-0 gap-3">
           {[
-            { label: '추천도서', sub: '사서 추천', path: '/did/recommend', accent: '#4DA3C4' },
-            { label: '신착도서', sub: '새로 들어온 책', path: '/did/new', accent: '#5BB88C' },
-            { label: '도서검색', sub: '직접 찾아보기', path: '/did/search', accent: '#8B7EC8' },
+            { label: '추천도서', sub: '사서 추천', path: '/did/recommend', bg: 'linear-gradient(135deg, #E8F4FC 0%, #d0ecf5 100%)', accent: '#4DA3C4' },
+            { label: '신착도서', sub: '새로 들어온 책', path: '/did/new', bg: 'linear-gradient(135deg, #E8F8EC 0%, #d0f0d6 100%)', accent: '#5BB88C' },
+            { label: '도서검색', sub: '직접 찾아보기', path: '/did/search', bg: 'linear-gradient(135deg, #F0ECF8 0%, #e0d8f0 100%)', accent: '#8B7EC8' },
           ].map((item) => (
             <button
               key={item.path}
               type="button"
               onClick={() => navigate(item.path)}
-              className="flex flex-1 flex-col items-center justify-center gap-2 rounded-2xl py-6 transition active:scale-[0.97] sm:py-8"
+              className="flex flex-1 flex-col items-center justify-center gap-2 rounded-2xl py-7 transition active:scale-[0.97] sm:py-9"
               style={{
-                background: 'rgba(255,255,255,0.85)',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
-                borderBottom: `3px solid ${item.accent}`,
+                background: item.bg,
+                boxShadow: '0 4px 15px rgba(0,0,0,0.06)',
+                border: `2px solid ${item.accent}30`,
               }}
             >
-              <span className="text-lg font-bold text-gray-800 sm:text-xl">
+              <span className="text-xl font-bold sm:text-2xl" style={{ color: item.accent }}>
                 {item.label}
               </span>
-              <span className="text-xs text-gray-500 sm:text-sm">{item.sub}</span>
+              <span className="text-sm text-gray-500 sm:text-base">{item.sub}</span>
             </button>
           ))}
         </div>
