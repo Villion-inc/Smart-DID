@@ -376,9 +376,12 @@ export class DidController {
       // 항상 제목으로 재검색하여 가장 완전한 데이터로 보강
       if (book) {
         try {
+          console.log(`[DID getBookDetail] Re-searching title: "${book.title}"`);
           const searchResults = await alpasService.searchBooks(book.title);
+          console.log(`[DID getBookDetail] Search returned ${searchResults.length} results`);
           const better = searchResults.find(b => b.shelfCode || b.callNumber) || searchResults[0];
           if (better) {
+            console.log(`[DID getBookDetail] Better match: shelfCode="${better.shelfCode}" isbn="${better.isbn}"`);
             book = {
               ...book,
               shelfCode: book.shelfCode || better.shelfCode,
@@ -390,7 +393,9 @@ export class DidController {
               isAvailable: better.isAvailable,
             };
           }
-        } catch { /* ignore */ }
+        } catch (err: any) {
+          console.error(`[DID getBookDetail] Re-search failed: ${err.message}`);
+        }
       }
 
       if (book) {
