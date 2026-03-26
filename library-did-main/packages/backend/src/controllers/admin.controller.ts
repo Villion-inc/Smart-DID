@@ -8,6 +8,7 @@ import { bestsellerSeedService } from '../services/bestseller-seed.service';
 import { recommendationRepository } from '../repositories/recommendation.repository';
 import { settingsRepository } from '../repositories/settings.repository';
 import { naverBookService } from '../services/naver-book.service';
+import { data4libraryService } from '../services/data4library.service';
 import { VideoUpdateInput, VideoStatusQueryInput } from '../schemas/video.schema';
 import { VideoStatus } from '../types';
 
@@ -75,10 +76,15 @@ export class AdminController {
     }
 
     try {
-      // 표지 URL이 없으면 네이버 책 검색으로 자동 조회
+      // 표지 URL이 없으면 정보나루에서 자동 조회
       let resolvedCoverUrl = coverImageUrl;
       if (!resolvedCoverUrl) {
-        resolvedCoverUrl = await naverBookService.searchCoverImage(title, author) || undefined;
+        try {
+          const results = await data4libraryService.searchBooks(title, 1);
+          if (results.length > 0 && results[0].bookImageURL) {
+            resolvedCoverUrl = results[0].bookImageURL;
+          }
+        } catch { /* ignore */ }
       }
 
       const recommendation = await recommendationRepository.create({
@@ -452,7 +458,7 @@ export class AdminController {
 
   /**
    * GET /api/admin/books/search-cover?title=...&author=...
-   * 네이버 책 검색 API로 표지 이미지 URL 조회
+   * 정보나루 → 네이버 순으로 표지 이미지 URL 조회
    */
   async searchBookCover(
     request: FastifyRequest<{ Querystring: { title: string; author?: string; publisher?: string } }>,
@@ -467,14 +473,21 @@ export class AdminController {
       });
     }
 
-    if (!naverBookService.isConfigured()) {
-      return reply.send({
-        success: true,
-        data: { coverImageUrl: null, message: '네이버 API 키가 설정되지 않았습니다.' },
-      });
-    }
+    // 1차: 정보나루에서 검색
+    try {
+      const results = await data4libraryService.searchBooks(title, 5);
+      if (results.length > 0 && results[0].bookImageURL) {
+        return reply.send({
+          success: true,
+          data: { coverImageUrl: results[0].bookImageURL },
+        });
+      }
+    } catch { /* fallback to naver */ }
 
-    const coverImageUrl = await naverBookService.searchCoverImage(title, author, publisher);
+    // 2차: 네이버 fallback
+    const coverImageUrl = naverBookService.isConfigured()
+      ? await naverBookService.searchCoverImage(title, author, publisher)
+      : null;
     return reply.send({
       success: true,
       data: { coverImageUrl },

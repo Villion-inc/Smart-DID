@@ -9,6 +9,7 @@ const AGE_LABELS: Record<AgeGroup, string> = {
   preschool: '4-6세',
   elementary: '7-9세',
   teen: '10-13세',
+  librarian: '사서추천',
 };
 
 /**

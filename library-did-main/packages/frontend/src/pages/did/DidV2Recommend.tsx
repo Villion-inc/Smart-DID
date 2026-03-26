@@ -49,10 +49,10 @@ export function DidV2Recommend() {
   }, [activeTab]);
 
   return (
-    <DidV2Layout title="추천도서">
-      <div className="flex flex-1 flex-col">
-        {/* 탭 바 */}
-        <div className="mb-3 flex shrink-0 gap-2 sm:mb-4">
+    <DidV2Layout
+      title="추천도서"
+      extraFooter={
+        <div className="flex w-full shrink-0 gap-2 px-3 pb-2 pt-2 sm:px-4">
           {TABS.map((tab) => {
             const active = activeTab === tab.key;
             return (
@@ -74,9 +74,11 @@ export function DidV2Recommend() {
             );
           })}
         </div>
-
-        {/* 도서 리스트 */}
-        <div className="flex flex-1 flex-col gap-3 overflow-auto sm:gap-4">
+      }
+    >
+      <div className="flex flex-1 flex-col">
+        {/* 도서 리스트 — 스크롤 */}
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto sm:gap-4">
           {loading && (
             <div className="flex flex-col gap-3 sm:gap-4">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -150,6 +152,7 @@ export function DidV2Recommend() {
               </button>
             ))}
         </div>
+
       </div>
     </DidV2Layout>
   );

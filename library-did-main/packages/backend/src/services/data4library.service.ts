@@ -111,7 +111,7 @@ class Data4LibraryService {
         return [];
       }
 
-      const json = await res.json();
+      const json: any = await res.json();
       const docs = json?.response?.docs || [];
 
       const books: Data4LibBook[] = docs.map((item: any) => {
@@ -164,7 +164,7 @@ class Data4LibraryService {
       const res = await fetch(url);
       if (!res.ok) return null;
 
-      const json = await res.json();
+      const json: any = await res.json();
       const detail = json?.response?.detail?.[0]?.book;
       if (!detail) return null;
 
@@ -217,7 +217,7 @@ class Data4LibraryService {
       const res = await fetch(url);
       if (!res.ok) return [];
 
-      const json = await res.json();
+      const json: any = await res.json();
       const docs = json?.response?.docs || [];
 
       return docs.map((item: any) => {

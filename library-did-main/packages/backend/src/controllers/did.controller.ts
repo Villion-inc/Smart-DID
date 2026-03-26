@@ -5,7 +5,7 @@ import { recommendationRepository } from '../repositories/recommendation.reposit
 import { queueService } from '../services/queue.service';
 import { cacheManagerService } from '../services/cache-manager.service';
 import { toPublicVideoUrl, toPublicSubtitleUrl } from '../utils/storage';
-import { naverBookService } from '../services/naver-book.service';
+// naverBookService는 admin 표지 검색에서만 사용 (DID에서는 정보나루 사용)
 import { data4libraryService } from '../services/data4library.service';
 
 // 네이버 표지 캐시 (title+author → imageUrl)
@@ -29,12 +29,11 @@ export async function warmCoverCache(): Promise<void> {
     const books = await alpasService.getNewArrivals();
     console.log(`[Cover] Warming cache: ${books.length} books to process`);
 
-    // 1개씩 순차 처리 + 딜레이 (네이버 API rate limit 방지)
+    // 1개씩 순차 처리 (정보나루 ISBN 기반)
     let ok = 0;
     for (const book of books) {
-      await enrichCoverUrl(book.title, book.author, book.coverImageUrl);
+      await enrichCoverUrl(book.title, book.author, book.coverImageUrl, book.isbn);
       ok++;
-      await new Promise(r => setTimeout(r, 300));
     }
 
     const cached = [...coverCache.values()].filter(v => v !== null).length;
@@ -68,61 +67,73 @@ function cleanTitleForSearch(title: string): string {
 }
 
 /**
- * 표지 URL이 없거나 picsum(더미)이면 네이버 API로 실제 표지를 가져옴
+ * 표지 URL이 없으면 정보나루 API(ISBN)로 표지를 가져옴
+ * @param isbn - 13자리 ISBN (ALPAS에서 제공)
  */
 async function enrichCoverUrl(
   title: string,
   author?: string,
   currentUrl?: string,
+  isbn?: string,
 ): Promise<string | undefined> {
   // 이미 실제 표지가 있으면 그대로
-  if (currentUrl && !currentUrl.includes('picsum.photos')) {
+  if (currentUrl && !currentUrl.includes('picsum.photos') && currentUrl.length > 0) {
     return currentUrl;
   }
 
-  const cacheKey = `${title}|${author || ''}`;
+  const cacheKey = isbn || `${title}|${author || ''}`;
   if (coverCache.has(cacheKey)) {
     return coverCache.get(cacheKey) || currentUrl;
   }
 
-  try {
-    const cleaned = cleanTitleForSearch(title);
-    const searchTitle = cleaned || title;
-
-    // 제목만으로 검색 (저자 포함하면 ALPAS 저자 형식 때문에 실패율 높음)
-    const naverUrl = await withTimeout(
-      naverBookService.searchCoverImage(searchTitle),
-      COVER_TIMEOUT_MS,
-      '__TIMEOUT__' as any,
-    );
-    if (naverUrl === '__TIMEOUT__') {
-      console.log(`[Cover] TIMEOUT: "${searchTitle}"`);
-      return currentUrl;
-    }
-
-    if (naverUrl) {
-      console.log(`[Cover] OK: "${searchTitle}" → ${naverUrl.substring(0, 50)}...`);
-      coverCache.set(cacheKey, naverUrl);
-      return naverUrl;
-    }
-    console.log(`[Cover] NOT FOUND: "${searchTitle}"`);
-    coverCache.set(cacheKey, null);
-    return currentUrl;
-  } catch (err: any) {
-    console.log(`[Cover] ERROR: "${title}" → ${err.message}`);
-    return currentUrl;
+  // 1차: 정보나루 ISBN 조회
+  if (isbn) {
+    try {
+      const coverUrl = await withTimeout(
+        data4libraryService.getCoverImage(isbn),
+        COVER_TIMEOUT_MS,
+        null,
+      );
+      if (coverUrl) {
+        console.log(`[Cover] OK (정보나루): "${title}" → ${coverUrl.substring(0, 50)}...`);
+        coverCache.set(cacheKey, coverUrl);
+        return coverUrl;
+      }
+    } catch { /* ignore */ }
   }
+
+  // 2차: 정보나루 검색 (ISBN 없을 때)
+  if (!isbn) {
+    try {
+      const cleaned = cleanTitleForSearch(title);
+      const searchTitle = cleaned || title;
+      const results = await withTimeout(
+        data4libraryService.searchBooks(searchTitle, 1),
+        COVER_TIMEOUT_MS,
+        [] as any,
+      );
+      if (results && results.length > 0 && results[0].bookImageURL) {
+        const coverUrl = results[0].bookImageURL;
+        console.log(`[Cover] OK (정보나루 검색): "${searchTitle}" → ${coverUrl.substring(0, 50)}...`);
+        coverCache.set(cacheKey, coverUrl);
+        return coverUrl;
+      }
+    } catch { /* ignore */ }
+  }
+
+  console.log(`[Cover] NOT FOUND: "${title}"`);
+  coverCache.set(cacheKey, null);
+  return currentUrl;
 }
 
-/** 배열의 표지를 일괄 보강 (캐시 히트는 즉시, 미스만 순차) */
-async function enrichBookCovers<T extends { title: string; author: string; coverImageUrl?: string }>(
+/** 배열의 표지를 일괄 보강 (정보나루 ISBN 기반) */
+async function enrichBookCovers<T extends { title: string; author: string; coverImageUrl?: string; isbn?: string }>(
   books: T[],
 ): Promise<T[]> {
-  // 캐시에 있으면 즉시 반환 (대부분 warmCoverCache에서 사전 로딩됨)
   return Promise.all(
     books.map(async (book) => ({
       ...book,
-      coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl),
+      coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl, book.isbn),
     })),
   );
 }
@@ -170,6 +181,7 @@ export class DidController {
         coverImageUrl: book.coverImageUrl,
         shelfCode: book.shelfCode,
         category: book.category,
+        isbn: book.isbn,
       })));
 
       return reply.send({
@@ -359,7 +371,7 @@ export class DidController {
             shelfCode: book.shelfCode,
             callNumber: book.callNumber,
             category: book.category,
-            coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl),
+            coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl, book.isbn),
             isAvailable: book.isAvailable,
           },
         });
@@ -665,7 +677,7 @@ export class DidController {
             title: book.title,
             author: book.author,
             publisher: book.publisher,
-            coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl),
+            coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl, book.isbn),
             shelfCode: book.shelfCode,
             category: book.category,
             videoStatus: videoRecord?.status || 'NONE',
