@@ -83,6 +83,11 @@ export const config = {
     clientSecret: process.env.NAVER_CLIENT_SECRET || '',
   },
 
+  data4library: {
+    authKey: process.env.DATA4LIBRARY_AUTH_KEY || '',
+    baseUrl: 'http://data4library.kr/api',
+  },
+
   admin: {
     username: process.env.ADMIN_USERNAME || 'admin',
     password: process.env.ADMIN_PASSWORD || 'admin1234',

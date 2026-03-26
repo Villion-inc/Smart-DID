@@ -176,7 +176,9 @@ export function DidV2BookDetail() {
             </div>
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3">
-              <span className="text-4xl sm:text-5xl">📖</span>
+              <svg className="h-10 w-10 text-white/60 sm:h-12 sm:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
               <span className="text-lg font-bold text-white/80 sm:text-xl">영상이 아직 없어요</span>
             </div>
           )}
@@ -235,6 +237,35 @@ export function DidV2BookDetail() {
               </span>
             )}
           </div>
+
+          {/* 서가 위치 / 청구기호 */}
+          {(bookDetail?.shelfCode || bookDetail?.callNumber) && (
+            <div className="mt-4 flex gap-3">
+              {bookDetail.shelfCode && (
+                <div className="flex flex-1 items-center gap-2 rounded-xl bg-blue-50 px-4 py-3">
+                  <svg className="h-4 w-4 shrink-0 text-blue-500 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500 sm:text-sm">서가 위치</p>
+                    <p className="text-sm font-bold text-blue-700 sm:text-base">{bookDetail.shelfCode}</p>
+                  </div>
+                </div>
+              )}
+              {bookDetail.callNumber && (
+                <div className="flex flex-1 items-center gap-2 rounded-xl bg-green-50 px-4 py-3">
+                  <svg className="h-4 w-4 shrink-0 text-green-500 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500 sm:text-sm">청구기호</p>
+                    <p className="text-sm font-bold text-green-700 sm:text-base">{bookDetail.callNumber}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Action buttons — 가로 배치 */}
@@ -257,7 +288,7 @@ export function DidV2BookDetail() {
                 background: 'linear-gradient(180deg, #5B9BD5 0%, #3A7BBF 100%)',
               }}
             >
-              {requesting ? '요청 중...' : '🎬 영상 생성'}
+              {requesting ? '요청 중...' : '영상 생성'}
             </button>
           )}
           {isProcessing && (
@@ -278,7 +309,7 @@ export function DidV2BookDetail() {
               boxShadow: '0 4px 16px rgba(77, 163, 196, 0.35)',
             }}
           >
-            📍 위치 보기
+            위치 보기
           </button>
         </div>
       </div>

@@ -23,95 +23,81 @@ export function DidV2Location() {
     })();
   }, [bookId]);
 
+  const locationText = bookDetail?.shelfCode || '위치 정보 없음';
+
   return (
     <DidV2Layout title="위치 안내">
-      <div className="flex flex-col items-center px-4 py-6">
-        <p className="mb-6 text-center text-2xl font-bold text-gray-800 sm:mb-8 sm:text-3xl">
-          📍 이 책은 여기 있어요!
-        </p>
-
-        {/* Book Info Card */}
+      <div className="flex flex-1 flex-col items-center justify-center px-4">
+        {/* 메인 위치 카드 — 크고 명확하게 */}
         <div
-          className="mb-6 w-full max-w-lg rounded-3xl p-6 sm:mb-8 sm:p-8"
-          style={{ background: 'rgba(255,255,255,0.9)' }}
+          className="mb-6 w-full max-w-lg rounded-3xl p-8 text-center sm:mb-8 sm:p-10"
+          style={{ background: 'rgba(255,255,255,0.92)' }}
         >
-          <div className="flex items-start gap-5 sm:gap-6">
-            {/* Cover Image */}
+          <div className="mb-6 flex justify-center">
             <div
-              className="h-36 w-24 shrink-0 rounded-xl sm:h-44 sm:w-32"
-              style={{
-                background: bookDetail?.coverImageUrl
-                  ? `url(${bookDetail.coverImageUrl}) center/cover no-repeat`
-                  : 'linear-gradient(180deg, #E0F0F8 0%, #C8E8D0 100%)',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              }}
+              className="flex h-20 w-20 items-center justify-center rounded-full sm:h-24 sm:w-24"
+              style={{ background: 'linear-gradient(135deg, #E8F4FC 0%, #D4EAD6 100%)' }}
             >
-              {!bookDetail?.coverImageUrl && (
-                <div className="flex h-full w-full items-center justify-center text-4xl sm:text-5xl">📚</div>
-              )}
-            </div>
-            {/* Book Details */}
-            <div className="min-w-0 flex-1">
-              <h2 className="text-xl font-bold text-gray-800 line-clamp-2 sm:text-2xl">
-                {bookDetail?.title || '책 제목'}
-              </h2>
-              <p className="mt-2 text-base text-gray-600 sm:text-lg">{bookDetail?.author || '저자'}</p>
-              <p className="mt-1 text-sm text-gray-500 sm:text-base">
-                {bookDetail?.publisher}
-                {bookDetail?.publishedYear ? ` · ${bookDetail.publishedYear}년` : ''}
-              </p>
-              {/* Availability Badge */}
-              {bookDetail?.isAvailable !== undefined && (
-                <span
-                  className={`mt-3 inline-block rounded-full px-4 py-1.5 text-sm font-medium sm:mt-4 sm:px-5 sm:py-2 sm:text-base ${
-                    bookDetail.isAvailable
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
-                  }`}
-                >
-                  {bookDetail.isAvailable ? '✓ 대출가능' : '✗ 대출중'}
-                </span>
-              )}
+              <svg className="h-10 w-10 text-blue-500 sm:h-12 sm:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+              </svg>
             </div>
           </div>
+
+          <p className="mb-2 text-base text-gray-500 sm:text-lg">이 책은 여기 있어요!</p>
+          <p className="text-2xl font-bold text-gray-800 sm:text-3xl">{locationText}</p>
+
+          {bookDetail?.callNumber && (
+            <div className="mt-6 inline-flex items-center gap-2 rounded-xl bg-green-50 px-5 py-3 sm:px-6 sm:py-4">
+              <span className="text-base text-gray-500 sm:text-lg">청구기호</span>
+              <span className="text-lg font-bold text-green-700 sm:text-xl">{bookDetail.callNumber}</span>
+            </div>
+          )}
         </div>
 
-        {/* Location Details */}
+        {/* 책 정보 요약 */}
         <div
-          className="mb-6 w-full max-w-lg rounded-3xl p-6 sm:mb-8 sm:p-8"
-          style={{ background: 'rgba(255,255,255,0.9)' }}
+          className="mb-6 flex w-full max-w-lg items-center gap-4 rounded-2xl p-5 sm:mb-8 sm:gap-5 sm:p-6"
+          style={{ background: 'rgba(255,255,255,0.85)' }}
         >
-          <h3 className="mb-5 text-center text-xl font-semibold text-gray-800 sm:mb-6 sm:text-2xl">
-            📚 도서 위치 정보
-          </h3>
-          <div className="flex flex-col gap-4 sm:gap-5">
-            {bookDetail?.shelfCode && (
-              <div className="flex items-center justify-between rounded-2xl bg-blue-50 px-5 py-4 sm:px-6 sm:py-5">
-                <span className="text-base text-gray-600 sm:text-lg">서가 위치</span>
-                <span className="text-xl font-bold text-blue-700 sm:text-2xl">{bookDetail.shelfCode}</span>
+          <div
+            className="h-24 w-16 shrink-0 rounded-lg sm:h-28 sm:w-20"
+            style={{
+              background: bookDetail?.coverImageUrl
+                ? `url(${bookDetail.coverImageUrl}) center/cover no-repeat`
+                : 'linear-gradient(180deg, #E0F0F8 0%, #C8E8D0 100%)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+            }}
+          >
+            {!bookDetail?.coverImageUrl && (
+              <div className="flex h-full w-full items-center justify-center">
+                <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                </svg>
               </div>
             )}
-            {bookDetail?.callNumber && (
-              <div className="flex items-center justify-between rounded-2xl bg-green-50 px-5 py-4 sm:px-6 sm:py-5">
-                <span className="text-base text-gray-600 sm:text-lg">청구기호</span>
-                <span className="text-xl font-bold text-green-700 sm:text-2xl">{bookDetail.callNumber}</span>
-              </div>
-            )}
-            {bookDetail?.isbn && (
-              <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-5 py-4 sm:px-6 sm:py-5">
-                <span className="text-base text-gray-600 sm:text-lg">ISBN</span>
-                <span className="text-base font-medium text-gray-700 sm:text-lg">{bookDetail.isbn}</span>
-              </div>
-            )}
-            {!bookDetail?.shelfCode && !bookDetail?.callNumber && (
-              <p className="py-6 text-center text-lg text-gray-500 sm:text-xl">
-                위치 정보를 불러오는 중입니다...
-              </p>
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold text-gray-800 line-clamp-2 sm:text-xl">
+              {bookDetail?.title || '책 제목'}
+            </h2>
+            <p className="mt-1 text-sm text-gray-600 sm:text-base">{bookDetail?.author || '저자'}</p>
+            {bookDetail?.isAvailable !== undefined && (
+              <span
+                className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-medium sm:px-4 sm:py-1.5 sm:text-sm ${
+                  bookDetail.isAvailable
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}
+              >
+                {bookDetail.isAvailable ? '✓ 대출가능' : '✗ 대출중'}
+              </span>
             )}
           </div>
         </div>
 
-        {/* Back button */}
+        {/* 돌아가기 버튼 */}
         <button
           type="button"
           onClick={() => navigate(-1)}
