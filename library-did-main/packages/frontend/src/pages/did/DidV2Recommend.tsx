@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getBooksByAge } from '../../api/did.api';
 import type { DidBook } from '../../types';
 import { DidV2Layout } from './DidV2Layout';
@@ -13,12 +13,24 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'librarian', label: '사서추천' },
 ];
 
+const VALID_TABS: TabKey[] = ['preschool', 'elementary', 'teen', 'librarian'];
+
 export function DidV2Recommend() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<TabKey>('preschool');
+  // URL에서 탭 복원 (뒤로가기 시 유지)
+  const urlTab = searchParams.get('tab') as TabKey | null;
+  const [activeTab, setActiveTab] = useState<TabKey>(
+    urlTab && VALID_TABS.includes(urlTab) ? urlTab : 'preschool'
+  );
   const [books, setBooks] = useState<DidBook[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleTabChange = (tab: TabKey) => {
+    setActiveTab(tab);
+    setSearchParams({ tab }, { replace: true });
+  };
 
   // 탭별 캐시
   const [cache, setCache] = useState<Record<string, DidBook[]>>({});
@@ -59,7 +71,7 @@ export function DidV2Recommend() {
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => handleTabChange(tab.key)}
                 className="flex flex-1 items-center justify-center py-3 text-sm font-bold transition active:scale-[0.97] sm:py-4 sm:text-base"
                 style={{
                   borderRadius: '0.8rem',
