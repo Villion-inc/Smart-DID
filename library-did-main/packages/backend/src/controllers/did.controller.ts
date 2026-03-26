@@ -373,14 +373,23 @@ export class DidController {
       // 1. ALPAS API에서 조회 시도
       let book = await alpasService.getBookDetail(bookId);
 
-      // 위치 정보가 없으면 제목으로 재검색하여 위치 있는 레코드 찾기
-      if (book && !book.shelfCode && !book.callNumber) {
+      // 정보가 불완전하면 제목으로 재검색하여 보강
+      if (book && (!book.shelfCode || !book.publisher || !book.isbn)) {
         try {
           const searchResults = await alpasService.searchBooks(book.title);
-          const withLocation = searchResults.find(b => b.shelfCode || b.callNumber);
-          if (withLocation) {
-            console.log(`[DID getBookDetail] Re-matched "${book.title}" → shelfCode: ${withLocation.shelfCode}`);
-            book = { ...book, shelfCode: withLocation.shelfCode, callNumber: withLocation.callNumber, isAvailable: withLocation.isAvailable };
+          const better = searchResults.find(b => b.shelfCode || b.callNumber) || searchResults[0];
+          if (better) {
+            console.log(`[DID getBookDetail] Re-matched "${book.title}" → shelfCode: ${better.shelfCode}, isbn: ${better.isbn}`);
+            book = {
+              ...book,
+              shelfCode: book.shelfCode || better.shelfCode,
+              callNumber: book.callNumber || better.callNumber,
+              publisher: book.publisher || better.publisher,
+              isbn: book.isbn || better.isbn,
+              summary: book.summary || better.summary,
+              publishedYear: book.publishedYear || better.publishedYear,
+              isAvailable: better.isAvailable,
+            };
           }
         } catch { /* ignore */ }
       }
