@@ -110,9 +110,17 @@ export function DidV2Home() {
   if (randomMode && currentRandomVideo) {
     return (
       <DidV2Layout hideFooter hideHeader>
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col gap-3">
           {/* 영상 — 최대한 크게 */}
-          <div className="relative flex-1 overflow-hidden rounded-2xl bg-black">
+          <div
+            className="relative flex-1 overflow-hidden"
+            style={{
+              borderRadius: '1.5rem',
+              border: '4px solid rgba(255,255,255,0.7)',
+              boxShadow: '0 10px 40px rgba(60,90,70,0.18), inset 0 0 0 1px rgba(255,255,255,0.3)',
+              background: '#1a1a2e',
+            }}
+          >
             <video
               ref={randomVideoRef}
               src={resolveVideoUrl(currentRandomVideo.videoUrl)}
@@ -123,29 +131,42 @@ export function DidV2Home() {
               className="h-full w-full object-contain"
             />
             {/* 책 정보 오버레이 */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-5 pb-5 pt-12">
-              <p className="text-lg font-bold text-white sm:text-xl">{currentRandomVideo.title}</p>
-              <p className="mt-1 text-sm text-gray-300 sm:text-base">{currentRandomVideo.author}</p>
+            <div
+              className="absolute bottom-0 left-0 right-0 px-5 pb-5 pt-14"
+              style={{ background: 'linear-gradient(to top, rgba(20,30,40,0.85) 0%, rgba(20,30,40,0.4) 60%, transparent 100%)' }}
+            >
+              <p className="text-lg font-bold leading-snug text-white sm:text-xl">{currentRandomVideo.title}</p>
+              <p className="mt-1 text-sm text-white/70 sm:text-base">{currentRandomVideo.author}</p>
             </div>
           </div>
 
           {/* 하단 컨트롤 바 */}
-          <div className="flex shrink-0 items-center gap-3 px-2 py-3">
+          <div className="flex shrink-0 items-center gap-3 px-1">
             <button
               type="button"
               onClick={() => setRandomMode(false)}
-              className="flex h-14 items-center justify-center rounded-2xl px-5 text-base font-semibold text-gray-600 transition active:scale-[0.97] sm:h-16 sm:text-lg"
-              style={{ background: 'rgba(255,255,255,0.85)' }}
+              className="flex h-14 items-center justify-center px-5 text-base font-semibold transition active:scale-[0.97] sm:h-16 sm:text-lg"
+              style={{
+                borderRadius: '1rem',
+                color: '#4a5a50',
+                background: 'rgba(255,255,255,0.55)',
+                backdropFilter: 'blur(6px)',
+                WebkitBackdropFilter: 'blur(6px)',
+                border: '1.5px solid rgba(255,255,255,0.6)',
+                boxShadow: '0 2px 10px rgba(60,90,70,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
+              }}
             >
               ← 홈으로
             </button>
             <button
               type="button"
               onClick={handleRandomVideoEnded}
-              className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl text-base font-bold text-white transition active:scale-[0.97] sm:h-16 sm:text-lg"
+              className="flex h-14 flex-1 items-center justify-center gap-2 text-base font-bold text-white transition active:scale-[0.97] sm:h-16 sm:text-lg"
               style={{
-                background: 'linear-gradient(180deg, #667eea 0%, #5a67d8 100%)',
-                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.35)',
+                borderRadius: '1rem',
+                background: 'linear-gradient(135deg, #5C8FBF 0%, #4A7BA8 50%, #3D6A94 100%)',
+                boxShadow: '0 6px 20px rgba(74,123,168,0.3), inset 0 1px 0 rgba(255,255,255,0.15)',
+                border: '2px solid rgba(255,255,255,0.15)',
               }}
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
