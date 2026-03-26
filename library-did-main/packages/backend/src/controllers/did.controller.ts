@@ -373,20 +373,19 @@ export class DidController {
       // 1. ALPAS API에서 조회 시도
       let book = await alpasService.getBookDetail(bookId);
 
-      // 정보가 불완전하면 제목으로 재검색하여 보강
-      if (book && (!book.shelfCode || !book.publisher || !book.isbn)) {
+      // 항상 제목으로 재검색하여 가장 완전한 데이터로 보강
+      if (book) {
         try {
           const searchResults = await alpasService.searchBooks(book.title);
           const better = searchResults.find(b => b.shelfCode || b.callNumber) || searchResults[0];
           if (better) {
-            console.log(`[DID getBookDetail] Re-matched "${book.title}" → shelfCode: ${better.shelfCode}, isbn: ${better.isbn}`);
             book = {
               ...book,
               shelfCode: book.shelfCode || better.shelfCode,
               callNumber: book.callNumber || better.callNumber,
               publisher: book.publisher || better.publisher,
               isbn: book.isbn || better.isbn,
-              summary: book.summary || better.summary,
+              summary: (book.summary && !book.summary.includes('출판한 도서입니다')) ? book.summary : better.summary,
               publishedYear: book.publishedYear || better.publishedYear,
               isAvailable: better.isAvailable,
             };
