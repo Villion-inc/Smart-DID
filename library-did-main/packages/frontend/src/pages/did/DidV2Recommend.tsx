@@ -121,6 +121,11 @@ export function DidV2Recommend() {
               </p>
             </div>
           )}
+          {!loading && books.length > 0 && activeTab !== 'librarian' && (
+            <p className="mb-1 text-right text-xs text-gray-400">
+              제공기관 : 국립중앙도서관 (도서관 정보나루)
+            </p>
+          )}
           {!loading &&
             books.map((book, idx) => (
               <button
