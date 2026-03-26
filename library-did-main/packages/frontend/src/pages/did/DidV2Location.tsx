@@ -31,7 +31,7 @@ export function DidV2Location() {
         {/* 메인 위치 카드 — 크고 명확하게 */}
         <div
           className="mb-6 w-full max-w-lg rounded-3xl p-8 text-center sm:mb-8 sm:p-10"
-          style={{ background: 'rgba(255,255,255,0.92)' }}
+          style={{ background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', border: '1.5px solid rgba(255,255,255,0.6)', boxShadow: '0 2px 10px rgba(60,90,70,0.06), inset 0 1px 0 rgba(255,255,255,0.5)' }}
         >
           <div className="mb-6 flex justify-center">
             <div
@@ -59,7 +59,7 @@ export function DidV2Location() {
         {/* 책 정보 요약 */}
         <div
           className="mb-6 flex w-full max-w-lg items-center gap-4 rounded-2xl p-5 sm:mb-8 sm:gap-5 sm:p-6"
-          style={{ background: 'rgba(255,255,255,0.85)' }}
+          style={{ background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', border: '1.5px solid rgba(255,255,255,0.6)', boxShadow: '0 2px 10px rgba(60,90,70,0.06)' }}
         >
           <div
             className="h-24 w-16 shrink-0 rounded-lg sm:h-28 sm:w-20"
@@ -102,7 +102,7 @@ export function DidV2Location() {
           type="button"
           onClick={() => navigate(-1)}
           className="flex h-14 w-full max-w-lg shrink-0 items-center justify-center rounded-2xl text-lg font-semibold text-gray-700 transition active:scale-[0.98] sm:h-16 sm:text-xl"
-          style={{ background: 'rgba(255,255,255,0.8)' }}
+          style={{ background: 'rgba(255,255,255,0.45)', backdropFilter: 'blur(6px)', border: '1.5px solid rgba(255,255,255,0.5)' }}
         >
           ← 돌아가기
         </button>

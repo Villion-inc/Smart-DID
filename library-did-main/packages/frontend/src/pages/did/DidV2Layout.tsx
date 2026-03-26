@@ -121,7 +121,12 @@ export function DidV2Layout({
       {!hideHeader && (
         <header
           className="flex w-full shrink-0 items-center justify-between px-4 py-3 sm:px-6 sm:py-4"
-          style={{ background: 'rgba(255,255,255,0.4)' }}
+          style={{
+            background: 'rgba(255,255,255,0.45)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            borderBottom: '1px solid rgba(255,255,255,0.5)',
+          }}
         >
           <div className="min-w-0 flex-1">
             {title ? (
@@ -154,10 +159,12 @@ export function DidV2Layout({
       {/* Bottom navigation — 4탭, 높이 키움, 명확한 버튼 스타일 */}
       {!hideFooter && (
         <footer
-          className="flex w-full shrink-0 items-center gap-2 px-3 py-4 sm:gap-3 sm:px-4 sm:py-5"
+          className="flex w-full shrink-0 items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4"
           style={{
-            background: 'rgba(255,255,255,0.95)',
-            borderTop: '2px solid rgba(0,0,0,0.08)',
+            background: 'rgba(255,255,255,0.5)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            borderTop: '1px solid rgba(255,255,255,0.6)',
           }}
         >
           {TABS.map((tab) => {
@@ -167,14 +174,15 @@ export function DidV2Layout({
                 key={tab.path}
                 type="button"
                 onClick={() => navigate(tab.path)}
-                className="flex flex-1 items-center justify-center rounded-2xl py-4 text-base font-bold transition active:scale-95 sm:py-5 sm:text-lg"
+                className="flex flex-1 items-center justify-center py-4 text-base font-bold transition active:scale-95 sm:py-5 sm:text-lg"
                 style={{
+                  borderRadius: '1rem',
                   background: active
-                    ? 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)'
-                    : '#F0F0F0',
-                  color: active ? '#1a3a4a' : '#888',
-                  boxShadow: active ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
-                  border: active ? '2px solid rgba(45,90,107,0.3)' : '2px solid transparent',
+                    ? 'rgba(255,255,255,0.8)'
+                    : 'rgba(255,255,255,0.35)',
+                  color: active ? '#2D5A4A' : '#7a8a80',
+                  boxShadow: active ? '0 3px 12px rgba(60,90,70,0.12), inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
+                  border: active ? '2px solid rgba(60,90,70,0.15)' : '2px solid transparent',
                 }}
               >
                 <span>{tab.label}</span>

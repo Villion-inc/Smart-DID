@@ -60,13 +60,15 @@ export function DidV2Recommend() {
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className="flex flex-1 items-center justify-center rounded-xl py-3 text-sm font-bold transition active:scale-[0.97] sm:py-4 sm:text-base"
+                className="flex flex-1 items-center justify-center py-3 text-sm font-bold transition active:scale-[0.97] sm:py-4 sm:text-base"
                 style={{
+                  borderRadius: '0.8rem',
                   background: active
-                    ? 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)'
-                    : 'rgba(255,255,255,0.7)',
-                  color: active ? '#1a3a4a' : '#888',
-                  boxShadow: active ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                    ? 'rgba(255,255,255,0.8)'
+                    : 'rgba(255,255,255,0.35)',
+                  color: active ? '#2D5A4A' : '#7a8a80',
+                  boxShadow: active ? '0 3px 12px rgba(60,90,70,0.12), inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
+                  border: active ? '2px solid rgba(60,90,70,0.15)' : '2px solid transparent',
                 }}
               >
                 {tab.label}
@@ -113,12 +115,19 @@ export function DidV2Recommend() {
                 key={book.id || idx}
                 type="button"
                 onClick={() => navigate(`/did/video/${book.id}`)}
-                className="flex w-full items-center gap-3 rounded-2xl p-3 text-left transition active:scale-[0.98] sm:gap-4 sm:p-4"
-                style={{ background: 'rgba(255,255,255,0.85)' }}
+                className="flex w-full items-center gap-3 p-3 text-left transition active:scale-[0.98] sm:gap-4 sm:p-4"
+                style={{
+                  borderRadius: '1.2rem',
+                  background: 'rgba(255,255,255,0.55)',
+                  backdropFilter: 'blur(6px)',
+                  WebkitBackdropFilter: 'blur(6px)',
+                  boxShadow: '0 2px 10px rgba(60,90,70,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
+                  border: '1.5px solid rgba(255,255,255,0.6)',
+                }}
               >
                 {/* 순위 */}
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white sm:h-9 sm:w-9 sm:text-base"
-                  style={{ background: idx < 3 ? '#4DA3C4' : '#bbb' }}
+                  style={{ background: idx < 3 ? 'linear-gradient(135deg, #5C8FBF, #4A7BA8)' : 'rgba(160,170,165,0.6)' }}
                 >
                   {idx + 1}
                 </span>

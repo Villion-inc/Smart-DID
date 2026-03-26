@@ -153,8 +153,15 @@ export function DidV2NewArrivals() {
                 key={book.id}
                 type="button"
                 onClick={() => navigate(`/did/video/${book.id}`)}
-                className="flex w-full items-center gap-3 rounded-2xl p-3 text-left transition active:scale-[0.98] sm:gap-4 sm:p-4"
-                style={{ background: 'rgba(255,255,255,0.85)' }}
+                className="flex w-full items-center gap-3 p-3 text-left transition active:scale-[0.98] sm:gap-4 sm:p-4"
+                style={{
+                  borderRadius: '1.2rem',
+                  background: 'rgba(255,255,255,0.55)',
+                  backdropFilter: 'blur(6px)',
+                  WebkitBackdropFilter: 'blur(6px)',
+                  boxShadow: '0 2px 10px rgba(60,90,70,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
+                  border: '1.5px solid rgba(255,255,255,0.6)',
+                }}
               >
                 <div className="relative h-20 w-14 shrink-0 sm:h-24 sm:w-16">
                   <div

@@ -128,11 +128,13 @@ export function DidV2BookDetail() {
       <div className="flex flex-1 flex-col overflow-auto py-4 sm:py-6">
         {/* Video player */}
         <div
-          className="relative w-full shrink-0 overflow-hidden rounded-3xl"
+          className="relative w-full shrink-0 overflow-hidden"
           style={{
             aspectRatio: '16/9',
-            background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+            borderRadius: '1.5rem',
+            border: '4px solid rgba(255,255,255,0.7)',
+            boxShadow: '0 10px 40px rgba(60,90,70,0.18), inset 0 0 0 1px rgba(255,255,255,0.3)',
+            background: '#1a1a2e',
           }}
         >
           {resolvedVideoUrl && videoStatus === 'READY' ? (
@@ -186,8 +188,15 @@ export function DidV2BookDetail() {
 
         {/* Book Info Card */}
         <div
-          className="mt-4 w-full shrink-0 rounded-3xl p-5 sm:mt-5 sm:p-6"
-          style={{ background: 'rgba(255,255,255,0.85)' }}
+          className="mt-4 w-full shrink-0 p-5 sm:mt-5 sm:p-6"
+          style={{
+            borderRadius: '1.2rem',
+            background: 'rgba(255,255,255,0.55)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            boxShadow: '0 2px 10px rgba(60,90,70,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
+            border: '1.5px solid rgba(255,255,255,0.6)',
+          }}
         >
           <div className="mb-4 flex items-start gap-4 sm:gap-5">
             {bookDetail?.coverImageUrl && (
