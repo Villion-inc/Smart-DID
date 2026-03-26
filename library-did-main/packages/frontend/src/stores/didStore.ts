@@ -101,7 +101,7 @@ export const useDidStore = create<DidState>((set, get) => ({
     // Check cache based on age group
     const state = get();
     let cached: DidBook[] = [];
-    let stateKey: 'preschoolBooks' | 'elementaryBooks' | 'teenBooks';
+    let stateKey: 'preschoolBooks' | 'elementaryBooks' | 'teenBooks' = 'preschoolBooks';
 
     switch (ageGroup) {
       case 'preschool':

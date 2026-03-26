@@ -18,11 +18,13 @@ export function DidV2Layout({
   title,
   hideHeader = false,
   hideFooter = false,
+  extraFooter,
 }: {
   children: React.ReactNode;
   title?: string;
   hideHeader?: boolean;
   hideFooter?: boolean;
+  extraFooter?: React.ReactNode;
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -145,6 +147,9 @@ export function DidV2Layout({
       <main className="flex min-h-0 flex-1 flex-col overflow-auto px-4 py-2 sm:px-6 sm:py-4">
         {children}
       </main>
+
+      {/* Extra footer (탭 바 등) */}
+      {extraFooter}
 
       {/* Bottom navigation — 4탭, 높이 키움, 명확한 버튼 스타일 */}
       {!hideFooter && (
