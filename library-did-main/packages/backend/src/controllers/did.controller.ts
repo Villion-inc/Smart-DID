@@ -355,7 +355,19 @@ export class DidController {
       const { bookId } = request.params;
       
       // 1. ALPAS API에서 조회 시도
-      const book = await alpasService.getBookDetail(bookId);
+      let book = await alpasService.getBookDetail(bookId);
+
+      // 위치 정보가 없으면 제목으로 재검색하여 위치 있는 레코드 찾기
+      if (book && !book.shelfCode && !book.callNumber) {
+        try {
+          const searchResults = await alpasService.searchBooks(book.title);
+          const withLocation = searchResults.find(b => b.shelfCode || b.callNumber);
+          if (withLocation) {
+            console.log(`[DID getBookDetail] Re-matched "${book.title}" → shelfCode: ${withLocation.shelfCode}`);
+            book = { ...book, shelfCode: withLocation.shelfCode, callNumber: withLocation.callNumber, isAvailable: withLocation.isAvailable };
+          }
+        } catch { /* ignore */ }
+      }
 
       if (book) {
         return reply.send({
