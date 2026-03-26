@@ -162,9 +162,9 @@ export function DidV2Home() {
   // ─── 기본 홈 화면 ───
   return (
     <DidV2Layout hideFooter>
-      <div className="flex flex-1 flex-col justify-end gap-3">
-        {/* 상단: 영상 (16:9 비율, 남는 공간 채움) */}
-        <div className="flex flex-1 items-center">
+      <div className="flex flex-1 flex-col gap-3">
+        {/* 상단: 영상 */}
+        <div className="shrink-0">
           {currentVideo ? (
             <div
               className="relative w-full overflow-hidden rounded-2xl bg-black"
