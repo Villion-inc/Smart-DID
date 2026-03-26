@@ -5,7 +5,7 @@ import { recommendationRepository } from '../repositories/recommendation.reposit
 import { queueService } from '../services/queue.service';
 import { cacheManagerService } from '../services/cache-manager.service';
 import { toPublicVideoUrl, toPublicSubtitleUrl } from '../utils/storage';
-// naverBookService는 admin 표지 검색에서만 사용 (DID에서는 정보나루 사용)
+import { naverBookService } from '../services/naver-book.service';
 import { data4libraryService } from '../services/data4library.service';
 
 // 네이버 표지 캐시 (title+author → imageUrl)
@@ -120,6 +120,22 @@ async function enrichCoverUrl(
       }
     } catch { /* ignore */ }
   }
+
+  // 3차: 네이버 fallback
+  try {
+    const cleaned = cleanTitleForSearch(title);
+    const searchTitle = cleaned || title;
+    const naverUrl = await withTimeout(
+      naverBookService.searchCoverImage(searchTitle),
+      COVER_TIMEOUT_MS,
+      null,
+    );
+    if (naverUrl) {
+      console.log(`[Cover] OK (네이버 fallback): "${searchTitle}" → ${naverUrl.substring(0, 50)}...`);
+      coverCache.set(cacheKey, naverUrl);
+      return naverUrl;
+    }
+  } catch { /* ignore */ }
 
   console.log(`[Cover] NOT FOUND: "${title}"`);
   coverCache.set(cacheKey, null);
