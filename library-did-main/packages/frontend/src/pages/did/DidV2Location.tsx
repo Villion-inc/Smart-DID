@@ -48,12 +48,6 @@ export function DidV2Location() {
           <p className="mb-2 text-base text-gray-500 sm:text-lg">이 책은 여기 있어요!</p>
           <p className="text-2xl font-bold text-gray-800 sm:text-3xl">{locationText}</p>
 
-          {bookDetail?.callNumber && (
-            <div className="mt-6 inline-flex items-center gap-2 rounded-xl bg-green-50 px-5 py-3 sm:px-6 sm:py-4">
-              <span className="text-base text-gray-500 sm:text-lg">청구기호</span>
-              <span className="text-lg font-bold text-green-700 sm:text-xl">{bookDetail.callNumber}</span>
-            </div>
-          )}
         </div>
 
         {/* 책 정보 요약 */}

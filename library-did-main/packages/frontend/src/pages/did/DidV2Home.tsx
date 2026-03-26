@@ -33,7 +33,7 @@ export function DidV2Home() {
     (async () => {
       setLoading(true);
       try {
-        const popularRes = await getPopularVideos(10).catch(() => [] as PopularVideo[]);
+        const popularRes = await getPopularVideos(20).catch(() => [] as PopularVideo[]);
         if (!cancelled) setVideos(popularRes.filter(v => v.videoUrl));
       } catch { /* ignore */ }
       if (!cancelled) setLoading(false);
