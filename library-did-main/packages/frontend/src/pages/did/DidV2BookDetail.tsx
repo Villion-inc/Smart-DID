@@ -226,14 +226,6 @@ export function DidV2BookDetail() {
           </p>
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            {bookDetail?.category && (
-              <span
-                className="rounded-full px-4 py-1.5 text-sm font-medium text-gray-700 sm:px-5 sm:py-2 sm:text-base"
-                style={{ background: 'rgba(107, 184, 214, 0.2)' }}
-              >
-                #{bookDetail.category}
-              </span>
-            )}
             {bookDetail?.isAvailable !== undefined && (
               <span
                 className={`rounded-full px-4 py-1.5 text-sm font-medium sm:px-5 sm:py-2 sm:text-base ${

@@ -157,11 +157,6 @@ export function DidV2Search() {
                         {book.author}
                       </span>
                       <div className="mt-1 flex flex-wrap items-center gap-1 sm:gap-2">
-                        {book.category && (
-                          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700 sm:text-sm">
-                            {book.category}
-                          </span>
-                        )}
                         {book.hasVideo && (
                           <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700 sm:text-sm">
                             🎬 영상있음

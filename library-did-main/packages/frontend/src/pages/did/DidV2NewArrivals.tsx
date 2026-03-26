@@ -195,11 +195,6 @@ export function DidV2NewArrivals() {
                     <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700 sm:text-sm">
                       신작
                     </span>
-                    {book.category && (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 sm:text-sm">
-                        {book.category}
-                      </span>
-                    )}
                   </div>
                 </div>
                 <span className="text-xl text-gray-400 sm:text-2xl">›</span>

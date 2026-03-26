@@ -163,11 +163,6 @@ export function DidV2Recommend() {
                   <span className="mt-0.5 truncate text-sm text-gray-600 sm:text-base">
                     {book.author}
                   </span>
-                  {book.category && (
-                    <span className="mt-1 inline-block w-fit rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600 sm:text-sm">
-                      {book.category}
-                    </span>
-                  )}
                 </div>
                 <span className="text-xl text-gray-400 sm:text-2xl">&rsaquo;</span>
               </button>
