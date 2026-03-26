@@ -50,7 +50,7 @@ export interface ApiResponse<T> {
 }
 
 // DID-specific types (Digital Information Display - Touch Interface)
-export type AgeGroup = 'preschool' | 'elementary' | 'teen';
+export type AgeGroup = 'preschool' | 'elementary' | 'teen' | 'librarian';
 
 /**
  * Minimal book data optimized for DID touch screen display

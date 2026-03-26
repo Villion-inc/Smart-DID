@@ -6,11 +6,15 @@ import { queueService } from '../services/queue.service';
 import { cacheManagerService } from '../services/cache-manager.service';
 import { toPublicVideoUrl, toPublicSubtitleUrl } from '../utils/storage';
 import { naverBookService } from '../services/naver-book.service';
+import { data4libraryService } from '../services/data4library.service';
 
 // 네이버 표지 캐시 (title+author → imageUrl)
 const coverCache = new Map<string, string | null>();
 const COVER_TIMEOUT_MS = 5000; // 네이버 API 타임아웃 (5초)
 let coverCacheWarmed = false;
+
+// 연령별 인기도서 + ALPAS 필터 결과 캐시 (1시간)
+const ageFilterCache = new Map<string, { data: any[]; timestamp: number }>();
 
 /**
  * 서버 시작 시 신착도서 표지를 미리 캐시 (백그라운드)
@@ -213,9 +217,10 @@ export class DidController {
   /**
    * GET /api/did/age/:group
    * Returns books filtered by age group
-   * @param group - 'preschool' | 'elementary' | 'teen'
-   * 
-   * 영상이 준비된 책을 우선 표시하고, 나머지는 ALPAS 검색 결과로 채움
+   * @param group - 'preschool' | 'elementary' | 'teen' | 'librarian'
+   *
+   * - preschool/elementary/teen: 정보나루 인기대출도서 API
+   * - librarian: DB recommendations (관리자 수동 등록)
    */
   async getBooksByAge(
     request: FastifyRequest<{ Params: { group: string } }>,
@@ -224,8 +229,7 @@ export class DidController {
     try {
       const { group } = request.params;
 
-      // Validate age group
-      const validGroups = ['preschool', 'elementary', 'teen'];
+      const validGroups = ['preschool', 'elementary', 'teen', 'librarian'];
       if (!validGroups.includes(group.toLowerCase())) {
         return reply.code(400).send({
           success: false,
@@ -233,36 +237,87 @@ export class DidController {
         });
       }
 
-      // DB recommendations 테이블에서 해당 연령 그룹 조회
-      // (관리자가 등록한 추천도서만 표시, mock fallback 없음)
-      const recommendations = await recommendationRepository.getByAgeGroup(group.toLowerCase());
+      // 사서추천: 기존 DB recommendations
+      if (group.toLowerCase() === 'librarian') {
+        const recommendations = await recommendationRepository.getAll();
+        const didBooks = await enrichBookCovers(recommendations.map((rec) => ({
+          id: rec.bookId,
+          title: rec.title,
+          author: rec.author,
+          coverImageUrl: rec.coverImageUrl || undefined,
+          shelfCode: '',
+          category: rec.category,
+          hasVideo: false,
+          publisher: rec.publisher,
+          summary: rec.summary,
+        })));
 
-      const didBooks = await enrichBookCovers(recommendations.map((rec) => ({
-        id: rec.bookId,
-        title: rec.title,
-        author: rec.author,
-        coverImageUrl: rec.coverImageUrl || undefined,
-        shelfCode: '',
-        category: rec.category,
+        return reply.send({ success: true, data: didBooks });
+      }
+
+      // 유아/초등/청소년: 정보나루 인기대출도서
+      const ageGroup = group.toLowerCase() as 'preschool' | 'elementary' | 'teen';
+      const DESIRED_COUNT = 10;
+
+      // 캐시 확인 (ALPAS 필터 결과 포함, 1시간)
+      const ageCacheKey = `did_age_${ageGroup}`;
+      const cached = ageFilterCache.get(ageCacheKey);
+      if (cached && Date.now() - cached.timestamp < 60 * 60 * 1000) {
+        return reply.send({ success: true, data: cached.data });
+      }
+
+      // 정보나루에서 200권 가져옴 (소장 10권을 채우기 위해 넉넉히)
+      const popular = await data4libraryService.getPopularByAgeGroup(ageGroup, 200);
+
+      const alpasConnected = isAlpasConnected();
+      let filtered: typeof popular;
+
+      if (alpasConnected) {
+        // 10권 모일 때까지 배치 병렬 소장 확인
+        filtered = [];
+        const BATCH_SIZE = 20;
+        for (let i = 0; i < popular.length && filtered.length < DESIRED_COUNT; i += BATCH_SIZE) {
+          const batch = popular.slice(i, i + BATCH_SIZE);
+          const checks = await Promise.all(
+            batch.map(async (book) => {
+              try {
+                const results = await alpasService.searchBooks(book.bookname);
+                if (results.length > 0) {
+                  (book as any)._alpasId = results[0].id;
+                  (book as any)._alpasShelfCode = results[0].shelfCode || '';
+                  return book;
+                }
+              } catch { /* skip */ }
+              return null;
+            })
+          );
+          for (const b of checks) {
+            if (b && filtered.length < DESIRED_COUNT) filtered.push(b);
+          }
+        }
+        console.log(`[DID age/${ageGroup}] ALPAS 소장 확인 완료: ${filtered.length}권`);
+      } else {
+        filtered = popular.slice(0, DESIRED_COUNT);
+      }
+
+      const didBooks = filtered.map((book) => ({
+        id: (book as any)._alpasId || book.isbn13 || `d4l_${book.ranking}`,
+        title: book.bookname,
+        author: book.authors,
+        coverImageUrl: book.bookImageURL || undefined,
+        shelfCode: (book as any)._alpasShelfCode || '',
+        category: book.class_nm || '',
         hasVideo: false,
-        publisher: rec.publisher,
-        summary: rec.summary,
-      })));
+        publisher: book.publisher,
+        summary: '',
+      }));
 
-      // 각 추천도서의 영상 상태 확인
-      const booksWithVideoStatus = await Promise.all(
-        didBooks.map(async (book) => {
-          const videoRecord = await videoRepository.findByBookId(book.id);
-          return {
-            ...book,
-            hasVideo: videoRecord?.status === 'READY',
-          };
-        })
-      );
+      // 결과 캐시 저장
+      ageFilterCache.set(ageCacheKey, { data: didBooks, timestamp: Date.now() });
 
       return reply.send({
         success: true,
-        data: booksWithVideoStatus,
+        data: didBooks,
       });
     } catch (error: any) {
       return reply.code(500).send({
