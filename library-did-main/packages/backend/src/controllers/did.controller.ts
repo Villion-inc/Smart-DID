@@ -422,17 +422,49 @@ export class DidController {
       const videoRecord = await videoRepository.findByBookId(bookId);
       if (videoRecord && videoRecord.title) {
         console.log(`[DID getBookDetail] Using book info from VideoRecord: ${videoRecord.title}`);
+
+        // VideoRecord도 불완전할 수 있으므로 ALPAS 제목 검색으로 보강
+        let shelfCode = '';
+        let callNumber = '';
+        let publisher = videoRecord.publisher || '';
+        let isbn = '';
+        let summary = videoRecord.summary || '';
+        let publishedYear = 0;
+        let isAvailable = true;
+
+        try {
+          console.log(`[DID getBookDetail] Re-searching VideoRecord title: "${videoRecord.title}"`);
+          const searchResults = await alpasService.searchBooks(videoRecord.title);
+          const better = searchResults.find(b => b.shelfCode || b.callNumber) || searchResults[0];
+          if (better) {
+            console.log(`[DID getBookDetail] VideoRecord re-match: shelfCode="${better.shelfCode}"`);
+            shelfCode = better.shelfCode || '';
+            callNumber = better.callNumber || '';
+            publisher = publisher || better.publisher || '';
+            isbn = better.isbn || '';
+            summary = summary || better.summary || '';
+            publishedYear = better.publishedYear || 0;
+            isAvailable = better.isAvailable;
+          }
+        } catch (err: any) {
+          console.error(`[DID getBookDetail] VideoRecord re-search failed: ${err.message}`);
+        }
+
         return reply.send({
           success: true,
           data: {
             id: bookId,
             title: videoRecord.title,
             author: videoRecord.author || '저자 미상',
-            publisher: videoRecord.publisher || '',
-            summary: videoRecord.summary || '',
+            publisher,
+            publishedYear: publishedYear || undefined,
+            isbn: isbn || undefined,
+            summary,
+            shelfCode: shelfCode || undefined,
+            callNumber: callNumber || undefined,
             category: videoRecord.category || '',
-            coverImageUrl: await enrichCoverUrl(videoRecord.title, videoRecord.author || '', videoRecord.coverImageUrl || undefined),
-            isAvailable: true,
+            coverImageUrl: await enrichCoverUrl(videoRecord.title, videoRecord.author || '', videoRecord.coverImageUrl || undefined, isbn || undefined),
+            isAvailable,
           },
         });
       }
