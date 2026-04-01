@@ -13,5 +13,25 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function() {
+        var currentVersion = null;
+        async function checkVersion() {
+          try {
+            var res = await fetch('/version.txt?t=' + Date.now());
+            var version = (await res.text()).trim();
+            if (currentVersion === null) {
+              currentVersion = version;
+            } else if (currentVersion !== version) {
+              location.reload(true);
+            }
+          } catch (e) {
+            console.warn('Version check failed:', e);
+          }
+        }
+        setInterval(checkVersion, 30000);
+        checkVersion();
+      })();
+    </script>
   </body>
 </html>

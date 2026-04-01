@@ -23,6 +23,9 @@ COPY library-did-main/tsconfig.json ./
 RUN npm run build --workspace=@smart-did/shared
 RUN npm run build --workspace=@smart-did/frontend
 
+# 배포 시각 기록 (클라이언트 자동 새로고침용)
+RUN echo "$(date +%s)" > ./packages/frontend/dist/version.txt
+
 FROM nginx:alpine
 
 # 빌드 결과를 루트에 배치
