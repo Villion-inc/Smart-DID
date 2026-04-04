@@ -138,8 +138,32 @@ export function DidV2Recommend() {
   return (
     <DidV2Layout
       title="추천도서"
+      hideFooter
       extraFooter={
-        <div className="flex w-full shrink-0 gap-2 px-3 pb-2 pt-2 sm:px-4">
+        <footer
+          className="flex w-full shrink-0 items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4"
+          style={{
+            background: 'rgba(255,255,255,0.5)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            borderTop: '1px solid rgba(255,255,255,0.6)',
+          }}
+        >
+          {/* 홈 버튼 */}
+          <button
+            type="button"
+            onClick={() => navigate('/did')}
+            className="flex flex-1 items-center justify-center py-4 text-base font-bold transition active:scale-95 sm:py-5 sm:text-lg"
+            style={{
+              borderRadius: '1rem',
+              background: 'rgba(255,255,255,0.35)',
+              color: '#7a8a80',
+              border: '2px solid transparent',
+            }}
+          >
+            홈
+          </button>
+
           {TABS.map((tab) => {
             const active = activeTab === tab.key;
             return (
@@ -147,9 +171,9 @@ export function DidV2Recommend() {
                 key={tab.key}
                 type="button"
                 onClick={() => handleTabChange(tab.key)}
-                className="flex flex-1 items-center justify-center py-4 text-base font-bold transition active:scale-[0.97] sm:py-5 sm:text-lg"
+                className="flex flex-1 items-center justify-center py-4 text-base font-bold transition active:scale-95 sm:py-5 sm:text-lg"
                 style={{
-                  borderRadius: '0.8rem',
+                  borderRadius: '1rem',
                   background: active ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.35)',
                   color: active ? '#2D5A4A' : '#7a8a80',
                   boxShadow: active ? '0 3px 12px rgba(60,90,70,0.12), inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
@@ -160,7 +184,7 @@ export function DidV2Recommend() {
               </button>
             );
           })}
-        </div>
+        </footer>
       }
     >
       <div className="flex flex-1 flex-col gap-3">
