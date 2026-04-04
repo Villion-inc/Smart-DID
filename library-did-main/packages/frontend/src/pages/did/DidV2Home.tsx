@@ -185,11 +185,8 @@ export function DidV2Home() {
     <DidV2Layout hideFooter>
       <div className="flex flex-1 flex-col gap-3 px-0 py-1">
         {/* 영상 — 꽉 채우기 */}
-        <div className="relative min-h-0 flex-1 overflow-hidden"
+        <div className="relative -mx-4 -mt-1 min-h-0 flex-1 overflow-hidden sm:-mx-6"
           style={{
-            borderRadius: '1.5rem',
-            border: '4px solid rgba(255,255,255,0.7)',
-            boxShadow: '0 10px 40px rgba(60,90,70,0.18), 0 2px 8px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(255,255,255,0.3)',
             background: '#1a1a2e',
           }}
         >
