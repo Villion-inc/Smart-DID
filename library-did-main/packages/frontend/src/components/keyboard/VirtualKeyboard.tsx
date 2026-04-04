@@ -67,22 +67,26 @@ export function VirtualKeyboard({
 
   return (
     <div
-      className="shrink-0 border-t pb-3 pt-3 sm:pb-4 sm:pt-4"
+      className="shrink-0 border-t"
       style={{
+        height: '50vh',
         background: 'rgba(255,255,255,0.25)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
         borderColor: 'rgba(255,255,255,0.5)',
         transform: visible ? 'translateY(0)' : 'translateY(100%)',
         transition: 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+        display: 'flex',
+        flexDirection: 'column',
+        paddingTop: '0.75rem',
+        paddingBottom: '0.75rem',
       }}
     >
-      <div className="mx-auto flex flex-col gap-2 px-2 sm:gap-2.5 sm:px-3">
+      <div className="mx-auto flex w-full flex-1 flex-col gap-2 px-2 sm:gap-2.5 sm:px-3">
         {layout.map((row, rowIdx) => (
           <div
             key={rowIdx}
-            className="flex gap-1.5 sm:gap-2"
-            style={{ height: rowIdx === 3 ? '3.5rem' : '3.75rem' }}
+            className="flex flex-1 gap-1.5 sm:gap-2"
           >
             {row.map((keyDef, keyIdx) => (
               <KeyboardKey

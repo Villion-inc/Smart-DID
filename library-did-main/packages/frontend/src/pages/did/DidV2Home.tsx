@@ -183,20 +183,18 @@ export function DidV2Home() {
   // ─── 기본 홈 화면 ───
   return (
     <DidV2Layout hideFooter>
-      <div className="flex flex-1 flex-col items-center justify-center gap-5 px-1">
-        {/* 영상 — Storybook frame */}
-        <div className="w-full shrink-0">
+      <div className="flex flex-1 flex-col gap-3 px-0 py-1">
+        {/* 영상 — 꽉 채우기 */}
+        <div className="relative min-h-0 flex-1 overflow-hidden"
+          style={{
+            borderRadius: '1.5rem',
+            border: '4px solid rgba(255,255,255,0.7)',
+            boxShadow: '0 10px 40px rgba(60,90,70,0.18), 0 2px 8px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(255,255,255,0.3)',
+            background: '#1a1a2e',
+          }}
+        >
           {currentVideo ? (
-            <div
-              className="relative w-full overflow-hidden"
-              style={{
-                aspectRatio: '16 / 9',
-                borderRadius: '1.5rem',
-                border: '4px solid rgba(255,255,255,0.7)',
-                boxShadow: '0 10px 40px rgba(60,90,70,0.18), 0 2px 8px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(255,255,255,0.3)',
-                background: '#1a1a2e',
-              }}
-            >
+            <>
               <video
                 ref={videoRef}
                 src={resolveVideoUrl(currentVideo.videoUrl)}
@@ -204,7 +202,7 @@ export function DidV2Home() {
                 muted
                 playsInline
                 onEnded={handleVideoEnded}
-                className="h-full w-full object-contain"
+                className="h-full w-full object-cover"
               />
               <div
                 className="absolute bottom-0 left-0 right-0 p-5"
@@ -215,18 +213,9 @@ export function DidV2Home() {
                 <p className="text-lg font-bold leading-snug text-white sm:text-xl">{currentVideo.title}</p>
                 <p className="mt-0.5 text-sm text-white/70 sm:text-base">{currentVideo.author}</p>
               </div>
-            </div>
+            </>
           ) : (
-            <div
-              className="flex w-full items-center justify-center"
-              style={{
-                aspectRatio: '16 / 9',
-                borderRadius: '1.5rem',
-                border: '4px solid rgba(255,255,255,0.7)',
-                boxShadow: '0 10px 40px rgba(60,90,70,0.12)',
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(220,235,225,0.5) 100%)',
-              }}
-            >
+            <div className="flex h-full items-center justify-center">
               <div className="text-center">
                 <svg className="mx-auto h-10 w-10 text-gray-400/60 sm:h-12 sm:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9A2.25 2.25 0 004.5 18.75z" />
@@ -242,7 +231,7 @@ export function DidV2Home() {
           <button
             type="button"
             onClick={enterRandomMode}
-            className="flex w-full shrink-0 items-center justify-center gap-2 py-4 text-base font-bold text-white transition active:scale-[0.97] sm:py-5 sm:text-lg"
+            className="flex w-full shrink-0 items-center justify-center gap-2 py-4 text-base font-bold text-white transition active:scale-[0.97] sm:text-lg"
             style={{
               borderRadius: '1rem',
               background: 'linear-gradient(135deg, #5C8FBF 0%, #4A7BA8 50%, #3D6A94 100%)',
@@ -258,7 +247,7 @@ export function DidV2Home() {
         )}
 
         {/* 바로가기 메뉴 3개 */}
-        <div className="flex w-full shrink-0 gap-3">
+        <div className="flex w-full shrink-0 gap-3 pb-1">
           {[
             { label: '추천도서', sub: '사서 추천', path: '/did/recommend', color: '#3B7A6A', bg: 'rgba(200,228,218,0.55)', border: 'rgba(80,150,130,0.25)' },
             { label: '신착도서', sub: '새로 들어온 책', path: '/did/new', color: '#5A7BAA', bg: 'rgba(200,218,238,0.55)', border: 'rgba(90,123,170,0.25)' },

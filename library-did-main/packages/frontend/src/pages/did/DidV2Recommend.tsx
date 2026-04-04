@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getBooksByAge } from '../../api/did.api';
+import { getBooksByAge, getVideoStatus } from '../../api/did.api';
 import type { DidBook } from '../../types';
 import { DidV2Layout } from './DidV2Layout';
 
@@ -15,37 +15,82 @@ const TABS: { key: TabKey; label: string }[] = [
 
 const VALID_TABS: TabKey[] = ['preschool', 'elementary', 'teen', 'librarian'];
 
+const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (basePath ? `${basePath}/api` : '/api');
+
+function resolveVideoUrl(url: string): string {
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('/videos/')) return `${API_BASE_URL}${url}`;
+  return `${API_BASE_URL}/videos/${url.replace(/^\//, '')}`;
+}
+
+interface BookWithVideo {
+  book: DidBook;
+  videoUrl: string;
+}
+
 export function DidV2Recommend() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // URL에서 탭 복원 (뒤로가기 시 유지)
   const urlTab = searchParams.get('tab') as TabKey | null;
-  const [activeTab, setActiveTab] = useState<TabKey>(
-    urlTab && VALID_TABS.includes(urlTab) ? urlTab : 'preschool'
+  const [activeTab, setActiveTab] = useState<TabKey | null>(
+    urlTab && VALID_TABS.includes(urlTab) ? urlTab : null
   );
+
+  // 상단 영상 (유아/초등 우선)
+  const [featuredVideos, setFeaturedVideos] = useState<BookWithVideo[]>([]);
+  const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
+
+  // 도서 목록
   const [books, setBooks] = useState<DidBook[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const handleTabChange = (tab: TabKey) => {
-    setActiveTab(tab);
-    setSearchParams({ tab }, { replace: true });
-  };
-
-  // 탭별 캐시
+  const [bookLoading, setBookLoading] = useState(false);
   const [cache, setCache] = useState<Record<string, DidBook[]>>({});
 
+  // 유아/초등 영상 로드 (우선순위)
   useEffect(() => {
-    // 캐시에 있으면 바로 사용
-    if (cache[activeTab]) {
-      setBooks(cache[activeTab]);
-      setLoading(false);
-      return;
-    }
-
     let cancelled = false;
     (async () => {
-      setLoading(true);
+      try {
+        const [preschoolBooks, elementaryBooks] = await Promise.all([
+          getBooksByAge('preschool'),
+          getBooksByAge('elementary'),
+        ]);
+        const priorityBooks = [...preschoolBooks.slice(0, 4), ...elementaryBooks.slice(0, 4)];
+        const videoResults = await Promise.all(
+          priorityBooks.map(async (book) => {
+            try {
+              const status = await getVideoStatus(book.id);
+              if (status.status === 'READY' && status.videoUrl) {
+                return { book, videoUrl: status.videoUrl };
+              }
+            } catch { /* ignore */ }
+            return null;
+          })
+        );
+        if (!cancelled) {
+          setFeaturedVideos(videoResults.filter((r): r is BookWithVideo => r !== null));
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // 카테고리 선택 시 도서 로드
+  useEffect(() => {
+    if (!activeTab) return;
+    if (cache[activeTab]) {
+      setBooks(cache[activeTab]);
+      setBookLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setBookLoading(true);
       try {
         const list = await getBooksByAge(activeTab as any);
         if (!cancelled) {
@@ -55,125 +100,187 @@ export function DidV2Recommend() {
       } catch {
         if (!cancelled) setBooks([]);
       }
-      if (!cancelled) setLoading(false);
+      if (!cancelled) setBookLoading(false);
     })();
     return () => { cancelled = true; };
   }, [activeTab]);
+
+  // 영상 자동 전환
+  const handleVideoEnded = useCallback(() => {
+    if (featuredVideos.length <= 1) return;
+    setCurrentVideoIdx((prev) => {
+      let next: number;
+      do { next = Math.floor(Math.random() * featuredVideos.length); } while (next === prev);
+      return next;
+    });
+  }, [featuredVideos.length]);
+
+  useEffect(() => {
+    if (featuredVideos.length > 0) {
+      setCurrentVideoIdx(Math.floor(Math.random() * featuredVideos.length));
+    }
+  }, [featuredVideos.length]);
+
+  useEffect(() => {
+    if (videoRef.current && featuredVideos.length > 0) {
+      videoRef.current.load();
+      videoRef.current.play().catch(() => {});
+    }
+  }, [currentVideoIdx, featuredVideos]);
+
+  const handleTabChange = (tab: TabKey) => {
+    setActiveTab(tab);
+    setSearchParams({ tab }, { replace: true });
+  };
+
+  const currentVideo = featuredVideos.length > 0 ? featuredVideos[currentVideoIdx] : null;
 
   return (
     <DidV2Layout
       title="추천도서"
       extraFooter={
-        <div className="flex w-full shrink-0 gap-2 px-3 pb-2 pt-2 sm:px-4">
-          {TABS.map((tab) => {
-            const active = activeTab === tab.key;
-            return (
+        activeTab ? (
+          <div className="flex w-full shrink-0 gap-2 px-3 pb-2 pt-2 sm:px-4">
+            {TABS.map((tab) => {
+              const active = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => handleTabChange(tab.key)}
+                  className="flex flex-1 items-center justify-center py-3 text-sm font-bold transition active:scale-[0.97] sm:py-4 sm:text-base"
+                  style={{
+                    borderRadius: '0.8rem',
+                    background: active ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.35)',
+                    color: active ? '#2D5A4A' : '#7a8a80',
+                    boxShadow: active ? '0 3px 12px rgba(60,90,70,0.12), inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
+                    border: active ? '2px solid rgba(60,90,70,0.15)' : '2px solid transparent',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        ) : null
+      }
+    >
+      <div className="flex flex-1 flex-col">
+        {/* 상단 영상 (유아/초등 우선) */}
+        <div
+          className="relative mb-4 w-full shrink-0 overflow-hidden rounded-2xl bg-black"
+          style={{ aspectRatio: '16/9' }}
+        >
+          {currentVideo ? (
+            <>
+              <video
+                ref={videoRef}
+                src={resolveVideoUrl(currentVideo.videoUrl)}
+                autoPlay
+                muted
+                playsInline
+                onEnded={handleVideoEnded}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                <p className="text-lg font-bold text-white sm:text-xl">{currentVideo.book.title}</p>
+                <p className="text-sm text-gray-200 sm:text-base">{currentVideo.book.author}</p>
+              </div>
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-sm text-white/50">영상 준비 중...</p>
+            </div>
+          )}
+        </div>
+
+        {/* 카테고리 미선택: 2×2 그리드 */}
+        {!activeTab && (
+          <div className="grid grid-cols-2 gap-3">
+            {TABS.map((tab) => (
               <button
                 key={tab.key}
                 type="button"
                 onClick={() => handleTabChange(tab.key)}
-                className="flex flex-1 items-center justify-center py-3 text-sm font-bold transition active:scale-[0.97] sm:py-4 sm:text-base"
+                className="flex h-28 items-center justify-center text-xl font-bold transition active:scale-[0.97] sm:h-32 sm:text-2xl"
                 style={{
-                  borderRadius: '0.8rem',
-                  background: active
-                    ? 'rgba(255,255,255,0.8)'
-                    : 'rgba(255,255,255,0.35)',
-                  color: active ? '#2D5A4A' : '#7a8a80',
-                  boxShadow: active ? '0 3px 12px rgba(60,90,70,0.12), inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
-                  border: active ? '2px solid rgba(60,90,70,0.15)' : '2px solid transparent',
+                  borderRadius: '1.2rem',
+                  background: 'rgba(255,255,255,0.65)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  border: '2px solid rgba(255,255,255,0.8)',
+                  boxShadow: '0 4px 16px rgba(60,90,70,0.08), inset 0 1px 0 rgba(255,255,255,0.8)',
+                  color: '#2D5A4A',
                 }}
               >
                 {tab.label}
               </button>
-            );
-          })}
-        </div>
-      }
-    >
-      <div className="flex flex-1 flex-col">
-        {/* 도서 리스트 — 스크롤 */}
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto sm:gap-4">
-          {loading && (
-            <div className="flex flex-col gap-3 sm:gap-4">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex w-full animate-pulse items-center gap-3 rounded-2xl p-3 sm:gap-4 sm:p-4"
-                  style={{ background: 'rgba(255,255,255,0.85)' }}
-                >
-                  <div className="h-8 w-8 shrink-0 rounded-full bg-gray-200 sm:h-9 sm:w-9" />
-                  <div className="h-20 w-14 shrink-0 rounded-lg bg-gray-200 sm:h-24 sm:w-16" />
-                  <div className="flex flex-1 flex-col gap-2">
-                    <div className="h-4 w-3/4 rounded bg-gray-200 sm:h-5" />
-                    <div className="h-3 w-1/2 rounded bg-gray-200 sm:h-4" />
-                    <div className="h-3 w-1/3 rounded bg-gray-100 sm:h-4" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {!loading && books.length === 0 && (
-            <div className="flex flex-1 items-center justify-center">
-              <p className="text-base text-gray-500 sm:text-lg">
-                {activeTab === 'librarian'
-                  ? '사서 추천 도서가 없습니다.'
-                  : '인기 도서를 불러올 수 없습니다.'}
-              </p>
-            </div>
-          )}
-          {!loading && books.length > 0 && activeTab !== 'librarian' && (
-            <p className="mb-1 text-right text-xs text-gray-400">
-              제공기관 : 국립중앙도서관 (도서관 정보나루)
-            </p>
-          )}
-          {!loading &&
-            books.map((book, idx) => (
-              <button
-                key={book.id || idx}
-                type="button"
-                onClick={() => navigate(`/did/video/${book.id}`)}
-                className="flex w-full items-center gap-3 p-3 text-left transition active:scale-[0.98] sm:gap-4 sm:p-4"
-                style={{
-                  borderRadius: '1.2rem',
-                  background: 'rgba(255,255,255,0.55)',
-                  backdropFilter: 'blur(6px)',
-                  WebkitBackdropFilter: 'blur(6px)',
-                  boxShadow: '0 2px 10px rgba(60,90,70,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
-                  border: '1.5px solid rgba(255,255,255,0.6)',
-                }}
-              >
-                {/* 순위 */}
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white sm:h-9 sm:w-9 sm:text-base"
-                  style={{ background: idx < 3 ? 'linear-gradient(135deg, #5C8FBF, #4A7BA8)' : 'rgba(160,170,165,0.6)' }}
-                >
-                  {idx + 1}
-                </span>
-                {/* 표지 */}
-                <div className="relative h-20 w-14 shrink-0 sm:h-24 sm:w-16">
-                  <div
-                    className="h-full w-full rounded-lg"
-                    style={{
-                      background: book.coverImageUrl
-                        ? `url(${book.coverImageUrl}) center/cover no-repeat`
-                        : 'linear-gradient(135deg, #a8d8ea 0%, #d4ead6 100%)',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
-                    }}
-                  />
-                </div>
-                {/* 정보 */}
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-base font-bold text-gray-800 sm:text-lg">
-                    {book.title}
-                  </span>
-                  <span className="mt-0.5 truncate text-sm text-gray-600 sm:text-base">
-                    {book.author}
-                  </span>
-                </div>
-                <span className="text-xl text-gray-400 sm:text-2xl">&rsaquo;</span>
-              </button>
             ))}
-        </div>
+          </div>
+        )}
 
+        {/* 카테고리 선택 후: 도서 목록 */}
+        {activeTab && (
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto sm:gap-4">
+            {bookLoading && (
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-base text-gray-500 sm:text-lg">불러오는 중...</p>
+              </div>
+            )}
+            {!bookLoading && books.length === 0 && (
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-base text-gray-500 sm:text-lg">
+                  {activeTab === 'librarian' ? '사서 추천 도서가 없습니다.' : '인기 도서를 불러올 수 없습니다.'}
+                </p>
+              </div>
+            )}
+            {!bookLoading && books.length > 0 && activeTab !== 'librarian' && (
+              <p className="mb-1 shrink-0 text-right text-xs text-gray-400">
+                제공기관 : 국립중앙도서관 (도서관 정보나루)
+              </p>
+            )}
+            {!bookLoading &&
+              books.map((book, idx) => (
+                <button
+                  key={book.id || idx}
+                  type="button"
+                  onClick={() => navigate(`/did/video/${book.id}`)}
+                  className="flex w-full shrink-0 items-center gap-3 p-3 text-left transition active:scale-[0.98] sm:gap-4 sm:p-4"
+                  style={{
+                    borderRadius: '1.2rem',
+                    background: 'rgba(255,255,255,0.55)',
+                    backdropFilter: 'blur(6px)',
+                    WebkitBackdropFilter: 'blur(6px)',
+                    boxShadow: '0 2px 10px rgba(60,90,70,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
+                    border: '1.5px solid rgba(255,255,255,0.6)',
+                  }}
+                >
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white sm:h-9 sm:w-9 sm:text-base"
+                    style={{ background: idx < 3 ? 'linear-gradient(135deg, #5C8FBF, #4A7BA8)' : 'rgba(160,170,165,0.6)' }}
+                  >
+                    {idx + 1}
+                  </span>
+                  <div className="relative h-20 w-14 shrink-0 sm:h-24 sm:w-16">
+                    <div
+                      className="h-full w-full rounded-lg"
+                      style={{
+                        background: book.coverImageUrl
+                          ? `url(${book.coverImageUrl}) center/cover no-repeat`
+                          : 'linear-gradient(135deg, #a8d8ea 0%, #d4ead6 100%)',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                      }}
+                    />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-base font-bold text-gray-800 sm:text-lg">{book.title}</span>
+                    <span className="mt-0.5 truncate text-sm text-gray-600 sm:text-base">{book.author}</span>
+                  </div>
+                  <span className="text-xl text-gray-400 sm:text-2xl">&rsaquo;</span>
+                </button>
+              ))}
+          </div>
+        )}
       </div>
     </DidV2Layout>
   );
