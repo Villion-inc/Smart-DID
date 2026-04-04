@@ -104,7 +104,7 @@ export function DidV2NewArrivals() {
         {/* 상단: 영상 자동 재생 */}
         {currentVideo && (
           <div
-            className="relative mb-4 w-full overflow-hidden rounded-2xl bg-black"
+            className="relative -mx-4 mb-4 w-[calc(100%+2rem)] shrink-0 overflow-hidden bg-black sm:-mx-6 sm:w-[calc(100%+3rem)]"
             style={{ aspectRatio: '16/9' }}
           >
             <video

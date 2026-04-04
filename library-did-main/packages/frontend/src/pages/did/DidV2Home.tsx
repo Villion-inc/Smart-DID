@@ -183,10 +183,11 @@ export function DidV2Home() {
   // ─── 기본 홈 화면 ───
   return (
     <DidV2Layout hideFooter>
-      <div className="flex flex-1 flex-col gap-3 px-0 py-1">
+      <div className="flex flex-1 flex-col justify-center gap-8 px-0 py-4">
         {/* 영상 — 꽉 채우기 */}
-        <div className="relative -mx-4 -mt-2 min-h-0 flex-1 overflow-hidden sm:-mx-6 sm:-mt-4"
+        <div className="relative -mx-4 -mt-2 w-[calc(100%+2rem)] shrink-0 overflow-hidden sm:-mx-6 sm:-mt-4 sm:w-[calc(100%+3rem)]"
           style={{
+            aspectRatio: '16/9',
             background: '#1a1a2e',
           }}
         >
@@ -223,53 +224,55 @@ export function DidV2Home() {
           )}
         </div>
 
-        {/* 랜덤 영상 보기 */}
-        {hasVideos && (
-          <button
-            type="button"
-            onClick={enterRandomMode}
-            className="flex w-full shrink-0 items-center justify-center gap-2 py-4 text-base font-bold text-white transition active:scale-[0.97] sm:text-lg"
-            style={{
-              borderRadius: '1rem',
-              background: 'linear-gradient(135deg, #5C8FBF 0%, #4A7BA8 50%, #3D6A94 100%)',
-              boxShadow: '0 6px 20px rgba(74,123,168,0.3), inset 0 1px 0 rgba(255,255,255,0.15)',
-              border: '2px solid rgba(255,255,255,0.15)',
-            }}
-          >
-            <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16 3h5m0 0v5m0-5l-6 6M4 21l6-6m-6 0h5m-5 0v-5" />
-            </svg>
-            랜덤 영상 보기
-          </button>
-        )}
-
-        {/* 바로가기 메뉴 3개 */}
-        <div className="flex w-full shrink-0 gap-3 pb-1">
-          {[
-            { label: '추천도서', sub: '사서 추천', path: '/did/recommend', color: '#3B7A6A', bg: 'rgba(200,228,218,0.55)', border: 'rgba(80,150,130,0.25)' },
-            { label: '신착도서', sub: '새로 들어온 책', path: '/did/new', color: '#5A7BAA', bg: 'rgba(200,218,238,0.55)', border: 'rgba(90,123,170,0.25)' },
-            { label: '도서검색', sub: '직접 찾아보기', path: '/did/search', color: '#8A6F9E', bg: 'rgba(225,210,235,0.55)', border: 'rgba(138,111,158,0.25)' },
-          ].map((item) => (
+        {/* 버튼들 — mt-auto로 하단에 배치 */}
+        <div className="flex flex-col gap-3">
+          {hasVideos && (
             <button
-              key={item.path}
               type="button"
-              onClick={() => navigate(item.path)}
-              className="flex flex-1 flex-col items-center justify-center gap-1.5 py-7 transition active:scale-[0.96] sm:py-9"
+              onClick={enterRandomMode}
+              className="flex w-full shrink-0 items-center justify-center gap-2 py-4 text-base font-bold text-white transition active:scale-[0.97] sm:text-lg"
               style={{
-                borderRadius: '1.2rem',
-                background: item.bg,
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.5)',
-                border: `2px solid ${item.border}`,
+                borderRadius: '1rem',
+                background: 'linear-gradient(135deg, #5C8FBF 0%, #4A7BA8 50%, #3D6A94 100%)',
+                boxShadow: '0 6px 20px rgba(74,123,168,0.3), inset 0 1px 0 rgba(255,255,255,0.15)',
+                border: '2px solid rgba(255,255,255,0.15)',
               }}
             >
-              <span className="text-xl font-bold sm:text-2xl" style={{ color: item.color }}>
-                {item.label}
-              </span>
-              <span className="text-sm text-gray-600/70 sm:text-base">{item.sub}</span>
+              <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 3h5m0 0v5m0-5l-6 6M4 21l6-6m-6 0h5m-5 0v-5" />
+              </svg>
+              랜덤 영상 보기
             </button>
-          ))}
+          )}
+
+          {/* 바로가기 메뉴 3개 */}
+          <div className="flex w-full shrink-0 gap-3 pb-1">
+            {[
+              { label: '추천도서', sub: '사서 추천', path: '/did/recommend', color: '#3B7A6A', bg: 'rgba(200,228,218,0.55)', border: 'rgba(80,150,130,0.25)' },
+              { label: '신착도서', sub: '새로 들어온 책', path: '/did/new', color: '#5A7BAA', bg: 'rgba(200,218,238,0.55)', border: 'rgba(90,123,170,0.25)' },
+              { label: '도서검색', sub: '직접 찾아보기', path: '/did/search', color: '#8A6F9E', bg: 'rgba(225,210,235,0.55)', border: 'rgba(138,111,158,0.25)' },
+            ].map((item) => (
+              <button
+                key={item.path}
+                type="button"
+                onClick={() => navigate(item.path)}
+                className="flex flex-1 flex-col items-center justify-center gap-1.5 py-7 transition active:scale-[0.96] sm:py-9"
+                style={{
+                  borderRadius: '1.2rem',
+                  background: item.bg,
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.5)',
+                  border: `2px solid ${item.border}`,
+                }}
+              >
+                <span className="text-xl font-bold sm:text-2xl" style={{ color: item.color }}>
+                  {item.label}
+                </span>
+                <span className="text-sm text-gray-600/70 sm:text-base">{item.sub}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </DidV2Layout>

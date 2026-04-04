@@ -167,7 +167,8 @@ export function DidV2Recommend() {
         {/* 카테고리 미선택: 영상이 화면 꽉 채움 */}
         {!activeTab && (
           <div
-            className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-black"
+            className="relative -mx-4 w-[calc(100%+2rem)] shrink-0 overflow-hidden bg-black sm:-mx-6 sm:w-[calc(100%+3rem)]"
+            style={{ aspectRatio: '16/9' }}
           >
             {currentVideo ? (
               <>
@@ -196,7 +197,7 @@ export function DidV2Recommend() {
         {/* 카테고리 선택 시: 영상 (16:9) + 도서목록 */}
         {activeTab && (
           <div
-            className="relative w-full shrink-0 overflow-hidden rounded-2xl bg-black"
+            className="relative -mx-4 w-[calc(100%+2rem)] shrink-0 overflow-hidden bg-black sm:-mx-6 sm:w-[calc(100%+3rem)]"
             style={{ aspectRatio: '16/9' }}
           >
             {currentVideo ? (
