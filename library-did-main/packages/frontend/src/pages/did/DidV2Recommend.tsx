@@ -187,66 +187,34 @@ export function DidV2Recommend() {
         </footer>
       }
     >
-      <div className="flex flex-1 flex-col gap-3">
-        {/* 카테고리 미선택: 영상이 화면 꽉 채움 */}
-        {!activeTab && (
-          <div
-            className="relative -mx-4 w-[calc(100%+2rem)] shrink-0 overflow-hidden bg-black sm:-mx-6 sm:w-[calc(100%+3rem)]"
-            style={{ aspectRatio: '16/9' }}
-          >
-            {currentVideo ? (
-              <>
-                <video
-                  ref={videoRef}
-                  src={resolveVideoUrl(currentVideo.videoUrl)}
-                  autoPlay
-                  muted
-                  playsInline
-                  onEnded={handleVideoEnded}
-                  className="h-full w-full object-cover"
-                />
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-                  <p className="text-lg font-bold text-white sm:text-xl">{currentVideo.book.title}</p>
-                  <p className="text-sm text-gray-200 sm:text-base">{currentVideo.book.author}</p>
-                </div>
-              </>
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-sm text-white/50">영상 준비 중...</p>
+      <div className={`flex flex-1 flex-col gap-3 ${!activeTab ? 'justify-center' : ''}`}>
+        {/* 영상 — 항상 표시, 탭 미선택 시 중앙 / 선택 시 상단 */}
+        <div
+          className="relative -mx-4 w-[calc(100%+2rem)] shrink-0 overflow-hidden bg-black sm:-mx-6 sm:w-[calc(100%+3rem)]"
+          style={{ aspectRatio: '16/9' }}
+        >
+          {currentVideo ? (
+            <>
+              <video
+                ref={videoRef}
+                src={resolveVideoUrl(currentVideo.videoUrl)}
+                autoPlay
+                muted
+                playsInline
+                onEnded={handleVideoEnded}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                <p className="text-lg font-bold text-white sm:text-xl">{currentVideo.book.title}</p>
+                <p className="text-sm text-gray-200 sm:text-base">{currentVideo.book.author}</p>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* 카테고리 선택 시: 영상 (16:9) + 도서목록 */}
-        {activeTab && (
-          <div
-            className="relative -mx-4 w-[calc(100%+2rem)] shrink-0 overflow-hidden bg-black sm:-mx-6 sm:w-[calc(100%+3rem)]"
-            style={{ aspectRatio: '16/9' }}
-          >
-            {currentVideo ? (
-              <>
-                <video
-                  ref={videoRef}
-                  src={resolveVideoUrl(currentVideo.videoUrl)}
-                  autoPlay
-                  muted
-                  playsInline
-                  onEnded={handleVideoEnded}
-                  className="h-full w-full object-cover"
-                />
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-                  <p className="text-lg font-bold text-white sm:text-xl">{currentVideo.book.title}</p>
-                  <p className="text-sm text-gray-200 sm:text-base">{currentVideo.book.author}</p>
-                </div>
-              </>
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-sm text-white/50">영상 준비 중...</p>
-              </div>
-            )}
-          </div>
-        )}
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-sm text-white/50">영상 준비 중...</p>
+            </div>
+          )}
+        </div>
 
         {/* 카테고리 선택 후: 도서 목록 */}
         {activeTab && (
