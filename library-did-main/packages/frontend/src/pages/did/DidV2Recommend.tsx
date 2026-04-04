@@ -139,83 +139,87 @@ export function DidV2Recommend() {
     <DidV2Layout
       title="추천도서"
       extraFooter={
-        activeTab ? (
-          <div className="flex w-full shrink-0 gap-2 px-3 pb-2 pt-2 sm:px-4">
-            {TABS.map((tab) => {
-              const active = activeTab === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => handleTabChange(tab.key)}
-                  className="flex flex-1 items-center justify-center py-3 text-sm font-bold transition active:scale-[0.97] sm:py-4 sm:text-base"
-                  style={{
-                    borderRadius: '0.8rem',
-                    background: active ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.35)',
-                    color: active ? '#2D5A4A' : '#7a8a80',
-                    boxShadow: active ? '0 3px 12px rgba(60,90,70,0.12), inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
-                    border: active ? '2px solid rgba(60,90,70,0.15)' : '2px solid transparent',
-                  }}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        ) : null
-      }
-    >
-      <div className="flex flex-1 flex-col">
-        {/* 상단 영상 (유아/초등 우선) */}
-        <div
-          className="relative mb-4 w-full shrink-0 overflow-hidden rounded-2xl bg-black"
-          style={{ aspectRatio: '16/9' }}
-        >
-          {currentVideo ? (
-            <>
-              <video
-                ref={videoRef}
-                src={resolveVideoUrl(currentVideo.videoUrl)}
-                autoPlay
-                muted
-                playsInline
-                onEnded={handleVideoEnded}
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-                <p className="text-lg font-bold text-white sm:text-xl">{currentVideo.book.title}</p>
-                <p className="text-sm text-gray-200 sm:text-base">{currentVideo.book.author}</p>
-              </div>
-            </>
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-sm text-white/50">영상 준비 중...</p>
-            </div>
-          )}
-        </div>
-
-        {/* 카테고리 미선택: 2×2 그리드 */}
-        {!activeTab && (
-          <div className="grid grid-cols-2 gap-3">
-            {TABS.map((tab) => (
+        <div className="flex w-full shrink-0 gap-2 px-3 pb-2 pt-2 sm:px-4">
+          {TABS.map((tab) => {
+            const active = activeTab === tab.key;
+            return (
               <button
                 key={tab.key}
                 type="button"
                 onClick={() => handleTabChange(tab.key)}
-                className="flex h-28 items-center justify-center text-xl font-bold transition active:scale-[0.97] sm:h-32 sm:text-2xl"
+                className="flex flex-1 items-center justify-center py-4 text-base font-bold transition active:scale-[0.97] sm:py-5 sm:text-lg"
                 style={{
-                  borderRadius: '1.2rem',
-                  background: 'rgba(255,255,255,0.65)',
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
-                  border: '2px solid rgba(255,255,255,0.8)',
-                  boxShadow: '0 4px 16px rgba(60,90,70,0.08), inset 0 1px 0 rgba(255,255,255,0.8)',
-                  color: '#2D5A4A',
+                  borderRadius: '0.8rem',
+                  background: active ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.35)',
+                  color: active ? '#2D5A4A' : '#7a8a80',
+                  boxShadow: active ? '0 3px 12px rgba(60,90,70,0.12), inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
+                  border: active ? '2px solid rgba(60,90,70,0.15)' : '2px solid transparent',
                 }}
               >
                 {tab.label}
               </button>
-            ))}
+            );
+          })}
+        </div>
+      }
+    >
+      <div className="flex flex-1 flex-col gap-3">
+        {/* 카테고리 미선택: 영상이 화면 꽉 채움 */}
+        {!activeTab && (
+          <div
+            className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-black"
+          >
+            {currentVideo ? (
+              <>
+                <video
+                  ref={videoRef}
+                  src={resolveVideoUrl(currentVideo.videoUrl)}
+                  autoPlay
+                  muted
+                  playsInline
+                  onEnded={handleVideoEnded}
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                  <p className="text-lg font-bold text-white sm:text-xl">{currentVideo.book.title}</p>
+                  <p className="text-sm text-gray-200 sm:text-base">{currentVideo.book.author}</p>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-sm text-white/50">영상 준비 중...</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 카테고리 선택 시: 영상 (16:9) + 도서목록 */}
+        {activeTab && (
+          <div
+            className="relative w-full shrink-0 overflow-hidden rounded-2xl bg-black"
+            style={{ aspectRatio: '16/9' }}
+          >
+            {currentVideo ? (
+              <>
+                <video
+                  ref={videoRef}
+                  src={resolveVideoUrl(currentVideo.videoUrl)}
+                  autoPlay
+                  muted
+                  playsInline
+                  onEnded={handleVideoEnded}
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                  <p className="text-lg font-bold text-white sm:text-xl">{currentVideo.book.title}</p>
+                  <p className="text-sm text-gray-200 sm:text-base">{currentVideo.book.author}</p>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-sm text-white/50">영상 준비 중...</p>
+              </div>
+            )}
           </div>
         )}
 
