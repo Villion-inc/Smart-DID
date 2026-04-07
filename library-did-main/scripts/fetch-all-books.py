@@ -28,7 +28,11 @@ def load_dotenv(path=".env"):
 load_dotenv()
 
 # ── 설정 ──
-BASE_URL = os.environ.get("ALPAS_API_URL", "http://211.236.101.6:28180/BTLMS/HOMEPAGE/API") + "/AE117.do"
+ALPAS_API_URL = os.environ.get("ALPAS_API_URL", "")
+if not ALPAS_API_URL:
+    raise SystemExit("ERROR: ALPAS_API_URL is required (e.g. http://<host>:28180/BTLMS/HOMEPAGE/API)")
+
+BASE_URL = ALPAS_API_URL.rstrip("/") + "/AE117.do"
 MANAGE_CODE = os.environ.get("ALPAS_MANAGE_CODE", "CH")
 NETWORK_ADAPTER_ID = os.environ.get("ALPAS_NETWORK_ADAPTER_ID", "")
 COUNT_PER_PAGE = 1000
