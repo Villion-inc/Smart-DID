@@ -8,6 +8,129 @@ import { toPublicVideoUrl, toPublicSubtitleUrl } from '../utils/storage';
 import { naverBookService } from '../services/naver-book.service';
 import { data4libraryService } from '../services/data4library.service';
 
+import { config } from '../config';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+// 알라딘 줄거리 캐시 (title → description)
+const aladinDescCache = new Map<string, string | null>();
+
+/**
+ * 알라딘 Open API에서 줄거리 가져오기 (검색 → 상세)
+ */
+async function fetchAladinDescription(title: string, author?: string): Promise<string | null> {
+  const ttbKey = config.aladin?.ttbKey;
+  if (!ttbKey) return null;
+
+  const cacheKey = `${title}|${author || ''}`;
+  const cached = aladinDescCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  try {
+    const query = author ? `${title} ${author}` : title;
+    const searchUrl = `http://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=${ttbKey}&Query=${encodeURIComponent(query)}&MaxResults=3&output=js&Version=20131101`;
+    const searchResp = await fetch(searchUrl, { signal: AbortSignal.timeout(5000) });
+    let searchText = (await searchResp.text()).trim();
+    if (searchText.startsWith(';')) searchText = searchText.substring(1);
+    const searchData = JSON.parse(searchText);
+    const items = searchData?.item;
+    if (!items || items.length === 0) {
+      aladinDescCache.set(cacheKey, null);
+      return null;
+    }
+
+    const cleanTitle = title.replace(/\s/g, '').toLowerCase();
+    const best = items.find((it: any) => {
+      const t = (it.title || '').replace(/<[^>]+>/g, '').replace(/\s/g, '').toLowerCase();
+      return t.includes(cleanTitle) || cleanTitle.includes(t);
+    }) || items[0];
+    const itemId = best.itemId;
+    const detailUrl = `http://www.aladin.co.kr/ttb/api/ItemLookUp.aspx?ttbkey=${ttbKey}&itemIdType=ItemId&ItemId=${itemId}&output=js&Version=20131101&OptResult=fulldescription`;
+    const detailResp = await fetch(detailUrl, { signal: AbortSignal.timeout(5000) });
+    let detailText = (await detailResp.text()).trim();
+    if (detailText.startsWith(';')) detailText = detailText.substring(1);
+    const detailData = JSON.parse(detailText);
+    const detailItems = detailData?.item;
+    if (!detailItems || detailItems.length === 0) {
+      aladinDescCache.set(cacheKey, null);
+      return null;
+    }
+
+    const item = detailItems[0];
+    const desc = (item.fullDescription || item.fullDescription2 || item.description || '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/^["'>}\]]+/, '')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"')
+      .replace(/<[^>]+>/g, '')
+      .trim();
+
+    if (desc && desc.length > 30) {
+      aladinDescCache.set(cacheKey, desc);
+      return desc;
+    }
+
+    aladinDescCache.set(cacheKey, null);
+    return null;
+  } catch (err: any) {
+    console.error(`[Aladin] Fetch failed for "${title}": ${err.message}`);
+    aladinDescCache.set(cacheKey, null);
+    return null;
+  }
+}
+
+// 리라이트 캐시
+const rewriteCache = new Map<string, string>();
+
+/**
+ * Gemini로 알라딘 줄거리를 가볍게 리라이트 (내용 동일, 표현만 변경)
+ */
+async function rewriteDescription(original: string, bookTitle: string): Promise<string> {
+  if (!original || original.length < 30) return original;
+
+  const cacheKey = `${bookTitle}|${original.substring(0, 50)}`;
+  const cached = rewriteCache.get(cacheKey);
+  if (cached) return cached;
+
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) return original;
+
+  try {
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text:
+        `다음 책 소개 글을 리라이트해주세요.
+
+규칙:
+- 원문의 핵심 정보(인물명, 줄거리, 주제, 수상 이력 등)는 반드시 유지
+- 문장 구조를 재배치하고, 동의어로 표현을 교체
+- 수동태↔능동태 변환, 문장 합치기/나누기를 적극 활용
+- 원문에 없는 내용은 추가하지 말 것
+- 원문 길이와 비슷하게 유지 (±30%)
+- 『』 같은 책 제목 표기는 유지
+- 도서관에서 이용자에게 보여줄 자연스러운 소개글 느낌으로
+- 존댓말(~합니다, ~입니다) 톤 유지
+- 리라이트한 텍스트만 반환
+
+책 제목: ${bookTitle}
+원문:
+${original}` }] }],
+      generationConfig: { temperature: 0.5, maxOutputTokens: 2000 },
+    });
+
+    const rewritten = result.response.text().trim();
+    if (rewritten && rewritten.length > 20) {
+      rewriteCache.set(cacheKey, rewritten);
+      console.log(`[Rewrite] "${bookTitle}": ${original.length}자 → ${rewritten.length}자`);
+      return rewritten;
+    }
+  } catch (err: any) {
+    console.error(`[Rewrite] Failed for "${bookTitle}": ${err.message}`);
+  }
+
+  return original;
+}
+
 // 네이버 표지 캐시 (title+author → imageUrl)
 const coverCache = new Map<string, string | null>();
 const COVER_TIMEOUT_MS = 5000; // 네이버 API 타임아웃 (5초)
@@ -310,11 +433,12 @@ export class DidController {
             batch.map(async (book) => {
               try {
                 const results = await alpasService.searchBooks(book.bookname);
-                if (results.length > 0) {
-                  (book as any)._alpasId = results[0].id;
-                  (book as any)._alpasShelfCode = results[0].shelfCode || '';
-                  return book;
-                }
+                // 소장 확인 + 대출가능(loan_able=Y) 필터
+                const available = results.find(r => r.isAvailable);
+                if (!available) return null; // 소장 없거나 대출 불가
+                (book as any)._alpasId = available.id;
+                (book as any)._alpasShelfCode = available.shelfCode || '';
+                return book;
               } catch { /* skip */ }
               return null;
             })
@@ -399,6 +523,18 @@ export class DidController {
       }
 
       if (book) {
+        // 알라딘에서 풍부한 줄거리 가져오기 → Gemini 리라이트
+        let enrichedSummary = book.summary;
+        try {
+          const aladinDesc = await fetchAladinDescription(book.title, book.author);
+          if (aladinDesc && aladinDesc.length > 30) {
+            if (!enrichedSummary || enrichedSummary.length < aladinDesc.length || enrichedSummary.includes('출판한 도서입니다')) {
+              enrichedSummary = await rewriteDescription(aladinDesc, book.title);
+              console.log(`[DID getBookDetail] Rewritten summary (${enrichedSummary.length}자): ${enrichedSummary.substring(0, 60)}...`);
+            }
+          }
+        } catch { /* ignore */ }
+
         return reply.send({
           success: true,
           data: {
@@ -408,7 +544,7 @@ export class DidController {
             publisher: book.publisher,
             publishedYear: book.publishedYear,
             isbn: book.isbn,
-            summary: book.summary,
+            summary: enrichedSummary,
             shelfCode: book.shelfCode,
             callNumber: book.callNumber,
             category: book.category,

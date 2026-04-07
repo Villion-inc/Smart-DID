@@ -20,6 +20,7 @@ export function DidV2BookDetail() {
   const [videoEnded, setVideoEnded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [requesting, setRequesting] = useState(false);
+  const [showFullSummary, setShowFullSummary] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -122,19 +123,23 @@ export function DidV2BookDetail() {
 
   const showRequestButton = videoStatus === 'NONE' || videoStatus === 'FAILED';
   const isProcessing = videoStatus === 'QUEUED' || videoStatus === 'GENERATING';
+  const summary = bookDetail?.summary || '';
+  const needsExpand = summary.length > 80;
 
   return (
     <DidV2Layout title={bookDetail?.title || '책 미리보기'}>
-      <div className="flex flex-1 flex-col overflow-auto py-4 sm:py-6">
-        {/* Video player */}
+      <div className="flex flex-1 flex-col overflow-auto py-0">
+
+        {/* ── 영상 플레이어 (좌우 마진 없이 꽉 차게) ── */}
         <div
-          className="relative w-full shrink-0 overflow-hidden"
+          className="relative shrink-0 overflow-hidden"
           style={{
             aspectRatio: '16/9',
-            borderRadius: '1.5rem',
-            border: '4px solid rgba(255,255,255,0.7)',
-            boxShadow: '0 10px 40px rgba(60,90,70,0.18), inset 0 0 0 1px rgba(255,255,255,0.3)',
             background: '#1a1a2e',
+            marginLeft: '-1rem',
+            marginRight: '-1rem',
+            marginTop: '-0.5rem',
+            width: 'calc(100% + 2rem)',
           }}
         >
           {resolvedVideoUrl && videoStatus === 'READY' ? (
@@ -186,7 +191,7 @@ export function DidV2BookDetail() {
           )}
         </div>
 
-        {/* Book Info Card */}
+        {/* ── 책 정보 카드 ── */}
         <div
           className="mt-4 w-full shrink-0 p-5 sm:mt-5 sm:p-6"
           style={{
@@ -218,26 +223,41 @@ export function DidV2BookDetail() {
                 {bookDetail?.publisher}
                 {bookDetail?.publishedYear ? ` · ${bookDetail.publishedYear}년` : ''}
               </p>
+              {bookDetail?.isAvailable !== undefined && (
+                <span
+                  className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-medium sm:text-sm ${
+                    bookDetail.isAvailable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  }`}
+                >
+                  {bookDetail.isAvailable ? '✓ 대출가능' : '✗ 대출중'}
+                </span>
+              )}
             </div>
           </div>
 
-          <p className="text-base leading-relaxed text-gray-700 line-clamp-3 sm:text-lg">
-            {bookDetail?.summary || '이 책의 줄거리를 불러오는 중입니다...'}
-          </p>
-
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            {bookDetail?.isAvailable !== undefined && (
-              <span
-                className={`rounded-full px-4 py-1.5 text-sm font-medium sm:px-5 sm:py-2 sm:text-base ${
-                  bookDetail.isAvailable
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-red-100 text-red-700'
+          {/* 줄거리 — 접기/펼치기 */}
+          {summary ? (
+            <div>
+              <p
+                className={`text-base leading-relaxed text-gray-700 sm:text-lg ${
+                  !showFullSummary && needsExpand ? 'line-clamp-3' : ''
                 }`}
               >
-                {bookDetail.isAvailable ? '✓ 대출가능' : '✗ 대출중'}
-              </span>
-            )}
-          </div>
+                {summary}
+              </p>
+              {needsExpand && (
+                <button
+                  type="button"
+                  onClick={() => setShowFullSummary(!showFullSummary)}
+                  className="mt-2 text-sm font-medium text-blue-600 transition hover:text-blue-800 sm:text-base"
+                >
+                  {showFullSummary ? '접기' : '자세히 보기'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="text-base text-gray-400 sm:text-lg">줄거리를 불러오는 중...</p>
+          )}
 
           {/* 서가 위치 / 청구기호 */}
           {(bookDetail?.shelfCode || bookDetail?.callNumber) && (

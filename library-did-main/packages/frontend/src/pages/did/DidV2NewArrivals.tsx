@@ -20,12 +20,27 @@ function resolveVideoUrl(url: string): string {
   return `${API_BASE_URL}/videos/${url.replace(/^\//, '')}`;
 }
 
+type ShelfFilter = 'all' | 'children' | 'teen';
+
+const SHELF_FILTERS: { key: ShelfFilter; label: string }[] = [
+  { key: 'all', label: '전체' },
+  { key: 'children', label: '어린이' },
+  { key: 'teen', label: '청소년' },
+];
+
+function filterByShelf(books: DidBook[], filter: ShelfFilter): DidBook[] {
+  if (filter === 'all') return books;
+  if (filter === 'children') return books.filter(b => b.shelfCode.includes('1층'));
+  if (filter === 'teen') return books.filter(b => b.shelfCode.includes('청소년'));
+  return books;
+}
+
 const PAGE_SIZE = 20;
 
 /**
  * 새로 들어온 책 (키오스크 세로 화면)
  * 상단: 영상이 있는 신착도서 자동 재생
- * 하단: 20권씩 페이지네이션
+ * 하단: 연령 필터 + 20권씩 페이지네이션
  */
 export function DidV2NewArrivals() {
   const navigate = useNavigate();
@@ -36,6 +51,7 @@ export function DidV2NewArrivals() {
   const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
+  const [shelfFilter, setShelfFilter] = useState<ShelfFilter>('all');
 
   useEffect(() => {
     let cancelled = false;
@@ -95,8 +111,14 @@ export function DidV2NewArrivals() {
 
   const currentVideo = booksWithVideo.length > 0 ? booksWithVideo[currentVideoIdx] : null;
 
-  const totalPages = Math.ceil(allBooks.length / PAGE_SIZE);
-  const pagedBooks = allBooks.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const filteredBooks = filterByShelf(allBooks, shelfFilter);
+  const totalPages = Math.ceil(filteredBooks.length / PAGE_SIZE);
+  const pagedBooks = filteredBooks.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const handleFilterChange = (f: ShelfFilter) => {
+    setShelfFilter(f);
+    setPage(0);
+  };
 
   return (
     <DidV2Layout title="새로 들어온 책">
@@ -123,8 +145,32 @@ export function DidV2NewArrivals() {
           </div>
         )}
 
+        {/* 연령 필터 버튼 */}
+        <div className="mb-3 flex shrink-0 gap-2">
+          {SHELF_FILTERS.map((f) => {
+            const active = shelfFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => handleFilterChange(f.key)}
+                className="flex-1 py-2.5 text-sm font-bold transition active:scale-95 sm:py-3 sm:text-base"
+                style={{
+                  borderRadius: '0.8rem',
+                  background: active ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.4)',
+                  color: active ? '#2D5A4A' : '#7a8a80',
+                  boxShadow: active ? '0 2px 8px rgba(60,90,70,0.12), inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
+                  border: active ? '1.5px solid rgba(60,90,70,0.15)' : '1.5px solid transparent',
+                }}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+
         {/* 페이지 안내 */}
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex shrink-0 items-center justify-between">
           <p className="text-base font-bold text-gray-700 sm:text-lg">
             이번 주 새로 들어온 책이에요!
           </p>
@@ -142,9 +188,11 @@ export function DidV2NewArrivals() {
               <p className="text-base text-gray-500 sm:text-lg">불러오는 중...</p>
             </div>
           )}
-          {!loading && allBooks.length === 0 && (
+          {!loading && filteredBooks.length === 0 && (
             <div className="flex flex-1 items-center justify-center">
-              <p className="text-base text-gray-500 sm:text-lg">신착 도서가 없습니다.</p>
+              <p className="text-base text-gray-500 sm:text-lg">
+                {shelfFilter === 'all' ? '신착 도서가 없습니다.' : '해당 연령대 신착 도서가 없습니다.'}
+              </p>
             </div>
           )}
           {!loading &&
@@ -195,6 +243,11 @@ export function DidV2NewArrivals() {
                     <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700 sm:text-sm">
                       신작
                     </span>
+                    {book.shelfCode && (
+                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600 sm:text-sm">
+                        {book.shelfCode}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <span className="text-xl text-gray-400 sm:text-2xl">›</span>

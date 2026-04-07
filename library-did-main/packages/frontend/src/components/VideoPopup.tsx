@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getDidBookDetail, getVideoStatus, requestVideo } from '../api/did.api';
+import { getDidBookDetail, getVideoStatus, requestVideo, getPopularVideos } from '../api/did.api';
+import type { PopularVideo } from '../api/did.api';
 import type { DidBookDetail } from '../types';
 
 const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '';
@@ -10,6 +11,12 @@ const API_BASE_URL =
 interface VideoPopupProps {
   bookId: string;
   onClose: () => void;
+}
+
+function resolveVideoUrl(url: string): string {
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('/videos/')) return `${API_BASE_URL}${url}`;
+  return `${API_BASE_URL}/videos/${url.replace(/^\//, '')}`;
 }
 
 export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
@@ -23,6 +30,11 @@ export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoRequestedRef = useRef(false);
+
+  // 다른 영상 (생성 중일 때 표시)
+  const [otherVideos, setOtherVideos] = useState<PopularVideo[]>([]);
+  const [otherVideoIdx, setOtherVideoIdx] = useState(0);
+  const otherVideoRef = useRef<HTMLVideoElement>(null);
 
   // Load book detail
   useEffect(() => {
@@ -101,6 +113,38 @@ export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
     };
   }, [bookId, bookDetail, pollVideoStatus]);
 
+  // 생성 중일 때 다른 영상 목록 로드
+  useEffect(() => {
+    if (videoStatus === 'QUEUED' || videoStatus === 'GENERATING') {
+      getPopularVideos(10)
+        .then(videos => {
+          const others = videos.filter(v => v.bookId !== bookId && v.videoUrl);
+          setOtherVideos(others);
+          if (others.length > 0) {
+            setOtherVideoIdx(Math.floor(Math.random() * others.length));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [videoStatus, bookId]);
+
+  // 다른 영상 자동 재생
+  useEffect(() => {
+    if (otherVideoRef.current && otherVideos.length > 0) {
+      otherVideoRef.current.load();
+      otherVideoRef.current.play().catch(() => {});
+    }
+  }, [otherVideoIdx, otherVideos]);
+
+  const handleOtherVideoEnded = useCallback(() => {
+    if (otherVideos.length <= 1) return;
+    setOtherVideoIdx(prev => {
+      let next: number;
+      do { next = Math.floor(Math.random() * otherVideos.length); } while (next === prev);
+      return next;
+    });
+  }, [otherVideos.length]);
+
   const handlePlay = () => {
     if (videoRef.current) {
       setIsPlaying(true);
@@ -120,13 +164,9 @@ export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
     }
   };
 
-  const resolvedVideoUrl = videoUrl
-    ? videoUrl.startsWith('http')
-      ? videoUrl
-      : videoUrl.startsWith('/videos/')
-        ? `${API_BASE_URL}${videoUrl}`
-        : `${API_BASE_URL}/videos/${videoUrl.replace(/^\//, '')}`
-    : null;
+  const resolvedVideoUrl = videoUrl ? resolveVideoUrl(videoUrl) : null;
+  const isGenerating = videoStatus === 'QUEUED' || videoStatus === 'GENERATING';
+  const currentOtherVideo = otherVideos.length > 0 ? otherVideos[otherVideoIdx] : null;
 
   return (
     <div
@@ -148,7 +188,7 @@ export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
           </svg>
         </button>
 
-        {/* Video player - 대부분의 공간 차지 */}
+        {/* Video player or generating state */}
         <div
           className="relative flex-1 overflow-hidden rounded-t-3xl"
           style={{ background: '#1a1a1a', minHeight: '60%' }}
@@ -179,26 +219,61 @@ export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
                 </div>
               )}
             </>
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-6 text-white">
-              {videoStatus === 'QUEUED' || videoStatus === 'GENERATING' ? (
+          ) : isGenerating ? (
+            /* 생성 중 상태: 다른 영상 자동 재생 + 생성중 배너 */
+            <>
+              {currentOtherVideo ? (
                 <>
-                  <span className="text-8xl">🎬</span>
-                  <span className="text-2xl">영상 생성 중...</span>
+                  <video
+                    ref={otherVideoRef}
+                    src={resolveVideoUrl(currentOtherVideo.videoUrl)}
+                    autoPlay
+                    muted
+                    playsInline
+                    onEnded={handleOtherVideoEnded}
+                    className="h-full w-full object-contain"
+                  />
+                  {/* 다른 영상 정보 */}
+                  <div
+                    className="absolute bottom-0 left-0 right-0 px-4 pb-4 pt-10"
+                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)' }}
+                  >
+                    <p className="text-sm text-white/60">다른 책 영상</p>
+                    <p className="truncate text-base font-bold text-white">{currentOtherVideo.title}</p>
+                    <p className="truncate text-sm text-white/70">{currentOtherVideo.author}</p>
+                  </div>
                 </>
               ) : (
-                <>
-                  <span className="text-8xl">📖</span>
-                  <span className="text-2xl">영상이 아직 없어요</span>
-                </>
+                <div className="flex h-full w-full items-center justify-center">
+                  <div className="text-center text-white">
+                    <div className="mx-auto mb-4 h-16 w-16 animate-spin rounded-full border-4 border-white/20 border-t-white" />
+                    <p className="text-xl font-bold">영상 생성 중...</p>
+                  </div>
+                </div>
               )}
+
+              {/* 생성 중 배너 (항상 상단에 표시) */}
+              <div
+                className="absolute left-0 right-0 top-0 flex items-center gap-2 px-4 py-3"
+                style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%)' }}
+              >
+                <div className="h-2 w-2 animate-pulse rounded-full bg-yellow-400" />
+                <p className="text-sm font-semibold text-yellow-300">
+                  "{bookDetail?.title || '이 책'}" 영상 생성 중...
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-6 text-white">
+              <span className="text-8xl">📖</span>
+              <span className="text-2xl">영상이 아직 없어요</span>
             </div>
           )}
         </div>
 
         {/* Book info below video */}
         <div className="shrink-0 px-8 py-6">
-          <h3 className="text-2xl font-bold text-gray-800 line-clamp-1">
+          <h3 className="line-clamp-1 text-2xl font-bold text-gray-800">
             {bookDetail?.title || '제목'}
           </h3>
           <p className="mt-2 text-lg text-gray-500">

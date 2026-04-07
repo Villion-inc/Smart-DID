@@ -88,6 +88,10 @@ export const config = {
     baseUrl: 'http://data4library.kr/api',
   },
 
+  aladin: {
+    ttbKey: process.env.ALADIN_TTB_KEY || '',
+  },
+
   admin: {
     username: process.env.ADMIN_USERNAME || 'admin',
     password: process.env.ADMIN_PASSWORD || 'admin1234',
