@@ -10,9 +10,24 @@ import time
 import urllib.request
 from datetime import datetime
 
-# ── 설정 (.env 또는 환경변수에서 읽기) ──
+# ── .env 로드 ──
 import os
+from pathlib import Path
 
+def load_dotenv(path=".env"):
+    env_path = Path(path)
+    if not env_path.exists():
+        env_path = Path(__file__).parent.parent / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip())
+
+load_dotenv()
+
+# ── 설정 ──
 BASE_URL = os.environ.get("ALPAS_API_URL", "http://211.236.101.6:28180/BTLMS/HOMEPAGE/API") + "/AE117.do"
 MANAGE_CODE = os.environ.get("ALPAS_MANAGE_CODE", "CH")
 NETWORK_ADAPTER_ID = os.environ.get("ALPAS_NETWORK_ADAPTER_ID", "")
