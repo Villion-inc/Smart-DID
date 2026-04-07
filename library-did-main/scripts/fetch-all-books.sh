@@ -37,7 +37,7 @@ echo "BOOK_KEY,REG_NO,TITLE,AUTHOR,PUBLISHER,PUBLISH_YEAR,EA_ISBN,CALL_NO,SHELF_
 
 echo "요청: manage_code=$MANAGE_CODE, date=$DATE_FROM~$DATE_TO"
 
-TOTAL_PAGES="$(curl -s "${BASE}?manage_code=${MANAGE_CODE}&networkadapterid=${NETWORK_ADAPTER_ID}&shelf_date_from=${DATE_FROM}&shelf_date_to=${DATE_TO}&current_page=1&count_per_page=1" | python3 -c "import sys,json; d=json.load(sys.stdin); print(int(d.get('totalPage',1) or 1))")"
+TOTAL_PAGES="$(curl -s "${BASE}?manage_code=${MANAGE_CODE}&networkadapterid=${NETWORK_ADAPTER_ID}&shelf_date_from=${DATE_FROM}&shelf_date_to=${DATE_TO}&current_page=1&count_per_page=1000" | python3 -c "import sys,json; d=json.load(sys.stdin); print(int(d.get('totalPage',1) or 1))")"
 echo "총 페이지: $TOTAL_PAGES"
 
 for page in $(seq 1 "$TOTAL_PAGES"); do
