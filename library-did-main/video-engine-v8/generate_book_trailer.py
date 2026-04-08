@@ -37,7 +37,9 @@ BOOK_TITLE = _args.title or "마당을 나온 암탉"
 BOOK_AUTHOR = _args.author or "황선미"
 OUTPUT_PATH = _args.output or ""  # 지정 시 해당 경로로 최종 파일 복사
 
-OUT_DIR = Path(__file__).parent / "output" / BOOK_TITLE.replace(" ", "_")
+import re as _re
+_safe_title = _re.sub(r'[<>:"/\\|?*]', '_', BOOK_TITLE).replace(" ", "_")
+OUT_DIR = Path(__file__).parent / "output" / _safe_title
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 client = genai.Client(api_key=GOOGLE_API_KEY)
@@ -550,12 +552,12 @@ def main():
     keyframe_paths = generate_keyframes(scenario)
     if len(keyframe_paths) < 3:
         print("\n❌ 키프레임 생성 실패")
-        return
+        import sys; sys.exit(1)
 
     video_paths = generate_videos(scenario, keyframe_paths)
     if len(video_paths) < 3:
         print("\n❌ 영상 생성 실패")
-        return
+        import sys; sys.exit(1)
 
     final = assemble_video(scenario, video_paths, BOOK_TITLE)
 
