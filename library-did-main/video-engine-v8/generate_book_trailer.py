@@ -18,7 +18,7 @@ from google.genai.types import GenerateContentConfig, Modality, Part
 from PIL import Image
 
 # ── 설정 ──
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY", "")
 NAVER_CLIENT_ID = os.environ.get("NAVER_CLIENT_ID", "")
 NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", "")
 DATA4LIB_KEY = os.environ.get("DATA4LIBRARY_AUTH_KEY", "")
