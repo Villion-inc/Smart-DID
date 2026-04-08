@@ -388,10 +388,29 @@ export class DidController {
         });
       }
 
-      // 사서추천: 기존 DB recommendations
+      // 사서추천: 기존 DB recommendations + 대출 가능 필터
       if (group.toLowerCase() === 'librarian') {
         const recommendations = await recommendationRepository.getAll();
-        const didBooks = await enrichBookCovers(recommendations.map((rec) => ({
+
+        let filteredRecs = recommendations;
+        if (isAlpasConnected()) {
+          // 대출 가능한 책만 표시
+          const checks = await Promise.all(
+            recommendations.map(async (rec) => {
+              try {
+                const results = await alpasService.searchBooks(rec.title);
+                const available = results.find(r => r.isAvailable);
+                return available ? rec : null;
+              } catch {
+                return rec; // 오류 시 포함 (보수적)
+              }
+            })
+          );
+          filteredRecs = checks.filter((r): r is typeof recommendations[0] => r !== null);
+          console.log(`[DID librarian] 대출가능 필터: ${filteredRecs.length}/${recommendations.length}권`);
+        }
+
+        const didBooks = await enrichBookCovers(filteredRecs.map((rec) => ({
           id: rec.bookId,
           title: rec.title,
           author: rec.author,

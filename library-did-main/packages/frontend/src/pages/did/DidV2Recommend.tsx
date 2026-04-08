@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getBooksByAge, getVideoStatus } from '../../api/did.api';
+import { getBooksByAge, getVideoStatus, getPopularVideos } from '../../api/did.api';
 import type { DidBook } from '../../types';
 import { DidV2Layout } from './DidV2Layout';
 
@@ -51,7 +51,7 @@ export function DidV2Recommend() {
   const [bookLoading, setBookLoading] = useState(false);
   const [cache, setCache] = useState<Record<string, DidBook[]>>({});
 
-  // 유아/초등 영상 로드 (우선순위)
+  // 영상 로드: 유아/초등 우선, 없으면 인기 영상 폴백
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -72,8 +72,24 @@ export function DidV2Recommend() {
             return null;
           })
         );
+        const found = videoResults.filter((r): r is BookWithVideo => r !== null);
+
         if (!cancelled) {
-          setFeaturedVideos(videoResults.filter((r): r is BookWithVideo => r !== null));
+          if (found.length > 0) {
+            setFeaturedVideos(found);
+          } else {
+            // 유아/초등 영상이 없으면 인기 영상으로 폴백
+            try {
+              const popular = await getPopularVideos(10);
+              const fallback: BookWithVideo[] = popular
+                .filter(v => v.videoUrl)
+                .map(v => ({
+                  book: { id: v.bookId, title: v.title, author: v.author, coverImageUrl: v.coverImageUrl, shelfCode: '', category: '' },
+                  videoUrl: v.videoUrl,
+                }));
+              if (!cancelled) setFeaturedVideos(fallback);
+            } catch { /* ignore */ }
+          }
         }
       } catch { /* ignore */ }
     })();

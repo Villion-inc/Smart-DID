@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getNewArrivals, getVideoStatus } from '../../api/did.api';
+import { getNewArrivals, getVideoStatus, getPopularVideos } from '../../api/did.api';
 import type { DidBook } from '../../types';
 import { DidV2Layout } from './DidV2Layout';
 
@@ -20,18 +20,20 @@ function resolveVideoUrl(url: string): string {
   return `${API_BASE_URL}/videos/${url.replace(/^\//, '')}`;
 }
 
-type ShelfFilter = 'all' | 'children' | 'teen';
+type ShelfFilter = 'all' | 'children' | 'teen' | 'general';
 
-const SHELF_FILTERS: { key: ShelfFilter; label: string }[] = [
-  { key: 'all', label: '전체' },
-  { key: 'children', label: '어린이' },
-  { key: 'teen', label: '청소년' },
+const SHELF_FILTERS: { key: ShelfFilter; label: string; color: string; bg: string; border: string }[] = [
+  { key: 'all',      label: '전체',   color: '#3B7A6A', bg: 'rgba(200,228,218,0.7)',  border: 'rgba(80,150,130,0.3)' },
+  { key: 'children', label: '어린이', color: '#5A7BAA', bg: 'rgba(200,218,238,0.7)',  border: 'rgba(90,123,170,0.3)' },
+  { key: 'teen',     label: '청소년', color: '#8A6F9E', bg: 'rgba(225,210,235,0.7)',  border: 'rgba(138,111,158,0.3)' },
+  { key: 'general',  label: '일반',   color: '#A06050', bg: 'rgba(238,220,210,0.7)',  border: 'rgba(160,96,80,0.3)'  },
 ];
 
 function filterByShelf(books: DidBook[], filter: ShelfFilter): DidBook[] {
   if (filter === 'all') return books;
   if (filter === 'children') return books.filter(b => b.shelfCode.includes('1층'));
   if (filter === 'teen') return books.filter(b => b.shelfCode.includes('청소년'));
+  if (filter === 'general') return books.filter(b => !b.shelfCode.includes('1층') && !b.shelfCode.includes('청소년'));
   return books;
 }
 
@@ -39,8 +41,8 @@ const PAGE_SIZE = 20;
 
 /**
  * 새로 들어온 책 (키오스크 세로 화면)
- * 상단: 영상이 있는 신착도서 자동 재생
- * 하단: 연령 필터 + 20권씩 페이지네이션
+ * 초기: 영상 자동재생 + 연령 카테고리 2×2 버튼
+ * 선택 후: 영상 + 도서 목록 + 하단 컴팩트 카테고리 버튼
  */
 export function DidV2NewArrivals() {
   const navigate = useNavigate();
@@ -51,7 +53,7 @@ export function DidV2NewArrivals() {
   const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
-  const [shelfFilter, setShelfFilter] = useState<ShelfFilter>('all');
+  const [activeFilter, setActiveFilter] = useState<ShelfFilter | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,9 +64,9 @@ export function DidV2NewArrivals() {
         if (cancelled) return;
         setAllBooks(list);
 
-        // 각 책의 영상 상태 확인
+        // 최대 20권에서 영상 상태 확인
         const videoResults = await Promise.all(
-          list.slice(0, 8).map(async (book) => {
+          list.slice(0, 20).map(async (book) => {
             try {
               const status = await getVideoStatus(book.id);
               if (status.status === 'READY' && status.videoUrl) {
@@ -74,8 +76,23 @@ export function DidV2NewArrivals() {
             return null;
           })
         );
+        const found = videoResults.filter((r): r is BookWithVideo => r !== null);
         if (!cancelled) {
-          setBooksWithVideo(videoResults.filter((r): r is BookWithVideo => r !== null));
+          if (found.length > 0) {
+            setBooksWithVideo(found);
+          } else {
+            // 신착도서에 영상 없으면 인기 영상 폴백
+            try {
+              const popular = await getPopularVideos(10);
+              const fallback: BookWithVideo[] = popular
+                .filter(v => v.videoUrl)
+                .map(v => ({
+                  book: { id: v.bookId, title: v.title, author: v.author, coverImageUrl: v.coverImageUrl, shelfCode: '', category: '' },
+                  videoUrl: v.videoUrl,
+                }));
+              if (!cancelled) setBooksWithVideo(fallback);
+            } catch { /* ignore */ }
+          }
         }
       } catch {
         if (!cancelled) setAllBooks([]);
@@ -85,7 +102,6 @@ export function DidV2NewArrivals() {
     return () => { cancelled = true; };
   }, []);
 
-  // 랜덤 다음 영상
   const handleVideoEnded = useCallback(() => {
     if (booksWithVideo.length <= 1) return;
     setCurrentVideoIdx(prev => {
@@ -95,7 +111,6 @@ export function DidV2NewArrivals() {
     });
   }, [booksWithVideo.length]);
 
-  // 최초 랜덤 시작
   useEffect(() => {
     if (booksWithVideo.length > 0) {
       setCurrentVideoIdx(Math.floor(Math.random() * booksWithVideo.length));
@@ -109,41 +124,42 @@ export function DidV2NewArrivals() {
     }
   }, [currentVideoIdx, booksWithVideo]);
 
-  const currentVideo = booksWithVideo.length > 0 ? booksWithVideo[currentVideoIdx] : null;
-
-  const filteredBooks = filterByShelf(allBooks, shelfFilter);
-  const totalPages = Math.ceil(filteredBooks.length / PAGE_SIZE);
-  const pagedBooks = filteredBooks.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-
   const handleFilterChange = (f: ShelfFilter) => {
-    setShelfFilter(f);
+    setActiveFilter(f);
     setPage(0);
   };
 
-  const filterBar = (
+  const currentVideo = booksWithVideo.length > 0 ? booksWithVideo[currentVideoIdx] : null;
+  const filteredBooks = activeFilter ? filterByShelf(allBooks, activeFilter) : [];
+  const totalPages = Math.ceil(filteredBooks.length / PAGE_SIZE);
+  const pagedBooks = filteredBooks.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  // 카테고리 선택 후 하단 컴팩트 버튼 (2×2) — 홈 버튼은 하단 네비에 이미 있으므로 제외
+  const compactFooter = (
     <div
-      className="flex w-full shrink-0 gap-2 px-3 pb-2 pt-2 sm:px-4"
+      className="grid w-full shrink-0 grid-cols-2 gap-2 px-3 pb-3 pt-2 sm:px-4"
       style={{
-        background: 'rgba(255,255,255,0.4)',
+        background: 'rgba(255,255,255,0.45)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
         borderTop: '1px solid rgba(255,255,255,0.5)',
       }}
     >
       {SHELF_FILTERS.map((f) => {
-        const active = shelfFilter === f.key;
+        const active = activeFilter === f.key;
         return (
           <button
             key={f.key}
             type="button"
             onClick={() => handleFilterChange(f.key)}
-            className="flex-1 py-2.5 text-sm font-bold transition active:scale-95 sm:py-3 sm:text-base"
+            className="py-3 text-sm font-bold transition active:scale-95 sm:text-base"
             style={{
-              borderRadius: '0.8rem',
-              background: active ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.4)',
-              color: active ? '#2D5A4A' : '#7a8a80',
-              boxShadow: active ? '0 2px 8px rgba(60,90,70,0.12), inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
-              border: active ? '1.5px solid rgba(60,90,70,0.15)' : '1.5px solid transparent',
+              borderRadius: '0.9rem',
+              background: active ? 'rgba(255,255,255,0.9)' : f.bg,
+              color: f.color,
+              boxShadow: active ? `0 2px 10px ${f.border}, inset 0 1px 0 rgba(255,255,255,0.6)` : 'none',
+              border: active ? `2px solid ${f.border}` : `1.5px solid ${f.border}`,
+              fontWeight: active ? 800 : 600,
             }}
           >
             {f.label}
@@ -154,138 +170,188 @@ export function DidV2NewArrivals() {
   );
 
   return (
-    <DidV2Layout title="새로 들어온 책" extraFooter={filterBar}>
-      <div className="flex flex-1 flex-col py-4">
-        {/* 상단: 영상 자동 재생 */}
-        {currentVideo && (
-          <div
-            className="relative -mx-4 mb-4 w-[calc(100%+2rem)] shrink-0 overflow-hidden bg-black sm:-mx-6 sm:w-[calc(100%+3rem)]"
-            style={{ aspectRatio: '16/9' }}
-          >
-            <video
-              ref={videoRef}
-              src={resolveVideoUrl(currentVideo.videoUrl)}
-              autoPlay
-              muted
-              playsInline
-              onEnded={handleVideoEnded}
-              className="h-full w-full object-cover"
-            />
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-              <p className="text-lg font-bold text-white sm:text-xl">{currentVideo.book.title}</p>
-              <p className="text-sm text-gray-200 sm:text-base">{currentVideo.book.author}</p>
+    <DidV2Layout
+      title="새로 들어온 책"
+      extraFooter={activeFilter !== null ? compactFooter : undefined}
+    >
+      <div className={`flex flex-1 flex-col ${activeFilter === null ? 'gap-4' : 'gap-3'} py-2`}>
+        {/* 상단: 영상 영역 — 항상 표시 */}
+        <div
+          className="relative -mx-4 w-[calc(100%+2rem)] shrink-0 overflow-hidden bg-gray-900 sm:-mx-6 sm:w-[calc(100%+3rem)]"
+          style={{ aspectRatio: '16/9' }}
+        >
+          {currentVideo ? (
+            <>
+              <video
+                ref={videoRef}
+                src={resolveVideoUrl(currentVideo.videoUrl)}
+                autoPlay
+                muted
+                playsInline
+                onEnded={handleVideoEnded}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                <p className="text-lg font-bold text-white sm:text-xl">{currentVideo.book.title}</p>
+                <p className="text-sm text-gray-200 sm:text-base">{currentVideo.book.author}</p>
+              </div>
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-sm text-white/40">영상 준비 중...</p>
+            </div>
+          )}
+        </div>
+
+        {/* ── 카테고리 미선택: 대형 2×2 버튼 (로딩 중에도 표시) ── */}
+        {activeFilter === null && (
+          <div className="flex flex-1 flex-col gap-3">
+            <p className="shrink-0 text-center text-base font-semibold text-gray-600 sm:text-lg">
+              어떤 책을 보고 싶으신가요?
+            </p>
+            <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-3">
+              {SHELF_FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => handleFilterChange(f.key)}
+                  className="flex flex-col items-center justify-center gap-1.5 transition active:scale-[0.96]"
+                  style={{
+                    borderRadius: '1.4rem',
+                    background: f.bg,
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    boxShadow: `0 4px 16px ${f.border}, inset 0 1px 0 rgba(255,255,255,0.5)`,
+                    border: `2px solid ${f.border}`,
+                  }}
+                >
+                  <span className="text-2xl font-extrabold sm:text-3xl" style={{ color: f.color }}>
+                    {f.label}
+                  </span>
+                  <span className="text-xs text-gray-500 sm:text-sm">
+                    {f.key === 'all' ? '전체 신착도서' :
+                     f.key === 'children' ? '어린이 구역 (1층)' :
+                     f.key === 'teen' ? '청소년 구역' : '일반 구역'}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
         )}
 
-        {/* 페이지 안내 */}
-        <div className="mb-3 flex shrink-0 items-center justify-between">
-          <p className="text-base font-bold text-gray-700 sm:text-lg">
-            이번 주 새로 들어온 책이에요!
-          </p>
-          {totalPages > 1 && (
-            <p className="text-sm text-gray-500">
-              {page + 1} / {totalPages}
-            </p>
-          )}
-        </div>
-
-        {/* 도서 목록 */}
-        <div className="flex flex-1 flex-col gap-3 overflow-auto sm:gap-4">
-          {loading && (
-            <div className="flex flex-1 items-center justify-center">
-              <p className="text-base text-gray-500 sm:text-lg">불러오는 중...</p>
-            </div>
-          )}
-          {!loading && filteredBooks.length === 0 && (
-            <div className="flex flex-1 items-center justify-center">
-              <p className="text-base text-gray-500 sm:text-lg">
-                {shelfFilter === 'all' ? '신착 도서가 없습니다.' : '해당 연령대 신착 도서가 없습니다.'}
+        {/* ── 카테고리 선택 후: 도서 목록 ── */}
+        {activeFilter !== null && (
+          <>
+            {/* 페이지 안내 */}
+            <div className="flex shrink-0 items-center justify-between">
+              <p className="text-base font-bold text-gray-700 sm:text-lg">
+                이번 주 새로 들어온 책이에요!
               </p>
+              {totalPages > 1 && (
+                <p className="text-sm text-gray-500">
+                  {page + 1} / {totalPages}
+                </p>
+              )}
             </div>
-          )}
-          {!loading &&
-            pagedBooks.map((book) => (
-              <button
-                key={book.id}
-                type="button"
-                onClick={() => navigate(`/did/video/${book.id}`)}
-                className="flex w-full items-center gap-3 p-3 text-left transition active:scale-[0.98] sm:gap-4 sm:p-4"
-                style={{
-                  borderRadius: '1.2rem',
-                  background: 'rgba(255,255,255,0.55)',
-                  backdropFilter: 'blur(6px)',
-                  WebkitBackdropFilter: 'blur(6px)',
-                  boxShadow: '0 2px 10px rgba(60,90,70,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
-                  border: '1.5px solid rgba(255,255,255,0.6)',
-                }}
-              >
-                <div className="relative h-20 w-14 shrink-0 sm:h-24 sm:w-16">
-                  <div
-                    className="h-full w-full rounded-lg"
+
+            {/* 도서 목록 */}
+            <div className="flex flex-1 flex-col gap-3 overflow-auto sm:gap-4">
+              {loading && (
+                <div className="flex flex-1 items-center justify-center">
+                  <p className="text-base text-gray-500 sm:text-lg">불러오는 중...</p>
+                </div>
+              )}
+              {!loading && filteredBooks.length === 0 && (
+                <div className="flex flex-1 items-center justify-center">
+                  <p className="text-base text-gray-500 sm:text-lg">
+                    해당 구역 신착 도서가 없습니다.
+                  </p>
+                </div>
+              )}
+              {!loading &&
+                pagedBooks.map((book) => (
+                  <button
+                    key={book.id}
+                    type="button"
+                    onClick={() => navigate(`/did/video/${book.id}`)}
+                    className="flex w-full items-center gap-3 p-3 text-left transition active:scale-[0.98] sm:gap-4 sm:p-4"
                     style={{
-                      background: book.coverImageUrl
-                        ? `url(${book.coverImageUrl}) center/cover no-repeat`
-                        : 'linear-gradient(180deg, #FFE5A0 0%, #FFD966 100%)',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                      borderRadius: '1.2rem',
+                      background: 'rgba(255,255,255,0.55)',
+                      backdropFilter: 'blur(6px)',
+                      WebkitBackdropFilter: 'blur(6px)',
+                      boxShadow: '0 2px 10px rgba(60,90,70,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
+                      border: '1.5px solid rgba(255,255,255,0.6)',
                     }}
                   >
-                    {!book.coverImageUrl && (
-                      <div className="flex h-full w-full items-center justify-center text-2xl">📚</div>
-                    )}
-                  </div>
-                  <div
-                    className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white sm:h-6 sm:w-6 sm:text-xs"
-                    style={{ background: '#FF6B6B' }}
-                  >
-                    N
-                  </div>
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-base font-bold text-gray-800 sm:text-lg">
-                    {book.title}
-                  </span>
-                  <span className="mt-0.5 truncate text-sm text-gray-600 sm:text-base">
-                    {book.author}
-                  </span>
-                  <div className="mt-1 flex flex-wrap gap-1 sm:gap-2">
-                    <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700 sm:text-sm">
-                      신작
-                    </span>
-                    {book.shelfCode && (
-                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600 sm:text-sm">
-                        {book.shelfCode}
+                    <div className="relative h-20 w-14 shrink-0 sm:h-24 sm:w-16">
+                      <div
+                        className="h-full w-full rounded-lg"
+                        style={{
+                          background: book.coverImageUrl
+                            ? `url(${book.coverImageUrl}) center/cover no-repeat`
+                            : 'linear-gradient(180deg, #FFE5A0 0%, #FFD966 100%)',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                        }}
+                      >
+                        {!book.coverImageUrl && (
+                          <div className="flex h-full w-full items-center justify-center text-2xl">📚</div>
+                        )}
+                      </div>
+                      <div
+                        className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white sm:h-6 sm:w-6 sm:text-xs"
+                        style={{ background: '#FF6B6B' }}
+                      >
+                        N
+                      </div>
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-base font-bold text-gray-800 sm:text-lg">
+                        {book.title}
                       </span>
-                    )}
-                  </div>
-                </div>
-                <span className="text-xl text-gray-400 sm:text-2xl">›</span>
-              </button>
-            ))}
-        </div>
+                      <span className="mt-0.5 truncate text-sm text-gray-600 sm:text-base">
+                        {book.author}
+                      </span>
+                      <div className="mt-1 flex flex-wrap gap-1 sm:gap-2">
+                        <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700 sm:text-sm">
+                          신작
+                        </span>
+                        {book.shelfCode && (
+                          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600 sm:text-sm">
+                            {book.shelfCode}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xl text-gray-400 sm:text-2xl">›</span>
+                  </button>
+                ))}
+            </div>
 
-        {/* 페이지네이션 버튼 */}
-        {!loading && totalPages > 1 && (
-          <div className="flex shrink-0 gap-3 pt-4">
-            <button
-              type="button"
-              disabled={page === 0}
-              onClick={() => setPage(p => p - 1)}
-              className="flex h-14 flex-1 items-center justify-center rounded-2xl text-base font-bold transition active:scale-95 disabled:opacity-30 sm:h-16 sm:text-lg"
-              style={{ background: 'rgba(255,255,255,0.8)' }}
-            >
-              ← 이전
-            </button>
-            <button
-              type="button"
-              disabled={page >= totalPages - 1}
-              onClick={() => setPage(p => p + 1)}
-              className="flex h-14 flex-1 items-center justify-center rounded-2xl text-base font-bold text-white transition active:scale-95 disabled:opacity-30 sm:h-16 sm:text-lg"
-              style={{ background: 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)' }}
-            >
-              다음 →
-            </button>
-          </div>
+            {/* 페이지네이션 버튼 */}
+            {!loading && totalPages > 1 && (
+              <div className="flex shrink-0 gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={page === 0}
+                  onClick={() => setPage(p => p - 1)}
+                  className="flex h-12 flex-1 items-center justify-center rounded-2xl text-base font-bold transition active:scale-95 disabled:opacity-30 sm:h-14 sm:text-lg"
+                  style={{ background: 'rgba(255,255,255,0.8)' }}
+                >
+                  ← 이전
+                </button>
+                <button
+                  type="button"
+                  disabled={page >= totalPages - 1}
+                  onClick={() => setPage(p => p + 1)}
+                  className="flex h-12 flex-1 items-center justify-center rounded-2xl text-base font-bold text-white transition active:scale-95 disabled:opacity-30 sm:h-14 sm:text-lg"
+                  style={{ background: 'linear-gradient(180deg, #A8D8EA 0%, #8BC9E0 100%)' }}
+                >
+                  다음 →
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </DidV2Layout>

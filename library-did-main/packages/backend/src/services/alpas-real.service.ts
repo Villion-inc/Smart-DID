@@ -384,9 +384,12 @@ export class AlpasRealService {
         if (t.includes(kw)) return 2;              // 제목 내 포함
         return 3;                                  // 미포함
       };
-      // 제목에서 권수 추출 (예: "해리포터 1권" → 1)
+      // 제목에서 권수 추출 (예: "해리포터 1권", "제3권", "1", 끝 숫자 등)
       const volNumber = (title: string): number => {
-        const m = title.match(/(\d+)\s*권/);
+        const m =
+          title.match(/제?\s*(\d+)\s*권/) ||   // "1권", "제1권"
+          title.match(/\s(\d+)\s*$/) ||          // 끝에 오는 숫자
+          title.match(/\((\d+)\)/);              // "(1)"
         return m ? parseInt(m[1], 10) : 999;
       };
       const authorScore = (author: string): number =>
@@ -400,6 +403,8 @@ export class AlpasRealService {
         const va = volNumber(a.title);
         const vb = volNumber(b.title);
         if (va !== vb) return va - vb;
+        // 제목 길이 오름차순 (짧은 제목 = 더 정확한 매치)
+        if (a.title.length !== b.title.length) return a.title.length - b.title.length;
         // 저자명 일치 여부
         return authorScore(a.author) - authorScore(b.author);
       });
