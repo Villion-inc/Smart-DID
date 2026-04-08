@@ -132,15 +132,8 @@ export function DidV2BookDetail() {
 
         {/* ── 영상 플레이어 (좌우 마진 없이 꽉 차게) ── */}
         <div
-          className="relative shrink-0 overflow-hidden"
-          style={{
-            aspectRatio: '16/9',
-            background: '#1a1a2e',
-            marginLeft: '-1rem',
-            marginRight: '-1rem',
-            marginTop: '-0.5rem',
-            width: 'calc(100% + 2rem)',
-          }}
+          className="relative -mx-4 -mt-2 w-[calc(100%+2rem)] shrink-0 overflow-hidden sm:-mx-6 sm:w-[calc(100%+3rem)]"
+          style={{ aspectRatio: '16/9', background: '#1a1a2e' }}
         >
           {resolvedVideoUrl && videoStatus === 'READY' ? (
             <>
