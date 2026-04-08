@@ -22,17 +22,24 @@ function resolveVideoUrl(url: string): string {
 
 type ShelfFilter = 'all' | 'children' | 'teen' | 'general';
 
-const SHELF_FILTERS: { key: ShelfFilter; label: string; color: string; bg: string; border: string }[] = [
+// 초기 그리드 (3개: 전체 full-width + 어린이/청소년 2열)
+const GRID_FILTERS: { key: ShelfFilter; label: string; color: string; bg: string; border: string }[] = [
   { key: 'all',      label: '전체',   color: '#3B7A6A', bg: 'rgba(200,228,218,0.7)',  border: 'rgba(80,150,130,0.3)' },
   { key: 'children', label: '어린이', color: '#5A7BAA', bg: 'rgba(200,218,238,0.7)',  border: 'rgba(90,123,170,0.3)' },
   { key: 'teen',     label: '청소년', color: '#8A6F9E', bg: 'rgba(225,210,235,0.7)',  border: 'rgba(138,111,158,0.3)' },
-  { key: 'general',  label: '일반',   color: '#A06050', bg: 'rgba(238,220,210,0.7)',  border: 'rgba(160,96,80,0.3)'  },
+];
+
+// 선택 후 컴팩트 푸터 (3개 일렬)
+const COMPACT_FILTERS: { key: ShelfFilter; label: string; color: string; bg: string; border: string }[] = [
+  { key: 'all',      label: '전체',   color: '#3B7A6A', bg: 'rgba(200,228,218,0.7)',  border: 'rgba(80,150,130,0.3)' },
+  { key: 'children', label: '어린이', color: '#5A7BAA', bg: 'rgba(200,218,238,0.7)',  border: 'rgba(90,123,170,0.3)' },
+  { key: 'teen',     label: '청소년', color: '#8A6F9E', bg: 'rgba(225,210,235,0.7)',  border: 'rgba(138,111,158,0.3)' },
 ];
 
 function filterByShelf(books: DidBook[], filter: ShelfFilter): DidBook[] {
   if (filter === 'all') return books;
   if (filter === 'children') return books.filter(b => b.shelfCode.includes('1층'));
-  if (filter === 'teen') return books.filter(b => b.shelfCode.includes('청소년'));
+  if (filter === 'teen') return books.filter(b => !b.shelfCode.includes('1층'));
   if (filter === 'general') return books.filter(b => !b.shelfCode.includes('1층') && !b.shelfCode.includes('청소년'));
   return books;
 }
@@ -97,7 +104,11 @@ export function DidV2NewArrivals() {
       } catch {
         if (!cancelled) setAllBooks([]);
       }
-      if (!cancelled) setLoading(false);
+      if (!cancelled) {
+        setLoading(false);
+        // 디버그: shelfCode 분포 확인
+        console.log('[NewArrivals] shelfCodes:', [...new Set(allBooks.map(b => b.shelfCode))]);
+      }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -134,10 +145,10 @@ export function DidV2NewArrivals() {
   const totalPages = Math.ceil(filteredBooks.length / PAGE_SIZE);
   const pagedBooks = filteredBooks.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  // 카테고리 선택 후 하단 컴팩트 버튼 (2×2) — 홈 버튼은 하단 네비에 이미 있으므로 제외
+  // 카테고리 선택 후 하단 컴팩트 버튼 (3개 한 줄) — 홈 버튼은 하단 네비에 이미 있으므로 제외
   const compactFooter = (
     <div
-      className="grid w-full shrink-0 grid-cols-2 gap-2 px-3 pb-3 pt-2 sm:px-4"
+      className="flex w-full shrink-0 gap-2 px-3 pb-3 pt-2 sm:px-4"
       style={{
         background: 'rgba(255,255,255,0.45)',
         backdropFilter: 'blur(8px)',
@@ -145,14 +156,14 @@ export function DidV2NewArrivals() {
         borderTop: '1px solid rgba(255,255,255,0.5)',
       }}
     >
-      {SHELF_FILTERS.map((f) => {
+      {COMPACT_FILTERS.map((f) => {
         const active = activeFilter === f.key;
         return (
           <button
             key={f.key}
             type="button"
             onClick={() => handleFilterChange(f.key)}
-            className="py-3 text-sm font-bold transition active:scale-95 sm:text-base"
+            className="flex-1 py-3 text-sm font-bold transition active:scale-95 sm:text-base"
             style={{
               borderRadius: '0.9rem',
               background: active ? 'rgba(255,255,255,0.9)' : f.bg,
@@ -203,21 +214,21 @@ export function DidV2NewArrivals() {
           )}
         </div>
 
-        {/* ── 카테고리 미선택: 대형 2×2 버튼 (로딩 중에도 표시) ── */}
+        {/* ── 카테고리 미선택: 완전한 2×2 그리드 ── */}
         {activeFilter === null && (
-          <div className="flex flex-1 flex-col gap-3">
-            <p className="shrink-0 text-center text-base font-semibold text-gray-600 sm:text-lg">
+          <div className="flex flex-col gap-3">
+            <p className="text-center text-sm font-semibold text-gray-600 sm:text-base">
               어떤 책을 보고 싶으신가요?
             </p>
-            <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-3">
-              {SHELF_FILTERS.map((f) => (
+            <div className="grid grid-cols-2 gap-3">
+              {GRID_FILTERS.map((f) => (
                 <button
                   key={f.key}
                   type="button"
                   onClick={() => handleFilterChange(f.key)}
-                  className="flex flex-col items-center justify-center gap-1.5 transition active:scale-[0.96]"
+                  className="flex items-center justify-center py-10 transition active:scale-[0.96] sm:py-12"
                   style={{
-                    borderRadius: '1.4rem',
+                    borderRadius: '1.2rem',
                     background: f.bg,
                     backdropFilter: 'blur(8px)',
                     WebkitBackdropFilter: 'blur(8px)',
@@ -227,11 +238,6 @@ export function DidV2NewArrivals() {
                 >
                   <span className="text-2xl font-extrabold sm:text-3xl" style={{ color: f.color }}>
                     {f.label}
-                  </span>
-                  <span className="text-xs text-gray-500 sm:text-sm">
-                    {f.key === 'all' ? '전체 신착도서' :
-                     f.key === 'children' ? '어린이 구역 (1층)' :
-                     f.key === 'teen' ? '청소년 구역' : '일반 구역'}
                   </span>
                 </button>
               ))}
