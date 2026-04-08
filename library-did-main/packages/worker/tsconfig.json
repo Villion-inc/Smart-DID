@@ -7,8 +7,5 @@
     "resolveJsonModule": true
   },
   "include": ["src/**/*", "src/**/*.json"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"],
-  "references": [
-    { "path": "../shared" }
-  ]
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

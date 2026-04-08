@@ -2,13 +2,13 @@ import { Worker, Job } from 'bullmq';
 import { VideoJobData, VideoGenerationRequest } from '@smart-did/shared';
 import { config } from './config';
 import { logger } from './config/logger';
-import { PipelineOrchestratorV7 } from './pipeline/orchestrator-v7';
+import { PipelineOrchestratorV8 } from './pipeline/orchestrator-v8';
 import { notifyBackendVideoCallback } from './services/backend-callback.service';
 
 const QUEUE_NAME = 'video-generation';
 
-/** Pipeline V7: 12s Short Trailer (3×4s Sora + crossfade) */
-const pipelineOrchestrator = new PipelineOrchestratorV7();
+/** Pipeline V8: 26s Trailer (Python video-engine-v8) */
+const pipelineOrchestrator = new PipelineOrchestratorV8();
 
 /**
  * Job 데이터(VideoJobData) → 파이프라인 입력(VideoGenerationRequest) 변환
@@ -58,15 +58,21 @@ export async function createWorker(): Promise<Worker> {
         const request = toVideoGenerationRequest(job.data);
         const result = await pipelineOrchestrator.execute(request);
 
-        if (result.status === 'completed') {
+        if (result.status === 'completed' && result.videoUrl) {
           await notifyBackendVideoCallback({
             bookId,
             status: 'READY',
             videoUrl: result.videoUrl,
-            subtitleUrl: result.subtitleUrl,
           });
           logger.info(`Job ${job.id} completed successfully`);
           return { success: true, videoUrl: result.videoUrl };
+        } else if (result.status === 'completed') {
+          await notifyBackendVideoCallback({
+            bookId,
+            status: 'FAILED',
+            errorMessage: 'Video generated but storage upload failed',
+          });
+          throw new Error('Video generated but storage upload failed');
         } else {
           await notifyBackendVideoCallback({
             bookId,

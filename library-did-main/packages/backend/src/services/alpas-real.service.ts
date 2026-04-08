@@ -374,12 +374,34 @@ export class AlpasRealService {
       const books = list.map((book, index) =>
         this.mapAnyToBook(book as Record<string, unknown>, String(index))
       );
-      // 제목에 키워드가 포함된 책을 우선 정렬
+
+      // 검색 순위 정렬
       const kw = keyword.trim().toLowerCase();
+      const titleScore = (title: string): number => {
+        const t = title.toLowerCase();
+        if (t === kw) return 0;                    // 완전 일치
+        if (t.startsWith(kw)) return 1;            // 제목 앞에서 시작 (prefix)
+        if (t.includes(kw)) return 2;              // 제목 내 포함
+        return 3;                                  // 미포함
+      };
+      // 제목에서 권수 추출 (예: "해리포터 1권" → 1)
+      const volNumber = (title: string): number => {
+        const m = title.match(/(\d+)\s*권/);
+        return m ? parseInt(m[1], 10) : 999;
+      };
+      const authorScore = (author: string): number =>
+        author.toLowerCase().includes(kw) ? 0 : 1;
+
       books.sort((a, b) => {
-        const aTitle = a.title.toLowerCase().includes(kw) ? 0 : 1;
-        const bTitle = b.title.toLowerCase().includes(kw) ? 0 : 1;
-        return aTitle - bTitle;
+        const sa = titleScore(a.title);
+        const sb = titleScore(b.title);
+        if (sa !== sb) return sa - sb;
+        // 같은 그룹 내에서 권수 오름차순 (1권 → 2권 → ...)
+        const va = volNumber(a.title);
+        const vb = volNumber(b.title);
+        if (va !== vb) return va - vb;
+        // 저자명 일치 여부
+        return authorScore(a.author) - authorScore(b.author);
       });
       // 검색 결과를 캐시에 저장
       books.forEach((book) => this.cacheBook(book));
@@ -547,7 +569,7 @@ export class AlpasRealService {
       );
       
       const allBooks: Book[] = [];
-      results.forEach((list, keywordIndex) => {
+      results.forEach((list, _keywordIndex) => {
         list.slice(0, 5).forEach((item, i) => 
           allBooks.push(this.mapAnyToBook(item as Record<string, unknown>, String(allBooks.length + i)))
         );

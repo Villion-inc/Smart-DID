@@ -39,7 +39,6 @@ temp/
 *.tmp
 
 # Docker
-.dockerignore
 
 # Redis dump
 dump.rdb

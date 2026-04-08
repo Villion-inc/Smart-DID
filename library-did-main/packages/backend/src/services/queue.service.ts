@@ -111,7 +111,13 @@ export class QueueService {
       }
     }
 
-    // 2. DB에 QUEUED 상태로 기록
+    // 2. 큐 활성화 여부 먼저 확인 (비활성화면 DB 기록도 하지 않음)
+    if (!this.isQueueEnabled()) {
+      console.warn('[QueueService] Queue not initialized, skipping video job');
+      return null;
+    }
+
+    // 3. DB에 QUEUED 상태로 기록
     const expiresAt = this.calculateExpiryDate();
     await videoRepository.upsert(
       bookId,
@@ -140,12 +146,7 @@ export class QueueService {
       }
     );
 
-    // 3. 큐에 작업 추가
-    if (!this.isQueueEnabled()) {
-      console.warn('[QueueService] Queue not initialized, skipping queue add');
-      return null;
-    }
-
+    // 4. 큐에 작업 추가
     try {
       const job = await this.queue!.add(QUEUE_NAME, jobData, {
         priority,
@@ -155,6 +156,8 @@ export class QueueService {
       return job.id || null;
     } catch (error) {
       console.error('[QueueService] Failed to add job:', error);
+      // 큐 추가 실패 시 DB 상태도 롤백
+      await videoRepository.update(bookId, { status: 'NONE', errorMessage: 'Queue add failed' });
       return null;
     }
   }
@@ -282,7 +285,7 @@ export class QueueService {
 
       if (this.isQueueEnabled()) {
         try {
-          const job = await this.queue!.getJob(bookId);
+          const job = await this.queue!.getJob(`book-${bookId}`);
           if (job) {
             await job.remove();
           }
@@ -310,7 +313,7 @@ export class QueueService {
 
       if (this.isQueueEnabled()) {
         try {
-          const job = await this.queue!.getJob(bookId);
+          const job = await this.queue!.getJob(`book-${bookId}`);
           if (job) {
             await job.retry();
           }

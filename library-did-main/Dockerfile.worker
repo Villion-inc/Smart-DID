@@ -19,18 +19,26 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# FFmpeg + 한글 폰트 (drawtext 자막 오버레이용)
-RUN apk add --no-cache ffmpeg fontconfig curl \
+# FFmpeg + Python3 + 한글 폰트
+RUN apk add --no-cache ffmpeg fontconfig curl python3 py3-pip py3-requests \
     && mkdir -p /usr/share/fonts/truetype/nanum \
     && curl -sL -o /usr/share/fonts/truetype/nanum/NanumGothic.ttf "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Regular.ttf" \
     && curl -sL -o /usr/share/fonts/truetype/nanum/NanumGothicBold.ttf "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf" \
     && fc-cache -f \
     && apk del curl
 
+# Python 패키지 (V8 영상 엔진)
+RUN pip3 install --no-cache-dir --break-system-packages \
+    google-genai \
+    Pillow
+
 COPY --from=builder /app/packages/worker/dist ./dist
 COPY --from=builder /app/packages/shared/dist ./shared
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/worker/package*.json ./
+
+# V8 Python 영상 엔진
+COPY video-engine-v8 ./video-engine-v8
 
 ENV NODE_ENV=production
 

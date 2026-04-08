@@ -3,11 +3,12 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["node", "jest"]
+    "types": ["node", "jest"],
+    "paths": {
+      "@smart-did/shared": ["../shared/dist/index.d.ts"],
+      "@smart-did/shared/*": ["../shared/dist/*"]
+    }
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "src/app.ts", "src/middleware/error.middleware.ts", "src/routes/recommendation.routes.ts"],
-  "references": [
-    { "path": "../shared" }
-  ]
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "src/app.ts", "src/middleware/error.middleware.ts", "src/routes/recommendation.routes.ts"]
 }

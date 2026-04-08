@@ -24,9 +24,18 @@ NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", "")
 DATA4LIB_KEY = os.environ.get("DATA4LIBRARY_AUTH_KEY", "")
 ALADIN_KEY = os.environ.get("ALADIN_TTB_KEY", "")
 
-# ── 책 설정 ──
-BOOK_TITLE = "마당을 나온 암탉"
-BOOK_AUTHOR = "황선미"
+# ── CLI 인자 (worker에서 호출 시) ──
+import argparse
+_parser = argparse.ArgumentParser(add_help=False)
+_parser.add_argument("--title", default="")
+_parser.add_argument("--author", default="")
+_parser.add_argument("--output", default="")  # 최종 mp4 저장 경로
+_args, _ = _parser.parse_known_args()
+
+# ── 책 설정 (CLI > 기본값) ──
+BOOK_TITLE = _args.title or "마당을 나온 암탉"
+BOOK_AUTHOR = _args.author or "황선미"
+OUTPUT_PATH = _args.output or ""  # 지정 시 해당 경로로 최종 파일 복사
 
 OUT_DIR = Path(__file__).parent / "output" / BOOK_TITLE.replace(" ", "_")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -34,7 +43,12 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 client = genai.Client(api_key=GOOGLE_API_KEY)
 time_log = {}
 
-FONT = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
+# 폰트: Docker 환경 fallback
+FONT = next((f for f in [
+    "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+    "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+    "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+] if Path(f).exists()), "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
 
 
 def log_step(name):
@@ -545,11 +559,19 @@ def main():
 
     final = assemble_video(scenario, video_paths, BOOK_TITLE)
 
+    # --output 지정 시 해당 경로로 복사
+    if OUTPUT_PATH:
+        import shutil
+        shutil.copy2(str(final), OUTPUT_PATH)
+        final = Path(OUTPUT_PATH)
+
     total_elapsed = time.time() - total_start
     print(f"\n{'='*60}")
     print(f"  ✅ 완료!")
     print(f"{'='*60}")
     print(f"  최종 영상: {final}")
+    # worker가 파싱할 수 있도록 마지막 줄에 경로 출력
+    print(f"OUTPUT_FILE={final}")
     print(f"  총 소요: {total_elapsed:.0f}초 ({total_elapsed/60:.1f}분)")
     print()
     print("  [구조]")

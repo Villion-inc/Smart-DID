@@ -1,4 +1,5 @@
 import winston from 'winston';
+import fs from 'fs';
 import { config } from './index';
 
 const logLevel = config.nodeEnv === 'production' ? 'info' : 'debug';
@@ -21,6 +22,7 @@ export const logger = winston.createLogger({
 });
 
 if (config.nodeEnv === 'production') {
+  fs.mkdirSync('logs', { recursive: true });
   logger.add(
     new winston.transports.File({ filename: 'logs/error.log', level: 'error' })
   );

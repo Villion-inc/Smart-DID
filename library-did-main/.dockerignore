@@ -1,0 +1,48 @@
+# Dependencies (각 Dockerfile에서 npm install로 설치)
+node_modules/
+**/node_modules/
+
+# Build outputs (multi-stage build에서 컴파일)
+# shared/dist는 포함 (타입 선언 파일 필요)
+packages/backend/dist/
+packages/worker/dist/
+packages/frontend/dist/
+build/
+**/build/
+*.tsbuildinfo
+
+# 환경변수 (docker-compose에서 주입)
+.env
+.env.local
+.env.*.local
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 로그
+logs/
+*.log
+
+# Git
+.git/
+.gitignore
+
+# 테스트
+**/__tests__/
+**/*.test.ts
+**/*.spec.ts
+
+# 임시/출력
+video-engine-v8/output/
+scripts/
+*.sh
+*.csv
+
+# 문서
+*.md

@@ -120,8 +120,41 @@ export function DidV2NewArrivals() {
     setPage(0);
   };
 
+  const filterBar = (
+    <div
+      className="flex w-full shrink-0 gap-2 px-3 pb-2 pt-2 sm:px-4"
+      style={{
+        background: 'rgba(255,255,255,0.4)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        borderTop: '1px solid rgba(255,255,255,0.5)',
+      }}
+    >
+      {SHELF_FILTERS.map((f) => {
+        const active = shelfFilter === f.key;
+        return (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => handleFilterChange(f.key)}
+            className="flex-1 py-2.5 text-sm font-bold transition active:scale-95 sm:py-3 sm:text-base"
+            style={{
+              borderRadius: '0.8rem',
+              background: active ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.4)',
+              color: active ? '#2D5A4A' : '#7a8a80',
+              boxShadow: active ? '0 2px 8px rgba(60,90,70,0.12), inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
+              border: active ? '1.5px solid rgba(60,90,70,0.15)' : '1.5px solid transparent',
+            }}
+          >
+            {f.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
-    <DidV2Layout title="새로 들어온 책">
+    <DidV2Layout title="새로 들어온 책" extraFooter={filterBar}>
       <div className="flex flex-1 flex-col py-4">
         {/* 상단: 영상 자동 재생 */}
         {currentVideo && (
@@ -144,30 +177,6 @@ export function DidV2NewArrivals() {
             </div>
           </div>
         )}
-
-        {/* 연령 필터 버튼 */}
-        <div className="mb-3 flex shrink-0 gap-2">
-          {SHELF_FILTERS.map((f) => {
-            const active = shelfFilter === f.key;
-            return (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => handleFilterChange(f.key)}
-                className="flex-1 py-2.5 text-sm font-bold transition active:scale-95 sm:py-3 sm:text-base"
-                style={{
-                  borderRadius: '0.8rem',
-                  background: active ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.4)',
-                  color: active ? '#2D5A4A' : '#7a8a80',
-                  boxShadow: active ? '0 2px 8px rgba(60,90,70,0.12), inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
-                  border: active ? '1.5px solid rgba(60,90,70,0.15)' : '1.5px solid transparent',
-                }}
-              >
-                {f.label}
-              </button>
-            );
-          })}
-        </div>
 
         {/* 페이지 안내 */}
         <div className="mb-3 flex shrink-0 items-center justify-between">

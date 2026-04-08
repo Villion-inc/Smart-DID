@@ -72,6 +72,8 @@ services:
       - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET:-}
       - VEO_API_KEY=${VEO_API_KEY:-}
       - VEO_API_ENDPOINT=${VEO_API_ENDPOINT:-}
+      - ALADIN_TTB_KEY=${ALADIN_TTB_KEY:-}
+      - V8_SCRIPT_PATH=/app/video-engine-v8/generate_book_trailer.py
       - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-2}
     depends_on:
       redis:
