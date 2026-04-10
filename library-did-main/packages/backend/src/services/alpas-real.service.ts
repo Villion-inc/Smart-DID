@@ -361,6 +361,11 @@ export class AlpasRealService {
   }
 
   /**
+  // 검색 결과 캐시 (keyword → 결과, 5분 TTL)
+  private searchResultCache = new Map<string, { books: Book[]; timestamp: number }>();
+  private readonly SEARCH_CACHE_TTL = 5 * 60 * 1000;
+
+  /**
    * Search books by keyword (AD201 GET, keyword 파라미터)
    */
   async searchBooks(keyword: string): Promise<Book[]> {
@@ -368,6 +373,15 @@ export class AlpasRealService {
       if (!keyword || keyword.trim() === '') {
         return await this.getNewArrivals();
       }
+
+      // 캐시 확인 (5분)
+      const cacheKey = keyword.trim().toLowerCase();
+      const cachedSearch = this.searchResultCache.get(cacheKey);
+      if (cachedSearch && Date.now() - cachedSearch.timestamp < this.SEARCH_CACHE_TTL) {
+        console.log(`[ALPAS] searchBooks cache hit: "${keyword}"`);
+        return cachedSearch.books;
+      }
+
       const list = await this.callAD201Get(keyword.trim());
       if (list.length === 0) return [];
       // 통합 매핑 함수 사용 - 다양한 필드명 자동 처리
@@ -408,8 +422,9 @@ export class AlpasRealService {
         // 저자명 일치 여부
         return authorScore(a.author) - authorScore(b.author);
       });
-      // 검색 결과를 캐시에 저장
+      // 검색 결과를 개별 book 캐시 + 검색 결과 캐시에 저장
       books.forEach((book) => this.cacheBook(book));
+      this.searchResultCache.set(cacheKey, { books, timestamp: Date.now() });
       return books;
     } catch (error: any) {
       console.error('AD201 검색 에러:', error.message);
@@ -472,7 +487,17 @@ export class AlpasRealService {
    * Get new arrival books (AE117 특정 기간 신착자료)
    * 기간: 최근 1개월, 날짜 형식: YYYY/MM/DD
    */
+  // 신착도서 목록 캐시 (1시간)
+  private newArrivalsCache: { books: Book[]; timestamp: number } | null = null;
+  private readonly NEW_ARRIVALS_CACHE_TTL = 60 * 60 * 1000;
+
   async getNewArrivals(): Promise<Book[]> {
+    // 캐시 확인 (1시간)
+    if (this.newArrivalsCache && Date.now() - this.newArrivalsCache.timestamp < this.NEW_ARRIVALS_CACHE_TTL) {
+      console.log('[ALPAS] getNewArrivals: cache hit');
+      return this.newArrivalsCache.books;
+    }
+
     try {
       const endDate = new Date();
       const startDate = new Date();
@@ -487,11 +512,14 @@ export class AlpasRealService {
 
       const list = await this.callAE117(formatDate(startDate), formatDate(endDate), 1, 50);
       const books = list.map((book, index) => this.mapToBookFromAE117(book, String(index)));
-      // 신작 목록도 캐시에 저장
       books.forEach((book) => this.cacheBook(book));
+      this.newArrivalsCache = { books, timestamp: Date.now() };
+      console.log(`[ALPAS] getNewArrivals: cached ${books.length} books`);
       return books;
     } catch (error: any) {
       console.error('AE117 호출 에러:', error.message);
+      // 캐시가 만료됐더라도 오류 시 기존 캐시 반환
+      if (this.newArrivalsCache) return this.newArrivalsCache.books;
       throw error;
     }
   }

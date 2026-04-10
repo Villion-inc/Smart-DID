@@ -190,6 +190,18 @@ const ageFilterCache = new Map<string, { data: any[]; timestamp: number }>();
 const bookDetailCache = new Map<string, { data: any; timestamp: number }>();
 const BOOK_DETAIL_CACHE_TTL = 60 * 60 * 1000;
 
+// 신착도서 최종 응답 캐시 (1시간) — enrichBookCovers 포함한 완성 결과
+let newArrivalsResponseCache: { data: any[]; timestamp: number } | null = null;
+const NEW_ARRIVALS_RESPONSE_TTL = 60 * 60 * 1000;
+
+// 인기영상 응답 캐시 (30초) — 홈 화면 1초 폴링 대응
+let popularVideosCache: { data: any[]; timestamp: number } | null = null;
+const POPULAR_VIDEOS_TTL = 30 * 1000;
+
+// 사서추천 최종 응답 캐시 (30분)
+let librarianPicksCache: { data: any[]; timestamp: number } | null = null;
+const LIBRARIAN_PICKS_TTL = 30 * 60 * 1000;
+
 /**
  * 서버 시작 시 신착도서 표지를 미리 캐시 (백그라운드)
  * 3개씩 배치 처리 + 딜레이로 네이버 API 속도 제한 준수
@@ -354,6 +366,11 @@ export class DidController {
    */
   async getNewArrivals(request: FastifyRequest, reply: FastifyReply) {
     try {
+      // 캐시 확인 (1시간)
+      if (newArrivalsResponseCache && Date.now() - newArrivalsResponseCache.timestamp < NEW_ARRIVALS_RESPONSE_TTL) {
+        return reply.send({ success: true, data: newArrivalsResponseCache.data });
+      }
+
       const books = await alpasService.getNewArrivals();
 
       // 1층 신착도서 코너 우선 정렬
@@ -363,7 +380,6 @@ export class DidController {
         return aFirst - bFirst;
       });
 
-      // Return minimal fields optimized for DID UI
       const didBooks = await enrichBookCovers(sorted.map((book) => ({
         id: book.id,
         title: book.title,
@@ -374,10 +390,8 @@ export class DidController {
         isbn: book.isbn,
       })));
 
-      return reply.send({
-        success: true,
-        data: didBooks,
-      });
+      newArrivalsResponseCache = { data: didBooks, timestamp: Date.now() };
+      return reply.send({ success: true, data: didBooks });
     } catch (error: any) {
       return reply.code(500).send({
         success: false,
@@ -392,7 +406,11 @@ export class DidController {
    */
   async getLibrarianPicks(request: FastifyRequest, reply: FastifyReply) {
     try {
-      // DB recommendations 테이블에서 관리자가 등록한 추천도서 조회
+      // 캐시 확인 (30분)
+      if (librarianPicksCache && Date.now() - librarianPicksCache.timestamp < LIBRARIAN_PICKS_TTL) {
+        return reply.send({ success: true, data: librarianPicksCache.data });
+      }
+
       const recommendations = await recommendationRepository.getAll();
 
       const didBooks = await enrichBookCovers(recommendations.map((rec) => ({
@@ -404,10 +422,8 @@ export class DidController {
         category: rec.category,
       })));
 
-      return reply.send({
-        success: true,
-        data: didBooks,
-      });
+      librarianPicksCache = { data: didBooks, timestamp: Date.now() };
+      return reply.send({ success: true, data: didBooks });
     } catch (error: any) {
       return reply.code(500).send({
         success: false,
@@ -864,6 +880,12 @@ export class DidController {
   ) {
     try {
       const limit = request.query.limit ? parseInt(request.query.limit, 10) : 20;
+
+      // 캐시 확인 (30초) — 홈 화면 1초 폴링으로 인한 DB 부하 방지
+      if (popularVideosCache && Date.now() - popularVideosCache.timestamp < POPULAR_VIDEOS_TTL) {
+        return reply.send({ success: true, data: popularVideosCache.data });
+      }
+
       const videos = await videoRepository.getReadyVideosOrderByRanking(limit);
 
       // video_records에 이미 title/author/coverImageUrl이 저장되어 있으므로
@@ -887,10 +909,8 @@ export class DidController {
         })
       );
 
-      return reply.send({
-        success: true,
-        data: videosWithBooks,
-      });
+      popularVideosCache = { data: videosWithBooks, timestamp: Date.now() };
+      return reply.send({ success: true, data: videosWithBooks });
     } catch (error: any) {
       return reply.code(500).send({
         success: false,

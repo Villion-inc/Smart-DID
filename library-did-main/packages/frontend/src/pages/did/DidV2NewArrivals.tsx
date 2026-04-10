@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getNewArrivals, getVideoStatus, getPopularVideos } from '../../api/did.api';
 import type { DidBook } from '../../types';
 import { DidV2Layout } from './DidV2Layout';
@@ -53,6 +53,7 @@ const PAGE_SIZE = 20;
  */
 export function DidV2NewArrivals() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [allBooks, setAllBooks] = useState<DidBook[]>([]);
@@ -60,7 +61,9 @@ export function DidV2NewArrivals() {
   const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
-  const [activeFilter, setActiveFilter] = useState<ShelfFilter | null>(null);
+
+  // URL 쿼리 파라미터로 관리 — 뒤로가기 시 필터 상태 유지
+  const activeFilter = (searchParams.get('filter') as ShelfFilter | null);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,7 +139,7 @@ export function DidV2NewArrivals() {
   }, [currentVideoIdx, booksWithVideo]);
 
   const handleFilterChange = (f: ShelfFilter) => {
-    setActiveFilter(f);
+    setSearchParams({ filter: f });
     setPage(0);
   };
 
