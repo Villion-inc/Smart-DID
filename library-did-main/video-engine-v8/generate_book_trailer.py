@@ -390,7 +390,9 @@ def assemble_video(scenario: dict, video_paths: list[Path], book_title: str) -> 
     W, H, FPS = 1280, 720, 30
 
     def esc(t):
-        return t.replace("\\", "\\\\\\\\").replace("'", "'\\\\\\''").replace(":", "\\\\:").replace("%", "%%")
+        # single-quote로 감싸진 FFmpeg drawtext text 안에서는 ':' 가 이미 보호됨
+        # '\\\\:' → FFmpeg가 EINVAL(exit 234) 오류 발생 → ':' 이스케이프 제거
+        return t.replace("\\", "\\\\").replace("'", "\\'").replace("%", "%%")
 
     durations = [scenario[f"scene{i+1}"]["duration"] for i in range(3)]  # [4, 6, 4]
 
