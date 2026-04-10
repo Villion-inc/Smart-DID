@@ -86,6 +86,10 @@ export class AlpasRealService {
   // 연령별 도서 캐시 (ageGroup -> Book[])
   private ageGroupCache = new Map<string, { books: Book[]; timestamp: number }>();
   private readonly AGE_GROUP_CACHE_TTL = 5 * 60 * 1000; // 5분
+
+  // 검색 결과 캐시 (keyword → 결과, 5분 TTL)
+  private searchResultCache = new Map<string, { books: Book[]; timestamp: number }>();
+  private readonly SEARCH_CACHE_TTL = 5 * 60 * 1000;
   
   private cacheBook(book: Book): void {
     this.bookCache.set(book.id, { book, timestamp: Date.now() });
@@ -361,10 +365,6 @@ export class AlpasRealService {
   }
 
   /**
-  // 검색 결과 캐시 (keyword → 결과, 5분 TTL)
-  private searchResultCache = new Map<string, { books: Book[]; timestamp: number }>();
-  private readonly SEARCH_CACHE_TTL = 5 * 60 * 1000;
-
   /**
    * Search books by keyword (AD201 GET, keyword 파라미터)
    */
