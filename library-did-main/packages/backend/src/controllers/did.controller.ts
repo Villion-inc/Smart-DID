@@ -827,12 +827,17 @@ export class DidController {
       }
 
       // 3. 큐에 추가 (사용자 요청 - 높은 우선순위)
-      // 책 정보도 함께 전달하여 VideoRecord에 저장
+      // Cloud SQL에 리라이팅된 summary가 있으면 우선 사용 (ALPAS 기본값보다 품질 높음)
+      let bestSummary = book.summary || '';
+      if (existingRecord?.summary && !existingRecord.summary.includes('출판한 도서입니다')) {
+        bestSummary = existingRecord.summary;
+      }
+
       const job = await queueService.addUserRequest({
         bookId: book.id,
         title: book.title,
         author: book.author,
-        summary: book.summary || '',
+        summary: bestSummary,
         trigger: 'user_request',
         publisher: book.publisher,
         coverImageUrl: book.coverImageUrl,
