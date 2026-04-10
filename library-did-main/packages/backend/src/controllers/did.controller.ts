@@ -622,12 +622,15 @@ export class DidController {
       const publishedYear = alpasBook?.publishedYear || cachedData?.publishedYear;
       const rawCover  = alpasBook?.coverImageUrl || cachedData?.coverImageUrl || '';
 
-      // ── Step 2: DB에서 저장된 줄거리 조회 (빠른 DB 읽기) ─────────────────
-      let summary = '';
+      // ── Step 2: 줄거리 결정 ────────────────────────────────────────────────
+      // 우선순위: Cloud SQL 리라이팅 결과 > ALPAS 기본 텍스트
+      let summary = alpasBook?.summary || ''; // ALPAS 기본값 (예: "제목 - 저자 저. 출판사에서 출판한 도서입니다.")
+      let hasSavedSummary = false;
       try {
         const videoRecord = await videoRepository.findByBookId(bookId);
         if (videoRecord?.summary && !videoRecord.summary.includes('출판한 도서입니다')) {
-          summary = videoRecord.summary;
+          summary = videoRecord.summary; // 리라이팅된 줄거리 우선
+          hasSavedSummary = true;
         }
       } catch { /* ignore */ }
 
@@ -638,8 +641,8 @@ export class DidController {
         data: { id: bookId, title, author, publisher, publishedYear, isbn, summary, shelfCode, callNumber, category, coverImageUrl, isAvailable },
       });
 
-      // ── Step 4: 백그라운드 — 줄거리 없으면 알라딘+Gemini로 생성 후 DB 저장 ──
-      if (!summary && title) {
+      // ── Step 4: 백그라운드 — 리라이팅 줄거리 없을 때 알라딘+Gemini로 생성 후 DB 저장 ──
+      if (!hasSavedSummary && title) {
         (async () => {
           try {
             const aladinDesc = await fetchAladinDescription(title, author);
