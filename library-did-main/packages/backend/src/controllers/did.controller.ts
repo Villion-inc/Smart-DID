@@ -81,11 +81,48 @@ async function fetchAladinDescription(title: string, author?: string): Promise<s
 const rewriteCache = new Map<string, string>();
 
 /**
- * Gemini로 알라딘 줄거리를 가볍게 리라이트 (내용 동일, 표현만 변경)
+ * 문장이 중간에 잘린 경우 마지막 완성된 문장까지만 반환
  */
-async function rewriteDescription(original: string, bookTitle: string): Promise<string> {
+function trimToCompleteSentence(text: string): string {
+  if (!text) return text;
+  // 마지막 문장 종결 위치 찾기 (. ! ? … 다 요 죠 등 포함)
+  const match = text.match(/^([\s\S]*?[.!?…])\s*[^.!?…]*$/);
+  if (match && match[1] && match[1].length > text.length * 0.5) {
+    return match[1].trim();
+  }
+  // 위 패턴 실패 시 — 마지막 마침표/느낌표/물음표 위치로 자르기
+  const lastPunct = Math.max(
+    text.lastIndexOf('.'),
+    text.lastIndexOf('!'),
+    text.lastIndexOf('?'),
+    text.lastIndexOf('…'),
+  );
+  if (lastPunct > text.length * 0.5) {
+    return text.substring(0, lastPunct + 1).trim();
+  }
+  return text;
+}
+
+/**
+ * Gemini로 알라딘 줄거리를 가볍게 리라이트 (내용 동일, 표현만 변경)
+ * bookId가 있으면 Cloud SQL에 저장하여 재시작 후에도 재호출 없이 반환
+ */
+async function rewriteDescription(original: string, bookTitle: string, bookId?: string): Promise<string> {
   if (!original || original.length < 30) return original;
 
+  // 1. video_records DB에서 기존 리라이팅 결과 확인 (서버 재시작 후에도 유지)
+  if (bookId) {
+    try {
+      const record = await videoRepository.findByBookId(bookId);
+      if (record?.summary && !record.summary.includes('출판한 도서입니다')) {
+        const saved = record.summary;
+        rewriteCache.set(`${bookTitle}|${original.substring(0, 50)}`, saved);
+        return saved;
+      }
+    } catch { /* DB 오류 시 무시하고 계속 */ }
+  }
+
+  // 2. 메모리 캐시 확인
   const cacheKey = `${bookTitle}|${original.substring(0, 50)}`;
   const cached = rewriteCache.get(cacheKey);
   if (cached) return cached;
@@ -118,9 +155,19 @@ ${original}` }] }],
       generationConfig: { temperature: 0.5, maxOutputTokens: 2000 },
     });
 
-    const rewritten = result.response.text().trim();
+    const rewritten = trimToCompleteSentence(result.response.text().trim());
     if (rewritten && rewritten.length > 20) {
       rewriteCache.set(cacheKey, rewritten);
+      // 3. video_records에 저장 (비동기 — 응답 지연 없음)
+      if (bookId) {
+        videoRepository.upsert(
+          bookId,
+          { bookId, summary: rewritten },
+          { summary: rewritten }
+        ).catch((err) =>
+          console.error(`[Rewrite] DB 저장 실패 (${bookId}): ${err.message}`)
+        );
+      }
       console.log(`[Rewrite] "${bookTitle}": ${original.length}자 → ${rewritten.length}자`);
       return rewritten;
     }
@@ -138,6 +185,10 @@ let coverCacheWarmed = false;
 
 // 연령별 인기도서 + ALPAS 필터 결과 캐시 (1시간)
 const ageFilterCache = new Map<string, { data: any[]; timestamp: number }>();
+
+// 책 상세 정보 캐시 (bookId → 상세 데이터) — 목록 로드 시 저장, 상세 조회 시 우선 참조 (1시간)
+const bookDetailCache = new Map<string, { data: any; timestamp: number }>();
+const BOOK_DETAIL_CACHE_TTL = 60 * 60 * 1000;
 
 /**
  * 서버 시작 시 신착도서 표지를 미리 캐시 (백그라운드)
@@ -457,6 +508,9 @@ export class DidController {
                 if (!available) return null; // 소장 없거나 대출 불가
                 (book as any)._alpasId = available.id;
                 (book as any)._alpasShelfCode = available.shelfCode || '';
+                (book as any)._alpasCallNumber = available.callNumber || '';
+                (book as any)._alpasIsAvailable = available.isAvailable;
+                (book as any)._alpasPublisher = available.publisher || '';
                 return book;
               } catch { /* skip */ }
               return null;
@@ -471,18 +525,39 @@ export class DidController {
         filtered = popular.slice(0, DESIRED_COUNT);
       }
 
-      const didBooks = filtered.map((book) => ({
-        // ISBN13을 우선 사용 — 상세 조회 시 data4library로 안정적으로 조회 가능
-        id: book.isbn13 || (book as any)._alpasId || `d4l_${book.ranking}`,
-        title: book.bookname,
-        author: book.authors,
-        coverImageUrl: book.bookImageURL || undefined,
-        shelfCode: (book as any)._alpasShelfCode || '',
-        category: book.class_nm || '',
-        hasVideo: false,
-        publisher: book.publisher,
-        summary: '',
-      }));
+      const didBooks = filtered.map((book) => {
+        // ALPAS ID를 우선 사용 — 상세 조회 시 ALPAS에서 직접 조회 가능
+        const bookId = (book as any)._alpasId || book.isbn13 || `d4l_${book.ranking}`;
+        // 상세 조회 캐시에 미리 저장 — 클릭 시 즉시 반환
+        bookDetailCache.set(bookId, {
+          data: {
+            id: bookId,
+            title: book.bookname,
+            author: book.authors,
+            publisher: book.publisher || (book as any)._alpasPublisher || '',
+            publishedYear: undefined,
+            isbn: book.isbn13 || '',
+            summary: '',
+            shelfCode: (book as any)._alpasShelfCode || '',
+            callNumber: (book as any)._alpasCallNumber || '',
+            category: book.class_nm || '',
+            coverImageUrl: book.bookImageURL || '',
+            isAvailable: (book as any)._alpasIsAvailable ?? true,
+          },
+          timestamp: Date.now(),
+        });
+        return {
+          id: bookId,
+          title: book.bookname,
+          author: book.authors,
+          coverImageUrl: book.bookImageURL || undefined,
+          shelfCode: (book as any)._alpasShelfCode || '',
+          category: book.class_nm || '',
+          hasVideo: false,
+          publisher: book.publisher,
+          summary: '',
+        };
+      });
 
       // 결과 캐시 저장
       ageFilterCache.set(ageCacheKey, { data: didBooks, timestamp: Date.now() });
@@ -502,10 +577,12 @@ export class DidController {
   /**
    * GET /api/did/books/:bookId
    * Returns detailed book information for DID detail view
-   * 
+   *
    * 우선순위:
+   * 0. bookDetailCache (목록 로드 시 저장된 데이터 — 즉시 반환)
    * 1. ALPAS API에서 조회
-   * 2. VideoRecord에 저장된 책 정보 사용 (ALPAS에서 못 찾을 경우)
+   * 2. ISBN13이면 data4library에서 조회
+   * 3. VideoRecord에 저장된 책 정보 사용
    */
   async getBookDetail(
     request: FastifyRequest<{ Params: { bookId: string } }>,
@@ -513,170 +590,66 @@ export class DidController {
   ) {
     try {
       const { bookId } = request.params;
-      
-      // 1. ALPAS API에서 조회 시도
-      let book = await alpasService.getBookDetail(bookId);
 
-      // 항상 제목으로 재검색하여 가장 완전한 데이터로 보강
-      if (book) {
-        try {
-          console.log(`[DID getBookDetail] Re-searching title: "${book.title}"`);
-          const searchResults = await alpasService.searchBooks(book.title);
-          console.log(`[DID getBookDetail] Search returned ${searchResults.length} results`);
-          const better = searchResults.find(b => b.shelfCode || b.callNumber) || searchResults[0];
-          if (better) {
-            console.log(`[DID getBookDetail] Better match: shelfCode="${better.shelfCode}" isbn="${better.isbn}"`);
-            book = {
-              ...book,
-              shelfCode: book.shelfCode || better.shelfCode,
-              callNumber: book.callNumber || better.callNumber,
-              publisher: book.publisher || better.publisher,
-              isbn: book.isbn || better.isbn,
-              summary: (book.summary && !book.summary.includes('출판한 도서입니다')) ? book.summary : better.summary,
-              publishedYear: book.publishedYear || better.publishedYear,
-              isAvailable: better.isAvailable,
-            };
-          }
-        } catch (err: any) {
-          console.error(`[DID getBookDetail] Re-search failed: ${err.message}`);
+      // ── Step 1: ALPAS에서 책 정보 가져오기 ──────────────────────────────
+      // 우선순위: ALPAS 내부 캐시(10분) → bookDetailCache title로 재검색 → bookDetailCache 기본값
+      let alpasBook = await alpasService.getBookDetail(bookId).catch(() => null);
+
+      if (!alpasBook) {
+        const fallback = bookDetailCache.get(bookId);
+        if (fallback?.data?.title) {
+          try {
+            const results = await alpasService.searchBooks(fallback.data.title);
+            alpasBook = results.find(b => b.shelfCode || b.callNumber) || results[0] || null;
+          } catch { /* ignore */ }
         }
       }
 
-      if (book) {
-        // 알라딘에서 풍부한 줄거리 가져오기 → Gemini 리라이트
-        let enrichedSummary = book.summary;
-        try {
-          const aladinDesc = await fetchAladinDescription(book.title, book.author);
-          if (aladinDesc && aladinDesc.length > 30) {
-            if (!enrichedSummary || enrichedSummary.length < aladinDesc.length || enrichedSummary.includes('출판한 도서입니다')) {
-              enrichedSummary = await rewriteDescription(aladinDesc, book.title);
-              console.log(`[DID getBookDetail] Rewritten summary (${enrichedSummary.length}자): ${enrichedSummary.substring(0, 60)}...`);
-            }
-          }
-        } catch { /* ignore */ }
-
-        return reply.send({
-          success: true,
-          data: {
-            id: book.id,
-            title: book.title,
-            author: book.author,
-            publisher: book.publisher,
-            publishedYear: book.publishedYear,
-            isbn: book.isbn,
-            summary: enrichedSummary,
-            shelfCode: book.shelfCode,
-            callNumber: book.callNumber,
-            category: book.category,
-            coverImageUrl: await enrichCoverUrl(book.title, book.author, book.coverImageUrl, book.isbn),
-            isAvailable: book.isAvailable,
-          },
-        });
+      // ALPAS에서도 못 찾으면 bookDetailCache 기본값으로 대체
+      const cachedData = bookDetailCache.get(bookId)?.data;
+      if (!alpasBook && !cachedData) {
+        return reply.code(404).send({ success: false, error: 'Book not found' });
       }
 
-      // 2. ISBN13이면 data4library에서 책 정보 조회 후 ALPAS 제목 검색으로 보강
-      if (/^\d{13}$/.test(bookId)) {
-        try {
-          const d4lBook = await data4libraryService.getBookDetail(bookId);
-          if (d4lBook && d4lBook.bookname) {
-            console.log(`[DID getBookDetail] data4library hit for ISBN ${bookId}: ${d4lBook.bookname}`);
+      const title    = alpasBook?.title    || cachedData?.title    || '';
+      const author   = alpasBook?.author   || cachedData?.author   || '';
+      const publisher = alpasBook?.publisher || cachedData?.publisher || '';
+      const isbn     = alpasBook?.isbn     || cachedData?.isbn     || '';
+      const shelfCode   = alpasBook?.shelfCode   || cachedData?.shelfCode   || '';
+      const callNumber  = alpasBook?.callNumber  || cachedData?.callNumber  || '';
+      const category    = alpasBook?.category    || cachedData?.category    || '';
+      const isAvailable = alpasBook?.isAvailable ?? cachedData?.isAvailable ?? true;
+      const publishedYear = alpasBook?.publishedYear || cachedData?.publishedYear;
+      const rawCover  = alpasBook?.coverImageUrl || cachedData?.coverImageUrl || '';
 
-            // ALPAS에서 제목으로 검색하여 소장/대출가능 정보 보강
-            let shelfCode = '';
-            let callNumber = '';
-            let isAvailable = true;
-            try {
-              const alpasResults = await alpasService.searchBooks(d4lBook.bookname);
-              const best = alpasResults.find(b => b.shelfCode || b.callNumber) || alpasResults[0];
-              if (best) {
-                shelfCode = best.shelfCode || '';
-                callNumber = best.callNumber || '';
-                isAvailable = best.isAvailable;
-              }
-            } catch { /* ALPAS 없어도 data4library 정보로 표시 */ }
-
-            const summary = d4lBook.description
-              ? await rewriteDescription(d4lBook.description, d4lBook.bookname).catch(() => d4lBook.description)
-              : '';
-
-            return reply.send({
-              success: true,
-              data: {
-                id: bookId,
-                title: d4lBook.bookname,
-                author: d4lBook.authors,
-                publisher: d4lBook.publisher,
-                publishedYear: parseInt(d4lBook.publication_year, 10) || undefined,
-                isbn: bookId,
-                summary,
-                shelfCode: shelfCode || undefined,
-                callNumber: callNumber || undefined,
-                category: d4lBook.class_nm || '',
-                coverImageUrl: await enrichCoverUrl(d4lBook.bookname, d4lBook.authors, d4lBook.bookImageURL, bookId),
-                isAvailable,
-              },
-            });
-          }
-        } catch (err: any) {
-          console.error(`[DID getBookDetail] data4library lookup failed: ${err.message}`);
+      // ── Step 2: DB에서 저장된 줄거리 조회 (빠른 DB 읽기) ─────────────────
+      let summary = '';
+      try {
+        const videoRecord = await videoRepository.findByBookId(bookId);
+        if (videoRecord?.summary && !videoRecord.summary.includes('출판한 도서입니다')) {
+          summary = videoRecord.summary;
         }
-      }
+      } catch { /* ignore */ }
 
-      // 3. VideoRecord에서 책 정보 조회 (위 경로 모두 실패한 경우)
-      const videoRecord = await videoRepository.findByBookId(bookId);
-      if (videoRecord && videoRecord.title) {
-        console.log(`[DID getBookDetail] Using book info from VideoRecord: ${videoRecord.title}`);
-
-        // VideoRecord도 불완전할 수 있으므로 ALPAS 제목 검색으로 보강
-        let shelfCode = '';
-        let callNumber = '';
-        let publisher = videoRecord.publisher || '';
-        let isbn = '';
-        let summary = videoRecord.summary || '';
-        let publishedYear = 0;
-        let isAvailable = true;
-
-        try {
-          console.log(`[DID getBookDetail] Re-searching VideoRecord title: "${videoRecord.title}"`);
-          const searchResults = await alpasService.searchBooks(videoRecord.title);
-          const better = searchResults.find(b => b.shelfCode || b.callNumber) || searchResults[0];
-          if (better) {
-            console.log(`[DID getBookDetail] VideoRecord re-match: shelfCode="${better.shelfCode}"`);
-            shelfCode = better.shelfCode || '';
-            callNumber = better.callNumber || '';
-            publisher = publisher || better.publisher || '';
-            isbn = better.isbn || '';
-            summary = summary || better.summary || '';
-            publishedYear = better.publishedYear || 0;
-            isAvailable = better.isAvailable;
-          }
-        } catch (err: any) {
-          console.error(`[DID getBookDetail] VideoRecord re-search failed: ${err.message}`);
-        }
-
-        return reply.send({
-          success: true,
-          data: {
-            id: bookId,
-            title: videoRecord.title,
-            author: videoRecord.author || '저자 미상',
-            publisher,
-            publishedYear: publishedYear || undefined,
-            isbn: isbn || undefined,
-            summary,
-            shelfCode: shelfCode || undefined,
-            callNumber: callNumber || undefined,
-            category: videoRecord.category || '',
-            coverImageUrl: await enrichCoverUrl(videoRecord.title, videoRecord.author || '', videoRecord.coverImageUrl || undefined, isbn || undefined),
-            isAvailable,
-          },
-        });
-      }
-
-      return reply.code(404).send({
-        success: false,
-        error: 'Book not found',
+      // ── Step 3: 즉시 응답 반환 ───────────────────────────────────────────
+      const coverImageUrl = await enrichCoverUrl(title, author, rawCover, isbn).catch(() => rawCover);
+      reply.send({
+        success: true,
+        data: { id: bookId, title, author, publisher, publishedYear, isbn, summary, shelfCode, callNumber, category, coverImageUrl, isAvailable },
       });
+
+      // ── Step 4: 백그라운드 — 줄거리 없으면 알라딘+Gemini로 생성 후 DB 저장 ──
+      if (!summary && title) {
+        (async () => {
+          try {
+            const aladinDesc = await fetchAladinDescription(title, author);
+            if (aladinDesc && aladinDesc.length > 30) {
+              await rewriteDescription(aladinDesc, title, bookId); // 내부에서 DB 저장
+              console.log(`[DID getBookDetail] Background summary saved for ${bookId}`);
+            }
+          } catch { /* ignore */ }
+        })();
+      }
     } catch (error: any) {
       return reply.code(500).send({
         success: false,
