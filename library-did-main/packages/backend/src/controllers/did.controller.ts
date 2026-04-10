@@ -390,6 +390,13 @@ export class DidController {
         isbn: book.isbn,
       })));
 
+      // bookDetailCache에 미리 저장 — 클릭 시 getBookDetail에서 즉시 반환 (ALPAS AD201 숫자ID 검색 불가 대응)
+      for (const b of didBooks) {
+        if (b.id) {
+          bookDetailCache.set(String(b.id), { data: b, timestamp: Date.now() });
+        }
+      }
+
       newArrivalsResponseCache = { data: didBooks, timestamp: Date.now() };
       return reply.send({ success: true, data: didBooks });
     } catch (error: any) {
