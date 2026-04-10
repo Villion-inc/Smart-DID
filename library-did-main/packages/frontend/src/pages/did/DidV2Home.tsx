@@ -184,11 +184,15 @@ export function DidV2Home() {
   return (
     <DidV2Layout hideFooter>
       <div className="flex flex-1 flex-col justify-center gap-8 px-0 py-4">
-        {/* 영상 — 꽉 채우기 */}
-        <div className="relative -mx-4 -mt-2 w-[calc(100%+2rem)] shrink-0 overflow-hidden sm:-mx-6 sm:-mt-4 sm:w-[calc(100%+3rem)]"
+        {/* 영상 — 좌우 꽉 채우기 */}
+        <div
+          className="relative shrink-0 overflow-hidden"
           style={{
             aspectRatio: '16/9',
             background: '#1a1a2e',
+            borderRadius: '2rem',
+            border: '6px solid #DDDDDD',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
           }}
         >
           {currentVideo ? (
@@ -226,16 +230,16 @@ export function DidV2Home() {
 
         {/* 버튼들 — mt-auto로 하단에 배치 */}
         <div className="flex flex-col gap-3">
-          {hasVideos && (
-            <button
+          <button
               type="button"
               onClick={enterRandomMode}
+              disabled={!hasVideos}
               className="flex w-full shrink-0 items-center justify-center gap-2 py-4 text-base font-bold text-white transition active:scale-[0.97] sm:text-lg"
               style={{
-                borderRadius: '1rem',
-                background: 'linear-gradient(135deg, #5C8FBF 0%, #4A7BA8 50%, #3D6A94 100%)',
-                boxShadow: '0 6px 20px rgba(74,123,168,0.3), inset 0 1px 0 rgba(255,255,255,0.15)',
-                border: '2px solid rgba(255,255,255,0.15)',
+                borderRadius: '1.5rem',
+                background: 'linear-gradient(91.29deg, #558FDB 1.64%, #1963B7 98.62%)',
+                boxShadow: '0px 20px 20px rgba(98, 156, 212, 0.4)',
+                border: 'none',
               }}
             >
               <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -243,33 +247,31 @@ export function DidV2Home() {
               </svg>
               랜덤 영상 보기
             </button>
-          )}
 
           {/* 바로가기 메뉴 3개 */}
           <div className="flex w-full shrink-0 gap-3 pb-1">
             {[
-              { label: '추천도서', sub: '사서 추천', path: '/did/recommend', color: '#3B7A6A', bg: 'rgba(200,228,218,0.55)', border: 'rgba(80,150,130,0.25)' },
-              { label: '신착도서', sub: '새로 들어온 책', path: '/did/new', color: '#5A7BAA', bg: 'rgba(200,218,238,0.55)', border: 'rgba(90,123,170,0.25)' },
-              { label: '도서검색', sub: '직접 찾아보기', path: '/did/search', color: '#8A6F9E', bg: 'rgba(225,210,235,0.55)', border: 'rgba(138,111,158,0.25)' },
+              { label: '추천도서', sub: '사서 추천', path: '/did/recommend', color: '#31A09A', bg: 'linear-gradient(180deg, #E9FFF2 0%, #C9F6DC 100%)', border: '#81D4CF', shadow: 'rgba(78,180,136,0.2)', icon: '/icon-recommend.png' },
+              { label: '신착도서', sub: '새로 들어온 책', path: '/did/new', color: '#5C7FB6', bg: 'linear-gradient(180deg, #E4F9FF 0%, #C5ECF9 100%)', border: '#9AB7E4', shadow: 'rgba(92,127,182,0.2)', icon: '/icon-new.png' },
+              { label: '도서검색', sub: '직접 찾아보기', path: '/did/search', color: '#9C6DA7', bg: 'linear-gradient(180deg, #F3EBF8 0%, #EBD3FA 100%)', border: '#D4ACDD', shadow: 'rgba(156,109,167,0.2)', icon: '/icon-search.png' },
             ].map((item) => (
               <button
                 key={item.path}
                 type="button"
                 onClick={() => navigate(item.path)}
-                className="flex flex-1 flex-col items-center justify-center gap-1.5 py-7 transition active:scale-[0.96] sm:py-9"
+                className="flex flex-1 flex-col items-center justify-center gap-1.5 py-4 transition active:scale-[0.96] sm:py-6"
                 style={{
-                  borderRadius: '1.2rem',
+                  borderRadius: '1.5rem',
                   background: item.bg,
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.5)',
-                  border: `2px solid ${item.border}`,
+                  boxShadow: `0px 12px 24px ${item.shadow}`,
+                  border: `3px solid ${item.border}`,
                 }}
               >
+                <img src={item.icon} alt={item.label} className="h-12 w-12 object-contain sm:h-14 sm:w-14" />
                 <span className="text-xl font-bold sm:text-2xl" style={{ color: item.color }}>
                   {item.label}
                 </span>
-                <span className="text-sm text-gray-600/70 sm:text-base">{item.sub}</span>
+                <span className="text-sm sm:text-base" style={{ color: '#888888' }}>{item.sub}</span>
               </button>
             ))}
           </div>

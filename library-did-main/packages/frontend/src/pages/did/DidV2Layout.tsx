@@ -111,7 +111,7 @@ export function DidV2Layout({
         className="relative flex flex-col overflow-hidden"
         style={{
           fontFamily: '"Noto Sans KR", "Pretendard", sans-serif',
-          background: 'linear-gradient(180deg, #E8F4FC 0%, #D4EAD6 100%)',
+          background: 'url(/bg.png) center/cover no-repeat',
           width: isLandscape ? `calc(100vh * ${ASPECT_RATIO})` : '100%',
           height: '100%',
           maxWidth: '100%',
