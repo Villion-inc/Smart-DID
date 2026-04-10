@@ -873,7 +873,7 @@ export class DidController {
           const title = video.title || '알 수 없음';
           const author = video.author || '알 수 없음';
           // 표지는 video_records에 저장된 값 우선, 없을 때만 커버 캐시에서 조회 (캐시 hit만)
-          const cachedCover = coverCache.get(video.isbn || `${title}|${author}`) || undefined;
+          const cachedCover = coverCache.get(`${title}|${author}`) || undefined;
           const coverImageUrl = video.coverImageUrl || cachedCover;
           return {
             bookId: video.bookId,
