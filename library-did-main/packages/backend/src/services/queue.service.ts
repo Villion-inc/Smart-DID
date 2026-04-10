@@ -150,7 +150,6 @@ export class QueueService {
     try {
       const job = await this.queue!.add(QUEUE_NAME, jobData, {
         priority,
-        jobId: `book-${bookId}`,
       });
       console.log(`[QueueService] Job added: ${job.id} for book ${bookId}`);
       return job.id || null;
