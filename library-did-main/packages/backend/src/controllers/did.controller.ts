@@ -472,7 +472,8 @@ export class DidController {
       }
 
       const didBooks = filtered.map((book) => ({
-        id: (book as any)._alpasId || book.isbn13 || `d4l_${book.ranking}`,
+        // ISBN13을 우선 사용 — 상세 조회 시 data4library로 안정적으로 조회 가능
+        id: book.isbn13 || (book as any)._alpasId || `d4l_${book.ranking}`,
         title: book.bookname,
         author: book.authors,
         coverImageUrl: book.bookImageURL || undefined,
@@ -573,7 +574,55 @@ export class DidController {
         });
       }
 
-      // 2. VideoRecord에서 책 정보 조회 (ALPAS에서 못 찾은 경우)
+      // 2. ISBN13이면 data4library에서 책 정보 조회 후 ALPAS 제목 검색으로 보강
+      if (/^\d{13}$/.test(bookId)) {
+        try {
+          const d4lBook = await data4libraryService.getBookDetail(bookId);
+          if (d4lBook && d4lBook.bookname) {
+            console.log(`[DID getBookDetail] data4library hit for ISBN ${bookId}: ${d4lBook.bookname}`);
+
+            // ALPAS에서 제목으로 검색하여 소장/대출가능 정보 보강
+            let shelfCode = '';
+            let callNumber = '';
+            let isAvailable = true;
+            try {
+              const alpasResults = await alpasService.searchBooks(d4lBook.bookname);
+              const best = alpasResults.find(b => b.shelfCode || b.callNumber) || alpasResults[0];
+              if (best) {
+                shelfCode = best.shelfCode || '';
+                callNumber = best.callNumber || '';
+                isAvailable = best.isAvailable;
+              }
+            } catch { /* ALPAS 없어도 data4library 정보로 표시 */ }
+
+            const summary = d4lBook.description
+              ? await rewriteDescription(d4lBook.description, d4lBook.bookname).catch(() => d4lBook.description)
+              : '';
+
+            return reply.send({
+              success: true,
+              data: {
+                id: bookId,
+                title: d4lBook.bookname,
+                author: d4lBook.authors,
+                publisher: d4lBook.publisher,
+                publishedYear: parseInt(d4lBook.publication_year, 10) || undefined,
+                isbn: bookId,
+                summary,
+                shelfCode: shelfCode || undefined,
+                callNumber: callNumber || undefined,
+                category: d4lBook.class_nm || '',
+                coverImageUrl: await enrichCoverUrl(d4lBook.bookname, d4lBook.authors, d4lBook.bookImageURL, bookId),
+                isAvailable,
+              },
+            });
+          }
+        } catch (err: any) {
+          console.error(`[DID getBookDetail] data4library lookup failed: ${err.message}`);
+        }
+      }
+
+      // 3. VideoRecord에서 책 정보 조회 (위 경로 모두 실패한 경우)
       const videoRecord = await videoRepository.findByBookId(bookId);
       if (videoRecord && videoRecord.title) {
         console.log(`[DID getBookDetail] Using book info from VideoRecord: ${videoRecord.title}`);

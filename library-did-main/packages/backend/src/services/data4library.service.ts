@@ -95,14 +95,15 @@ class Data4LibraryService {
     if (cached) return cached;
 
     try {
+      // age 파라미터에 ';' 구분자가 있을 수 있으므로 URLSearchParams를 사용하지 않고 직접 URL 구성
+      // (URLSearchParams는 ';'를 '%3B'로 인코딩하여 API가 인식하지 못함)
       const params = new URLSearchParams({
         authKey: this.authKey,
-        age: ageCodes,
         pageSize: String(pageSize),
         format: 'json',
       });
 
-      const url = `${this.baseUrl}/loanItemSrch?${params}`;
+      const url = `${this.baseUrl}/loanItemSrch?${params}&age=${ageCodes}`;
       console.log(`[Data4Library] getPopularByAge: age=${ageCodes}`);
 
       const res = await fetch(url);
