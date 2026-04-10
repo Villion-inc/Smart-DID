@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getNewArrivals, getVideoStatus, getPopularVideos } from '../../api/did.api';
+import { getNewArrivals, getPopularVideos } from '../../api/did.api';
 import type { DidBook } from '../../types';
 import { DidV2Layout } from './DidV2Layout';
 
@@ -74,36 +74,17 @@ export function DidV2NewArrivals() {
         if (cancelled) return;
         setAllBooks(list);
 
-        // 최대 20권에서 영상 상태 확인
-        const videoResults = await Promise.all(
-          list.slice(0, 20).map(async (book) => {
-            try {
-              const status = await getVideoStatus(book.id);
-              if (status.status === 'READY' && status.videoUrl) {
-                return { book, videoUrl: status.videoUrl };
-              }
-            } catch { /* ignore */ }
-            return null;
-          })
-        );
-        const found = videoResults.filter((r): r is BookWithVideo => r !== null);
-        if (!cancelled) {
-          if (found.length > 0) {
-            setBooksWithVideo(found);
-          } else {
-            // 신착도서에 영상 없으면 인기 영상 폴백
-            try {
-              const popular = await getPopularVideos(10);
-              const fallback: BookWithVideo[] = popular
-                .filter(v => v.videoUrl)
-                .map(v => ({
-                  book: { id: v.bookId, title: v.title, author: v.author, coverImageUrl: v.coverImageUrl, shelfCode: '', category: '' },
-                  videoUrl: v.videoUrl,
-                }));
-              if (!cancelled) setBooksWithVideo(fallback);
-            } catch { /* ignore */ }
-          }
-        }
+        // 신착도서 슬라이드쇼: 인기 영상 사용 (N+1 video 요청 방지)
+        try {
+          const popular = await getPopularVideos(10);
+          const fallback: BookWithVideo[] = popular
+            .filter(v => v.videoUrl)
+            .map(v => ({
+              book: { id: v.bookId, title: v.title, author: v.author, coverImageUrl: v.coverImageUrl, shelfCode: '', category: '' },
+              videoUrl: v.videoUrl,
+            }));
+          if (!cancelled) setBooksWithVideo(fallback);
+        } catch { /* ignore */ }
       } catch {
         if (!cancelled) setAllBooks([]);
       }

@@ -72,8 +72,9 @@ async function main() {
     });
 
     // Rate Limiting - DDoS 및 스크래핑 방지
+    // 키오스크 환경: 모든 요청이 nginx proxy IP(172.18.0.x) 하나로 오므로 넉넉하게 설정
     await fastify.register(rateLimit, {
-      max: 100,
+      max: 600,
       timeWindow: '1 minute',
       errorResponseBuilder: () => ({
         success: false,

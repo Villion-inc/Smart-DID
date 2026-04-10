@@ -475,6 +475,16 @@ export class AlpasRealService {
         return bookWithCorrectId;
       }
       
+      // 2. AD201 실패 시 newArrivalsCache에서 찾기 (신착도서는 숫자 ID로 검색 안 됨)
+      if (this.newArrivalsCache) {
+        const foundInNewArrivals = this.newArrivalsCache.books.find(b => b.id === bookId);
+        if (foundInNewArrivals) {
+          console.log('[ALPAS getBookDetail] Found in newArrivalsCache:', foundInNewArrivals.title);
+          this.cacheBook(foundInNewArrivals);
+          return foundInNewArrivals;
+        }
+      }
+
       console.log('[ALPAS getBookDetail] Book not found');
       return null;
     } catch (error: any) {
