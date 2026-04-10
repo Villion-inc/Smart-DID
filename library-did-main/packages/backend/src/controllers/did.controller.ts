@@ -866,17 +866,20 @@ export class DidController {
       const limit = request.query.limit ? parseInt(request.query.limit, 10) : 20;
       const videos = await videoRepository.getReadyVideosOrderByRanking(limit);
 
-      // 각 영상에 책 정보 추가 + 표지 보강
+      // video_records에 이미 title/author/coverImageUrl이 저장되어 있으므로
+      // ALPAS API 호출 없이 바로 사용 (홈 화면이 1초마다 폴링하므로 ALPAS 호출 금지)
       const videosWithBooks = await Promise.all(
         videos.map(async (video) => {
-          const book = await alpasService.getBookDetail(video.bookId);
-          const title = book?.title || video.title || '알 수 없음';
-          const author = book?.author || video.author || '알 수 없음';
+          const title = video.title || '알 수 없음';
+          const author = video.author || '알 수 없음';
+          // 표지는 video_records에 저장된 값 우선, 없을 때만 커버 캐시에서 조회 (캐시 hit만)
+          const cachedCover = coverCache.get(video.isbn || `${title}|${author}`) || undefined;
+          const coverImageUrl = video.coverImageUrl || cachedCover;
           return {
             bookId: video.bookId,
             title,
             author,
-            coverImageUrl: await enrichCoverUrl(title, author, book?.coverImageUrl),
+            coverImageUrl,
             videoUrl: toPublicVideoUrl(video.videoUrl),
             requestCount: video.requestCount,
             rankingScore: video.rankingScore,

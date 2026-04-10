@@ -460,28 +460,6 @@ export class AlpasRealService {
         return bookWithCorrectId;
       }
       
-      // 2. AE117 (신작) 목록에서 찾기 - 신작 페이지에서 온 요청일 가능성 높음
-      const newArrivals = await this.getNewArrivals();
-      const foundInNewArrivals = newArrivals.find((b) => b.id === bookId);
-      if (foundInNewArrivals) {
-        console.log('[ALPAS getBookDetail] Found in new arrivals:', foundInNewArrivals.title);
-        this.cacheBook(foundInNewArrivals);
-        return foundInNewArrivals;
-      }
-      
-      // 3. AD201 POST로 목록 조회 후 매칭
-      const list = await this.callAD201(1, 50);
-      const found = list.find((b) => {
-        const bId = String(b.bookId || b.orgNo || '');
-        return bId === bookId;
-      });
-      if (found) {
-        console.log('[ALPAS getBookDetail] Found in AD201 POST list');
-        const book = this.mapToBook(found, '0');
-        this.cacheBook(book);
-        return book;
-      }
-      
       console.log('[ALPAS getBookDetail] Book not found');
       return null;
     } catch (error: any) {
