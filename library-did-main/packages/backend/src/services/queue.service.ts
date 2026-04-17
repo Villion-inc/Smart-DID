@@ -89,8 +89,8 @@ export class QueueService {
   ): Promise<string | null> {
     const { bookId } = jobData;
 
-    // 0. 영상 생성 제한: READY 상태 영상 200개 초과 시 거부
-    const MAX_VIDEOS = 200;
+    // 0. 영상 생성 제한: READY 상태 영상 60개 초과 시 거부
+    const MAX_VIDEOS = 60;
     const readyCount = await videoRepository.countByStatus('READY');
     if (readyCount >= MAX_VIDEOS) {
       console.log(`[QueueService] Video limit reached (${readyCount}/${MAX_VIDEOS}), rejecting ${bookId}`);
