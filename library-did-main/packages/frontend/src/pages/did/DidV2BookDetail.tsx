@@ -151,7 +151,7 @@ export function DidV2BookDetail() {
 
   return (
     <DidV2Layout title={bookDetail?.title || '책 미리보기'}>
-      <div className="flex flex-1 flex-col overflow-auto py-0">
+      <div className="flex flex-1 flex-col py-0">
 
         {/* ── 영상 플레이어 (좌우 마진 없이 꽉 차게) ── */}
         <div
