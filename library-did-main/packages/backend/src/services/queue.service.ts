@@ -94,7 +94,7 @@ export class QueueService {
     const readyCount = await videoRepository.countByStatus('READY');
     if (readyCount >= MAX_VIDEOS) {
       console.log(`[QueueService] Video limit reached (${readyCount}/${MAX_VIDEOS}), rejecting ${bookId}`);
-      return null;
+      return '__LIMIT_REACHED__';
     }
 
     // 1. 중복 체크: 이미 QUEUED/GENERATING 상태인지 확인

@@ -22,7 +22,7 @@ export function DidV2BookDetail() {
   const [bookDetail, setBookDetail] = useState<DidBookDetail | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoStatus, setVideoStatus] = useState<
-    'NONE' | 'QUEUED' | 'GENERATING' | 'READY' | 'FAILED'
+    'NONE' | 'QUEUED' | 'GENERATING' | 'READY' | 'FAILED' | 'LIMIT'
   >('NONE');
   const [videoEnded, setVideoEnded] = useState(false);
   const [requesting, setRequesting] = useState(false);
@@ -116,15 +116,22 @@ export function DidV2BookDetail() {
     }
   };
 
+  const [limitMessage, setLimitMessage] = useState<string | null>(null);
+
   const handleRequestVideo = async () => {
     if (!bookId || requesting) return;
     setRequesting(true);
+    setLimitMessage(null);
     try {
       const res = await requestVideo(bookId, {
         title: bookDetail?.title,
         author: bookDetail?.author,
         summary: bookDetail?.summary,
       });
+      if (res.status === 'LIMIT') {
+        setLimitMessage(res.message || '영상 저장 공간이 초과되었습니다.');
+        return;
+      }
       setVideoStatus(res.status);
       if (!pollingRef.current) {
         pollingRef.current = setInterval(pollVideoStatus, 10_000);
@@ -348,6 +355,13 @@ export function DidV2BookDetail() {
             </div>
           );
         })()}
+
+        {/* 영상 초과 알림 */}
+        {limitMessage && (
+          <div className="mt-3 shrink-0 rounded-xl bg-red-50 px-4 py-3 text-center">
+            <p className="text-sm font-semibold text-red-600 sm:text-base">{limitMessage}</p>
+          </div>
+        )}
 
         {/* Action buttons — 가로 배치 */}
         <div className="mt-auto flex shrink-0 gap-2 pt-4 sm:gap-3 sm:pt-5">

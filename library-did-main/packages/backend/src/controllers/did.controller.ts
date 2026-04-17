@@ -851,7 +851,17 @@ export class DidController {
         category: book.category,
       });
 
-      if (job) {
+      if (job === '__LIMIT_REACHED__') {
+        return reply.send({
+          success: false,
+          data: {
+            bookId,
+            status: 'LIMIT',
+            videoUrl: null,
+            message: '영상 저장 공간이 초과되었습니다. 관리자에게 문의해주세요.',
+          },
+        });
+      } else if (job) {
         return reply.send({
           success: true,
           data: {

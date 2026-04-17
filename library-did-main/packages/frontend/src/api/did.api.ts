@@ -6,7 +6,7 @@ import { ApiResponse, DidBook, DidBookDetail, AgeGroup } from '../types';
  */
 export interface VideoStatusResponse {
   bookId: string;
-  status: 'NONE' | 'QUEUED' | 'GENERATING' | 'READY' | 'FAILED';
+  status: 'NONE' | 'QUEUED' | 'GENERATING' | 'READY' | 'FAILED' | 'LIMIT';
   videoUrl: string | null;
   subtitleUrl?: string | null;
   message: string;
