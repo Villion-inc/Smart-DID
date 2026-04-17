@@ -384,10 +384,12 @@ export class DidController {
         id: book.id,
         title: book.title,
         author: book.author,
+        publisher: book.publisher,
         coverImageUrl: book.coverImageUrl,
         shelfCode: book.shelfCode,
         category: book.category,
         isbn: book.isbn,
+        summary: book.summary,
       })));
 
       // bookDetailCache에 미리 저장 — 클릭 시 getBookDetail에서 즉시 반환 (ALPAS AD201 숫자ID 검색 불가 대응)
@@ -647,7 +649,7 @@ export class DidController {
 
       // ── Step 2: 줄거리 결정 ────────────────────────────────────────────────
       // 우선순위: Cloud SQL 리라이팅 결과 > ALPAS 기본 텍스트
-      let summary = alpasBook?.summary || ''; // ALPAS 기본값 (예: "제목 - 저자 저. 출판사에서 출판한 도서입니다.")
+      let summary = alpasBook?.summary || cachedData?.summary || ''; // ALPAS 기본값 또는 캐시 데이터
       let hasSavedSummary = false;
       try {
         const videoRecord = await videoRepository.findByBookId(bookId);
