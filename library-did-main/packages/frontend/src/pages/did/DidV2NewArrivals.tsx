@@ -172,8 +172,8 @@ export function DidV2NewArrivals() {
       <div className={`flex flex-1 flex-col ${activeFilter === null ? 'gap-4' : 'gap-3'} py-2`}>
         {/* 상단: 영상 영역 — 항상 표시 */}
         <div
-          className="relative -mx-4 w-[calc(100%+2rem)] shrink-0 overflow-hidden bg-gray-900 sm:-mx-6 sm:w-[calc(100%+3rem)]"
-          style={{ aspectRatio: '16/9' }}
+          className="relative mx-auto shrink-0 overflow-hidden bg-gray-900"
+          style={{ aspectRatio: '16/9', width: '85%', borderRadius: '1.2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.12)' }}
         >
           {currentVideo ? (
             <>

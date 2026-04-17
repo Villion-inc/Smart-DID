@@ -6,11 +6,11 @@ import { DidV2Layout } from './DidV2Layout';
 
 type TabKey = 'preschool' | 'elementary' | 'teen' | 'librarian';
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'preschool', label: '유아' },
-  { key: 'elementary', label: '초등' },
-  { key: 'teen', label: '청소년' },
-  { key: 'librarian', label: '사서추천' },
+const TABS: { key: TabKey; label: string; color: string; bg: string; border: string }[] = [
+  { key: 'preschool',  label: '유아',     color: '#E8734A', bg: 'rgba(255,228,210,0.7)',  border: 'rgba(232,115,74,0.3)' },
+  { key: 'elementary', label: '초등',     color: '#5A7BAA', bg: 'rgba(200,218,238,0.7)',  border: 'rgba(90,123,170,0.3)' },
+  { key: 'teen',       label: '청소년',   color: '#8A6F9E', bg: 'rgba(225,210,235,0.7)',  border: 'rgba(138,111,158,0.3)' },
+  { key: 'librarian',  label: '사서추천', color: '#3B7A6A', bg: 'rgba(200,228,218,0.7)',  border: 'rgba(80,150,130,0.3)' },
 ];
 
 const VALID_TABS: TabKey[] = ['preschool', 'elementary', 'teen', 'librarian'];
@@ -151,60 +151,48 @@ export function DidV2Recommend() {
 
   const currentVideo = featuredVideos.length > 0 ? featuredVideos[currentVideoIdx] : null;
 
+  // 카테고리 선택 후 하단 컴팩트 버튼
+  const compactFooter = (
+    <div
+      className="flex w-full shrink-0 gap-2 px-3 pb-3 pt-2 sm:px-4"
+      style={{
+        background: 'rgba(255,255,255,0.45)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        borderTop: '1px solid rgba(255,255,255,0.5)',
+      }}
+    >
+      {TABS.map((f) => {
+        const active = activeTab === f.key;
+        return (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => handleTabChange(f.key)}
+            className="flex-1 py-3 text-sm font-bold transition active:scale-95 sm:text-base"
+            style={{
+              borderRadius: '0.9rem',
+              background: active ? 'rgba(255,255,255,0.9)' : f.bg,
+              color: f.color,
+              boxShadow: active ? `0 2px 10px ${f.border}, inset 0 1px 0 rgba(255,255,255,0.6)` : 'none',
+              border: active ? `2px solid ${f.border}` : `1.5px solid ${f.border}`,
+              fontWeight: active ? 800 : 600,
+            }}
+          >
+            {f.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <DidV2Layout
       title="추천도서"
-      hideFooter
-      extraFooter={
-        <footer
-          className="flex w-full shrink-0 items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4"
-          style={{
-            background: 'rgba(255,255,255,0.5)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            borderTop: '1px solid rgba(255,255,255,0.6)',
-          }}
-        >
-          {/* 홈 버튼 */}
-          <button
-            type="button"
-            onClick={() => navigate('/did')}
-            className="flex flex-1 items-center justify-center py-4 text-base font-bold transition active:scale-95 sm:py-5 sm:text-lg"
-            style={{
-              borderRadius: '1rem',
-              background: 'rgba(255,255,255,0.35)',
-              color: '#7a8a80',
-              border: '2px solid transparent',
-            }}
-          >
-            홈
-          </button>
-
-          {TABS.map((tab) => {
-            const active = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => handleTabChange(tab.key)}
-                className="flex flex-1 items-center justify-center py-4 text-base font-bold transition active:scale-95 sm:py-5 sm:text-lg"
-                style={{
-                  borderRadius: '1rem',
-                  background: active ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.35)',
-                  color: active ? '#2D5A4A' : '#7a8a80',
-                  boxShadow: active ? '0 3px 12px rgba(60,90,70,0.12), inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
-                  border: active ? '2px solid rgba(60,90,70,0.15)' : '2px solid transparent',
-                }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </footer>
-      }
+      extraFooter={activeTab !== null ? compactFooter : undefined}
     >
-      <div className={`flex flex-1 flex-col gap-3 ${!activeTab ? 'justify-center' : ''}`}>
-        {/* 영상 — 항상 표시, 탭 미선택 시 중앙 / 선택 시 상단 */}
+      <div className={`flex flex-1 flex-col ${activeTab === null ? 'gap-4' : 'gap-3'} py-2`}>
+        {/* 영상 — 항상 표시 */}
         <div
           className="relative -mx-4 w-[calc(100%+2rem)] shrink-0 overflow-hidden bg-black sm:-mx-6 sm:w-[calc(100%+3rem)]"
           style={{ aspectRatio: '16/9' }}
@@ -232,7 +220,38 @@ export function DidV2Recommend() {
           )}
         </div>
 
-        {/* 카테고리 선택 후: 도서 목록 */}
+        {/* ── 카테고리 미선택: 큰 2×2 그리드 ── */}
+        {activeTab === null && (
+          <div className="flex flex-col gap-3">
+            <p className="text-center text-sm font-semibold text-gray-600 sm:text-base">
+              어떤 추천도서를 보고 싶으신가요?
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {TABS.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => handleTabChange(f.key)}
+                  className="flex items-center justify-center py-10 transition active:scale-[0.96] sm:py-12"
+                  style={{
+                    borderRadius: '1.2rem',
+                    background: f.bg,
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    boxShadow: `0 4px 16px ${f.border}, inset 0 1px 0 rgba(255,255,255,0.5)`,
+                    border: `2px solid ${f.border}`,
+                  }}
+                >
+                  <span className="text-2xl font-extrabold sm:text-3xl" style={{ color: f.color }}>
+                    {f.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── 카테고리 선택 후: 도서 목록 ── */}
         {activeTab && (
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto sm:gap-4">
             {bookLoading && (

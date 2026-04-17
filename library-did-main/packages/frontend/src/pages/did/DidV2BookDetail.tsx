@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getDidBookDetail, getVideoStatus, requestVideo } from '../../api/did.api';
+import { getDidBookDetail, getVideoStatus, requestVideo, getPopularVideos } from '../../api/did.api';
+import type { PopularVideo } from '../../api/did.api';
 import { DidV2Layout } from './DidV2Layout';
 import type { DidBookDetail } from '../../types';
 
@@ -8,6 +9,12 @@ const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '';
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   (basePath ? `${basePath}/api` : '/api');
+
+function resolveVideoUrl(url: string): string {
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('/videos/')) return `${API_BASE_URL}${url}`;
+  return `${API_BASE_URL}/videos/${url.replace(/^\//, '')}`;
+}
 
 export function DidV2BookDetail() {
   const { bookId } = useParams<{ bookId: string }>();
@@ -18,11 +25,15 @@ export function DidV2BookDetail() {
     'NONE' | 'QUEUED' | 'GENERATING' | 'READY' | 'FAILED'
   >('NONE');
   const [videoEnded, setVideoEnded] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [showFullSummary, setShowFullSummary] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 대기 중 다른 영상 재생용
+  const [otherVideos, setOtherVideos] = useState<PopularVideo[]>([]);
+  const [otherVideoIdx, setOtherVideoIdx] = useState(0);
+  const otherVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (!bookId) return;
@@ -31,6 +42,26 @@ export function DidV2BookDetail() {
       if (detail) setBookDetail(detail);
     })();
   }, [bookId]);
+
+  // 대기 중 보여줄 다른 영상 로드
+  useEffect(() => {
+    (async () => {
+      try {
+        const popular = await getPopularVideos(10);
+        const filtered = popular.filter(v => v.videoUrl && v.bookId !== bookId);
+        setOtherVideos(filtered);
+        if (filtered.length > 0) setOtherVideoIdx(Math.floor(Math.random() * filtered.length));
+      } catch { /* ignore */ }
+    })();
+  }, [bookId]);
+
+  // 다른 영상 인덱스 변경 시 자동 재생
+  useEffect(() => {
+    if (otherVideoRef.current && otherVideos.length > 0) {
+      otherVideoRef.current.load();
+      otherVideoRef.current.play().catch(() => {});
+    }
+  }, [otherVideoIdx, otherVideos]);
 
   const pollVideoStatus = useCallback(async () => {
     if (!bookId) return;
@@ -77,17 +108,9 @@ export function DidV2BookDetail() {
     };
   }, [bookId, bookDetail, pollVideoStatus]);
 
-  const handlePlay = () => {
-    if (videoRef.current) {
-      setIsPlaying(true);
-      videoRef.current.play().catch(() => setIsPlaying(false));
-    }
-  };
-
   const handleReplay = () => {
     if (videoRef.current) {
       setVideoEnded(false);
-      setIsPlaying(true);
       videoRef.current.currentTime = 0;
       videoRef.current.play();
     }
@@ -141,16 +164,17 @@ export function DidV2BookDetail() {
                 ref={videoRef}
                 src={resolvedVideoUrl}
                 className="h-full w-full object-contain"
+                autoPlay
+                muted
                 playsInline
-                muted={false}
                 onEnded={() => setVideoEnded(true)}
                 onPlay={() => setVideoEnded(false)}
               />
-              {(!isPlaying || videoEnded) && (
+              {videoEnded && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                   <button
                     type="button"
-                    onClick={videoEnded ? handleReplay : handlePlay}
+                    onClick={handleReplay}
                     className="flex h-20 w-20 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform active:scale-90 sm:h-24 sm:w-24"
                   >
                     <svg
@@ -165,14 +189,11 @@ export function DidV2BookDetail() {
               )}
             </>
           ) : isProcessing ? (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-4">
-              <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/20 border-t-white" />
-              <span className="text-xl font-bold text-white sm:text-2xl">
-                {videoStatus === 'QUEUED' ? '대기 중...' : '영상 생성 중...'}
-              </span>
-              <span className="text-sm text-white/60 sm:text-base">
-                완료되면 자동으로 재생됩니다
-              </span>
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3">
+              <svg className="h-10 w-10 text-white/60 sm:h-12 sm:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
+              <span className="text-lg font-bold text-white/80 sm:text-xl">영상이 아직 없어요</span>
             </div>
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3">
@@ -281,6 +302,52 @@ export function DidV2BookDetail() {
             </div>
           )}
         </div>
+
+        {/* ── 대기 중: 다른 책 영상 (70% 크기) ── */}
+        {isProcessing && otherVideos.length > 0 && (() => {
+          const cur = otherVideos[otherVideoIdx];
+          return (
+            <div className="mt-3 shrink-0">
+              <div className="mb-2 flex items-center gap-2">
+                <div className="h-2 w-2 animate-pulse rounded-full bg-yellow-400" />
+                <span className="text-sm font-semibold text-gray-600">
+                  영상 생성 중 — 다른 책 영상을 감상해보세요
+                </span>
+              </div>
+              <div
+                className="relative mx-auto overflow-hidden"
+                style={{
+                  width: '70%',
+                  aspectRatio: '16/9',
+                  borderRadius: '1rem',
+                  background: '#1a1a2e',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                }}
+              >
+                <video
+                  ref={otherVideoRef}
+                  src={resolveVideoUrl(cur.videoUrl)}
+                  autoPlay
+                  muted
+                  playsInline
+                  onEnded={() => {
+                    if (otherVideos.length <= 1) return;
+                    setOtherVideoIdx(prev => {
+                      let next: number;
+                      do { next = Math.floor(Math.random() * otherVideos.length); } while (next === prev);
+                      return next;
+                    });
+                  }}
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                  <p className="text-sm font-bold text-white line-clamp-1">{cur.title}</p>
+                  <p className="text-xs text-white/70">{cur.author}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Action buttons — 가로 배치 */}
         <div className="mt-auto flex shrink-0 gap-2 pt-4 sm:gap-3 sm:pt-5">

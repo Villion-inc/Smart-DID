@@ -184,15 +184,12 @@ export function DidV2Home() {
   return (
     <DidV2Layout hideFooter>
       <div className="flex flex-1 flex-col justify-center gap-8 px-0 py-4">
-        {/* 영상 — 좌우 꽉 채우기 */}
+        {/* 영상 — 좌우 꽉 채우기 (마진 없이) */}
         <div
-          className="relative shrink-0 overflow-hidden"
+          className="relative -mx-4 w-[calc(100%+2rem)] shrink-0 overflow-hidden sm:-mx-6 sm:w-[calc(100%+3rem)]"
           style={{
             aspectRatio: '16/9',
             background: '#1a1a2e',
-            borderRadius: '2rem',
-            border: '6px solid #DDDDDD',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
           }}
         >
           {currentVideo ? (
