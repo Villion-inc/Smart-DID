@@ -922,34 +922,12 @@ export class DidController {
         });
       }
 
-      // 3. 줄거리 확보 — 없으면 영상 생성 중지
+      // 3. 줄거리 확보 — Cloud SQL에서만 읽음 (무거운 검색은 getBookDetail 백그라운드에서 처리됨)
       let bestSummary = '';
-      // 3-1. Cloud SQL에 리라이팅된 summary 확인
       if (existingRecord?.summary && !existingRecord.summary.includes('출판한 도서입니다')) {
         bestSummary = existingRecord.summary;
       }
-      // 3-2. 없으면 네이버/알라딘/정보나루에서 검색 → 리라이팅 → 저장
-      if (!bestSummary) {
-        const fetched = await fetchBestDescription(book.title, book.author);
-        if (fetched) {
-          // 원본 저장 (백업)
-          try {
-            await videoRepository.upsert(
-              book.id,
-              { bookId: book.id, originalSummary: fetched },
-              { originalSummary: fetched }
-            );
-          } catch { /* ignore */ }
-          // Gemini 리라이팅 → DB 저장 + 영상에도 사용
-          try {
-            const rewritten = await rewriteDescription(fetched, book.title, book.id);
-            bestSummary = rewritten || fetched;
-          } catch {
-            bestSummary = fetched;
-          }
-        }
-      }
-      // 3-3. 줄거리 없으면 영상 생성 거부
+      // 줄거리 없으면 영상 생성 거부 (책 상세 페이지를 먼저 방문해야 줄거리가 저장됨)
       if (!bestSummary) {
         return reply.send({
           success: false,
