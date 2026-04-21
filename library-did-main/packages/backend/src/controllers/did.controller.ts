@@ -823,7 +823,17 @@ export class DidController {
       }
 
       // 정보나루에서 200권 가져옴 (소장 10권을 채우기 위해 넉넉히)
-      const popular = await data4libraryService.getPopularByAgeGroup(ageGroup, 200);
+      const popularRaw = await data4libraryService.getPopularByAgeGroup(ageGroup, 200);
+
+      // 제목 기반 중복 제거 (같은 시리즈 여러 권 방지)
+      const seenTitles = new Set<string>();
+      const popular = popularRaw.filter(book => {
+        const titleKey = (book.bookname || '').trim();
+        if (!titleKey || seenTitles.has(titleKey)) return false;
+        seenTitles.add(titleKey);
+        return true;
+      });
+      console.log(`[DID age/${ageGroup}] 제목 중복 제거: ${popularRaw.length} → ${popular.length}권`);
 
       const alpasConnected = isAlpasConnected();
       let filtered: typeof popular;
