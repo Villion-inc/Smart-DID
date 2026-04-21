@@ -354,7 +354,7 @@ export async function warmCoverCache(): Promise<void> {
     // ── Phase 2: Gemini 리라이팅 + DB 저장 (순차 — rate limit 방지) ──
     console.log(`[Warm] Phase2: ${bookDescs.length}권 리라이팅 시작`);
     for (const { book, desc } of bookDescs) {
-      // originalSummary + 책 정보 저장 (실패해도 리라이팅 진행)
+      // 1. 책 정보 저장 (title, author 등) — originalSummary 제외해서 실패 방지
       try {
         await videoRepository.upsert(
           book.id,
@@ -365,7 +365,6 @@ export async function warmCoverCache(): Promise<void> {
             publisher: book.publisher,
             coverImageUrl: book.coverImageUrl,
             category: book.category,
-            originalSummary: desc,
           },
           {
             title: book.title,
@@ -373,14 +372,22 @@ export async function warmCoverCache(): Promise<void> {
             publisher: book.publisher,
             coverImageUrl: book.coverImageUrl,
             category: book.category,
-            originalSummary: desc,
           }
         );
       } catch (err: any) {
-        console.log(`[Warm] WARN (originalSummary 저장 실패): "${book.title}" ${err.message || JSON.stringify(err)}`);
+        console.log(`[Warm] WARN (책 정보 저장 실패): "${book.title}" ${err.message || JSON.stringify(err)}`);
       }
 
-      // Gemini 리라이팅 → summary 저장
+      // 2. originalSummary 별도 저장 (컬럼 없으면 실패 — 선택사항)
+      try {
+        await videoRepository.upsert(
+          book.id,
+          { bookId: book.id, originalSummary: desc },
+          { originalSummary: desc }
+        );
+      } catch { /* originalSummary 컬럼 없으면 무시 */ }
+
+      // 3. Gemini 리라이팅 → summary 저장
       try {
         const rewritten = await rewriteDescription(desc, book.title, book.id);
         if (rewritten && rewritten !== desc) {
