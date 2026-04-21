@@ -11,6 +11,93 @@ import { data4libraryService } from '../services/data4library.service';
 import { config } from '../config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+// ── 줄거리 검색: 네이버 → 알라딘 → 정보나루 ──
+
+const descriptionCache = new Map<string, string | null>();
+
+/**
+ * 네이버 책 API에서 줄거리 가져오기
+ */
+async function fetchNaverDescription(title: string, author?: string): Promise<string | null> {
+  if (!naverBookService.isConfigured()) return null;
+  try {
+    const query = author ? `${title} ${author}` : title;
+    const items = await naverBookService.searchBooks(query, 5);
+    if (!items || items.length === 0) return null;
+
+    const cleanTitle = title.replace(/\s/g, '').toLowerCase();
+    const best = items.find((it) => {
+      const t = (it.title || '').replace(/<[^>]+>/g, '').replace(/\s/g, '').toLowerCase();
+      return t.includes(cleanTitle) || cleanTitle.includes(t);
+    }) || items[0];
+
+    const desc = (best.description || '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"')
+      .trim();
+
+    if (desc && desc.length > 30) {
+      console.log(`[Naver] Found description for "${title}": ${desc.length}자`);
+      return desc;
+    }
+    return null;
+  } catch (err: any) {
+    console.error(`[Naver] Fetch failed for "${title}": ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * 정보나루에서 줄거리 가져오기 (ISBN 검색 → 상세)
+ */
+async function fetchData4LibDescription(title: string, author?: string): Promise<string | null> {
+  if (!data4libraryService.isConfigured()) return null;
+  try {
+    const results = await data4libraryService.searchBooks(title, 3);
+    if (!results || results.length === 0) return null;
+
+    const best = results[0];
+    if (!best.isbn13) return null;
+
+    const detail = await data4libraryService.getBookDetail(best.isbn13);
+    const desc = detail?.description?.trim();
+    if (desc && desc.length > 30) {
+      console.log(`[Data4Lib] Found description for "${title}": ${desc.length}자`);
+      return desc;
+    }
+    return null;
+  } catch (err: any) {
+    console.error(`[Data4Lib] Fetch failed for "${title}": ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * 줄거리 통합 검색: 네이버 → 알라딘 → 정보나루
+ * 하나라도 찾으면 반환, 전부 없으면 null
+ */
+async function fetchBestDescription(title: string, author?: string): Promise<string | null> {
+  const cacheKey = `${title}|${author || ''}`;
+  const cached = descriptionCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  // 1. 네이버
+  const naver = await fetchNaverDescription(title, author);
+  if (naver) { descriptionCache.set(cacheKey, naver); return naver; }
+
+  // 2. 알라딘
+  const aladin = await fetchAladinDescription(title, author);
+  if (aladin) { descriptionCache.set(cacheKey, aladin); return aladin; }
+
+  // 3. 정보나루
+  const d4l = await fetchData4LibDescription(title, author);
+  if (d4l) { descriptionCache.set(cacheKey, d4l); return d4l; }
+
+  descriptionCache.set(cacheKey, null);
+  console.log(`[Description] No source found for "${title}"`);
+  return null;
+}
+
 // 알라딘 줄거리 캐시 (title → description)
 const aladinDescCache = new Map<string, string | null>();
 
@@ -666,13 +753,13 @@ export class DidController {
         data: { id: bookId, title, author, publisher, publishedYear, isbn, summary, shelfCode, callNumber, category, coverImageUrl, isAvailable },
       });
 
-      // ── Step 4: 백그라운드 — 리라이팅 줄거리 없을 때 알라딘+Gemini로 생성 후 DB 저장 ──
+      // ── Step 4: 백그라운드 — 줄거리 없을 때 네이버/알라딘/정보나루 → Gemini 리라이팅 → DB 저장 ──
       if (!hasSavedSummary && title) {
         (async () => {
           try {
-            const aladinDesc = await fetchAladinDescription(title, author);
-            if (aladinDesc && aladinDesc.length > 30) {
-              await rewriteDescription(aladinDesc, title, bookId); // 내부에서 DB 저장
+            const desc = await fetchBestDescription(title, author);
+            if (desc) {
+              await rewriteDescription(desc, title, bookId);
               console.log(`[DID getBookDetail] Background summary saved for ${bookId}`);
             }
           } catch { /* ignore */ }
@@ -835,11 +922,35 @@ export class DidController {
         });
       }
 
-      // 3. 큐에 추가 (사용자 요청 - 높은 우선순위)
-      // Cloud SQL에 리라이팅된 summary가 있으면 우선 사용 (ALPAS 기본값보다 품질 높음)
-      let bestSummary = book.summary || '';
+      // 3. 줄거리 확보 — 없으면 영상 생성 중지
+      let bestSummary = '';
+      // 3-1. Cloud SQL에 리라이팅된 summary 확인
       if (existingRecord?.summary && !existingRecord.summary.includes('출판한 도서입니다')) {
         bestSummary = existingRecord.summary;
+      }
+      // 3-2. 없으면 네이버/알라딘/정보나루에서 검색
+      if (!bestSummary) {
+        const fetched = await fetchBestDescription(book.title, book.author);
+        if (fetched) {
+          bestSummary = fetched;
+          // DB에 저장 (다음번엔 바로 사용)
+          try {
+            const rewritten = await rewriteDescription(fetched, book.title, book.id);
+            if (rewritten && rewritten !== fetched) bestSummary = rewritten;
+          } catch { /* ignore */ }
+        }
+      }
+      // 3-3. 줄거리 없으면 영상 생성 거부
+      if (!bestSummary) {
+        return reply.send({
+          success: false,
+          data: {
+            bookId,
+            status: 'NONE',
+            videoUrl: null,
+            message: '줄거리를 찾을 수 없어 영상을 생성할 수 없습니다.',
+          },
+        });
       }
 
       const job = await queueService.addUserRequest({
