@@ -401,6 +401,67 @@ export async function warmCoverCache(): Promise<void> {
       }
     }
 
+    // ── Phase 3: 추천도서 리라이팅 (사서 추천 + 연령별 인기도서) ──
+    try {
+      const recs = await recommendationRepository.getAll();
+      const [preschool, elementary, teen] = await Promise.all([
+        data4libraryService.getPopularByAgeGroup('preschool', 20).catch(() => []),
+        data4libraryService.getPopularByAgeGroup('elementary', 20).catch(() => []),
+        data4libraryService.getPopularByAgeGroup('teen', 20).catch(() => []),
+      ]);
+
+      type RecBook = { bookId: string; title: string; author: string; isbn?: string };
+      const recBooks: RecBook[] = [
+        ...recs.map(r => ({ bookId: r.bookId, title: r.title, author: r.author })),
+        ...preschool.map(b => ({ bookId: b.isbn13 || `d4l_${b.ranking}_preschool`, title: b.bookname, author: b.authors, isbn: b.isbn13 })),
+        ...elementary.map(b => ({ bookId: b.isbn13 || `d4l_${b.ranking}_elementary`, title: b.bookname, author: b.authors, isbn: b.isbn13 })),
+        ...teen.map(b => ({ bookId: b.isbn13 || `d4l_${b.ranking}_teen`, title: b.bookname, author: b.authors, isbn: b.isbn13 })),
+      ];
+
+      // 중복 제거 (bookId 기준)
+      const uniqueRecs = Array.from(new Map(recBooks.map(b => [b.bookId, b])).values());
+      console.log(`[Warm] Phase3: 추천도서 ${uniqueRecs.length}권 처리 시작`);
+
+      let recOk = 0;
+      for (const book of uniqueRecs) {
+        try {
+          const existing = await videoRepository.findByBookId(book.bookId);
+          if (existing?.summary && !existing.summary.includes('출판한 도서입니다')) {
+            recOk++;
+            continue;
+          }
+
+          let desc: string | null = null;
+          if (book.isbn) {
+            try {
+              const detail = await data4libraryService.getBookDetail(book.isbn);
+              if (detail?.description && detail.description.length > 30) desc = detail.description;
+            } catch { /* ignore */ }
+          }
+          if (!desc) desc = await fetchNaverDescription(book.title, book.author);
+          if (!desc) desc = await fetchAladinDescription(book.title, book.author);
+
+          if (desc) {
+            await videoRepository.upsert(
+              book.bookId,
+              { bookId: book.bookId, title: book.title, author: book.author },
+              { title: book.title, author: book.author }
+            );
+            await rewriteDescription(desc, book.title, book.bookId);
+            recOk++;
+            console.log(`[Warm-Rec] OK: "${book.title}"`);
+          } else {
+            console.log(`[Warm-Rec] SKIP: "${book.title}"`);
+          }
+        } catch (err: any) {
+          console.log(`[Warm-Rec] ERR: "${book.title}" ${err.message || JSON.stringify(err)}`);
+        }
+      }
+      console.log(`[Warm] Phase3 Done: ${recOk}/${uniqueRecs.length} 추천도서 리라이팅`);
+    } catch (err: any) {
+      console.log(`[Warm] Phase3 Failed: ${err.message}`);
+    }
+
     const cached = [...coverCache.values()].filter(v => v !== null).length;
     console.log(`[Warm] Done: covers ${cached}/${coverOk}, summaries ${summaryOk}/${books.length}`);
   } catch (err: any) {
