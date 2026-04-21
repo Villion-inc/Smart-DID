@@ -298,21 +298,72 @@ export async function warmCoverCache(): Promise<void> {
   coverCacheWarmed = true;
 
   try {
-    console.log('[Cover] Warming cache: fetching new arrivals...');
+    console.log('[Warm] Starting: covers + summaries for new arrivals...');
     const books = await alpasService.getNewArrivals();
-    console.log(`[Cover] Warming cache: ${books.length} books to process`);
+    console.log(`[Warm] ${books.length} books to process`);
 
-    // 1개씩 순차 처리 (정보나루 ISBN 기반)
-    let ok = 0;
+    let coverOk = 0;
+    let summaryOk = 0;
+
     for (const book of books) {
+      // 1. 표지 가져오기
       await enrichCoverUrl(book.title, book.author, book.coverImageUrl, book.isbn);
-      ok++;
+      coverOk++;
+
+      // 2. 줄거리 사전 로딩 — Cloud SQL에 이미 있으면 건너뜀
+      try {
+        const existing = await videoRepository.findByBookId(book.id);
+        if (existing?.summary && !existing.summary.includes('출판한 도서입니다')) {
+          summaryOk++;
+          continue; // 이미 리라이팅된 줄거리 있음
+        }
+
+        // 정보나루 ISBN 상세 조회 → 줄거리
+        let desc: string | null = null;
+        if (book.isbn) {
+          try {
+            const detail = await data4libraryService.getBookDetail(book.isbn);
+            if (detail?.description && detail.description.length > 30) {
+              desc = detail.description;
+              console.log(`[Warm] OK (정보나루 줄거리): "${book.title}" ${desc.length}자`);
+            }
+          } catch { /* ignore */ }
+        }
+
+        // 정보나루 없으면 네이버 폴백
+        if (!desc) {
+          desc = await fetchNaverDescription(book.title, book.author);
+        }
+
+        // 알라딘 폴백
+        if (!desc) {
+          desc = await fetchAladinDescription(book.title, book.author);
+        }
+
+        // 줄거리 찾았으면 리라이팅 → Cloud SQL 저장
+        if (desc) {
+          // 원본 저장
+          await videoRepository.upsert(
+            book.id,
+            { bookId: book.id, originalSummary: desc },
+            { originalSummary: desc }
+          );
+          // Gemini 리라이팅 → summary에 저장
+          await rewriteDescription(desc, book.title, book.id);
+          summaryOk++;
+          console.log(`[Warm] OK (줄거리 저장): "${book.title}"`);
+        } else {
+          console.log(`[Warm] SKIP (줄거리 없음): "${book.title}"`);
+        }
+      } catch (err: any) {
+        console.log(`[Warm] ERR (줄거리): "${book.title}" ${err.message}`);
+      }
     }
 
     const cached = [...coverCache.values()].filter(v => v !== null).length;
-    console.log(`[Cover] Cache warmed: ${cached}/${ok} covers found`);
+    console.log(`[Warm] Done: covers ${cached}/${coverOk}, summaries ${summaryOk}/${books.length}`);
   } catch (err: any) {
-    console.error(`[Cover] Cache warming failed: ${err.message}`);
+    console.error(`[Warm] Failed: ${err.message}`);
   }
 }
 
