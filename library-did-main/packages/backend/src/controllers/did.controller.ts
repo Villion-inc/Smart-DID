@@ -269,7 +269,8 @@ async function rewriteDescription(original: string, bookTitle: string, bookId?: 
 - 『』 같은 책 제목 표기는 유지
 - 도서관에서 이용자에게 보여줄 자연스러운 소개글 느낌으로
 - 존댓말(~합니다, ~입니다) 톤 유지
-- 리라이트한 텍스트만 반환
+- 마크다운 기호(**, ##, -, *, 「」 리스트 등) 절대 사용 금지 — 평문(plain text)으로만
+- 리라이트한 텍스트만 반환 (앞뒤 설명/인사 불필요)
 
 책 제목: ${bookTitle}
 원문:
@@ -277,7 +278,16 @@ ${original}` }] }],
       generationConfig: { temperature: 0.5, maxOutputTokens: 8000 },
     });
 
-    const rewritten = trimToCompleteSentence(result.response.text().trim());
+    // 마크다운 기호 제거 (Gemini가 가끔 포함)
+    const rawText = result.response.text().trim()
+      .replace(/\*\*(.+?)\*\*/g, '$1')  // **bold** → bold
+      .replace(/\*(.+?)\*/g, '$1')        // *italic* → italic
+      .replace(/^#{1,6}\s+/gm, '')        // ### 헤더 제거
+      .replace(/^[-*+]\s+/gm, '')         // - 리스트 마커 제거
+      .replace(/`([^`]+)`/g, '$1')        // `code` → code
+      .replace(/\n{3,}/g, '\n\n')         // 과도한 빈 줄 정리
+      .trim();
+    const rewritten = trimToCompleteSentence(rawText);
     if (rewritten && rewritten.length > 20) {
       rewriteCache.set(cacheKey, rewritten);
       // 3. video_records에 저장 (비동기 — 응답 지연 없음)
