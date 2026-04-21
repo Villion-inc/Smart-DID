@@ -274,7 +274,7 @@ async function rewriteDescription(original: string, bookTitle: string, bookId?: 
 책 제목: ${bookTitle}
 원문:
 ${original}` }] }],
-      generationConfig: { temperature: 0.5, maxOutputTokens: 2000 },
+      generationConfig: { temperature: 0.5, maxOutputTokens: 8000 },
     });
 
     const rewritten = trimToCompleteSentence(result.response.text().trim());
