@@ -22,8 +22,9 @@ export function DidV2BookDetail() {
   const [bookDetail, setBookDetail] = useState<DidBookDetail | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoStatus, setVideoStatus] = useState<
-    'NONE' | 'QUEUED' | 'GENERATING' | 'READY' | 'FAILED' | 'LIMIT'
+    'NONE' | 'QUEUED' | 'GENERATING' | 'READY' | 'FAILED' | 'LIMIT' | 'NO_SUMMARY'
   >('NONE');
+  const [modalInfo, setModalInfo] = useState<{ title: string; message: string; type: 'warning' | 'info' } | null>(null);
   const [videoEnded, setVideoEnded] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [showFullSummary, setShowFullSummary] = useState(false);
@@ -116,12 +117,10 @@ export function DidV2BookDetail() {
     }
   };
 
-  const [limitMessage, setLimitMessage] = useState<string | null>(null);
-
   const handleRequestVideo = async () => {
     if (!bookId || requesting) return;
     setRequesting(true);
-    setLimitMessage(null);
+    setModalInfo(null);
     try {
       const res = await requestVideo(bookId, {
         title: bookDetail?.title,
@@ -129,7 +128,19 @@ export function DidV2BookDetail() {
         summary: bookDetail?.summary,
       });
       if (res.status === 'LIMIT') {
-        setLimitMessage(res.message || '영상 저장 공간이 초과되었습니다.');
+        setModalInfo({
+          title: '영상 생성 불가',
+          message: res.message || '영상 저장 공간이 초과되었습니다.\n관리자에게 문의해주세요.',
+          type: 'warning',
+        });
+        return;
+      }
+      if (res.status === 'NO_SUMMARY') {
+        setModalInfo({
+          title: '영상 생성 불가',
+          message: res.message || '이 책은 줄거리 정보를 찾을 수 없어\n영상을 만들 수 없어요.',
+          type: 'info',
+        });
         return;
       }
       setVideoStatus(res.status);
@@ -356,10 +367,83 @@ export function DidV2BookDetail() {
           );
         })()}
 
-        {/* 영상 초과 알림 */}
-        {limitMessage && (
-          <div className="mt-3 shrink-0 rounded-xl bg-red-50 px-4 py-3 text-center">
-            <p className="text-sm font-semibold text-red-600 sm:text-base">{limitMessage}</p>
+        {/* 예쁜 알림 모달 */}
+        {modalInfo && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center px-6"
+            style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setModalInfo(null)}
+          >
+            <div
+              className="w-full max-w-sm overflow-hidden"
+              style={{
+                borderRadius: '1.5rem',
+                background: 'white',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                animation: 'modalIn 0.25s ease-out',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 상단 아이콘 영역 */}
+              <div
+                className="flex flex-col items-center justify-center py-8"
+                style={{
+                  background: modalInfo.type === 'warning'
+                    ? 'linear-gradient(180deg, #FFF4E5 0%, #FFE8D1 100%)'
+                    : 'linear-gradient(180deg, #E8F3FF 0%, #D1E8FF 100%)',
+                }}
+              >
+                <div
+                  className="flex h-20 w-20 items-center justify-center rounded-full mb-3"
+                  style={{
+                    background: modalInfo.type === 'warning' ? '#FFB84D' : '#5B9BD5',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                  }}
+                >
+                  {modalInfo.type === 'warning' ? (
+                    <svg className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                    </svg>
+                  ) : (
+                    <svg className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+                    </svg>
+                  )}
+                </div>
+                <h3 className="text-xl font-bold text-gray-800 sm:text-2xl">{modalInfo.title}</h3>
+              </div>
+
+              {/* 메시지 영역 */}
+              <div className="px-6 py-6">
+                <p className="whitespace-pre-line text-center text-base leading-relaxed text-gray-700 sm:text-lg">
+                  {modalInfo.message}
+                </p>
+              </div>
+
+              {/* 확인 버튼 */}
+              <div className="px-6 pb-6">
+                <button
+                  type="button"
+                  onClick={() => setModalInfo(null)}
+                  className="w-full rounded-2xl py-4 text-base font-bold text-white transition active:scale-[0.97] sm:text-lg"
+                  style={{
+                    background: modalInfo.type === 'warning'
+                      ? 'linear-gradient(180deg, #FFB84D 0%, #FF9E30 100%)'
+                      : 'linear-gradient(180deg, #5B9BD5 0%, #3A7BBF 100%)',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+                  }}
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+
+            <style>{`
+              @keyframes modalIn {
+                from { opacity: 0; transform: scale(0.9); }
+                to { opacity: 1; transform: scale(1); }
+              }
+            `}</style>
           </div>
         )}
 

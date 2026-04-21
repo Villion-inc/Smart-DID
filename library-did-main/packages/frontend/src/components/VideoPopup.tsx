@@ -23,7 +23,7 @@ export function VideoPopup({ bookId, onClose }: VideoPopupProps) {
   const [bookDetail, setBookDetail] = useState<DidBookDetail | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoStatus, setVideoStatus] = useState<
-    'NONE' | 'QUEUED' | 'GENERATING' | 'READY' | 'FAILED' | 'LIMIT'
+    'NONE' | 'QUEUED' | 'GENERATING' | 'READY' | 'FAILED' | 'LIMIT' | 'NO_SUMMARY'
   >('NONE');
   const [videoEnded, setVideoEnded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);

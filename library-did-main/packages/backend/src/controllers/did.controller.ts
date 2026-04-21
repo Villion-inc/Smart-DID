@@ -1187,7 +1187,7 @@ export class DidController {
           success: false,
           data: {
             bookId,
-            status: 'NONE',
+            status: 'NO_SUMMARY',
             videoUrl: null,
             message: '줄거리를 찾을 수 없어 영상을 생성할 수 없습니다.',
           },
