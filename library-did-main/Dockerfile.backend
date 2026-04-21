@@ -39,5 +39,5 @@ EXPOSE 3000
 
 USER appuser
 
-# Prisma migrate deploy + seed + start
-CMD sh -c "npx prisma generate --schema=./prisma/schema.prisma && npx prisma db push --accept-data-loss --schema=./prisma/schema.prisma && node dist/db/seed.js 2>/dev/null; node dist/index.js"
+# Prisma generate + db push (accept-data-loss 제거 — 컬럼 삭제 방지)
+CMD sh -c "npx prisma generate --schema=./prisma/schema.prisma && npx prisma db push --schema=./prisma/schema.prisma 2>&1; node dist/db/seed.js 2>/dev/null; node dist/index.js"
