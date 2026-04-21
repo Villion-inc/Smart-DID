@@ -841,6 +841,7 @@ export class DidController {
       if (alpasConnected) {
         // 10권 모일 때까지 배치 병렬 소장 확인
         filtered = [];
+        const seenAlpasIds = new Set<string>();  // ALPAS ID 기반 중복 제거
         const BATCH_SIZE = 20;
         for (let i = 0; i < popular.length && filtered.length < DESIRED_COUNT; i += BATCH_SIZE) {
           const batch = popular.slice(i, i + BATCH_SIZE);
@@ -848,10 +849,11 @@ export class DidController {
             batch.map(async (book) => {
               try {
                 const results = await alpasService.searchBooks(book.bookname);
-                // 소장 확인 + 대출가능(loan_able=Y) 필터
                 const available = results.find(r => r.isAvailable);
-                if (!available) return null; // 소장 없거나 대출 불가
+                if (!available) return null;
                 (book as any)._alpasId = available.id;
+                (book as any)._alpasTitle = available.title;  // 권수 포함 실제 제목
+                (book as any)._alpasAuthor = available.author;
                 (book as any)._alpasShelfCode = available.shelfCode || '';
                 (book as any)._alpasCallNumber = available.callNumber || '';
                 (book as any)._alpasIsAvailable = available.isAvailable;
@@ -862,7 +864,13 @@ export class DidController {
             })
           );
           for (const b of checks) {
-            if (b && filtered.length < DESIRED_COUNT) filtered.push(b);
+            if (b && filtered.length < DESIRED_COUNT) {
+              const alpasId = (b as any)._alpasId;
+              // ALPAS ID 중복이면 건너뜀 (같은 책이 여러 번)
+              if (alpasId && seenAlpasIds.has(alpasId)) continue;
+              if (alpasId) seenAlpasIds.add(alpasId);
+              filtered.push(b);
+            }
           }
         }
         console.log(`[DID age/${ageGroup}] ALPAS 소장 확인 완료: ${filtered.length}권`);
@@ -873,12 +881,15 @@ export class DidController {
       const didBooks = filtered.map((book) => {
         // ALPAS ID를 우선 사용 — 상세 조회 시 ALPAS에서 직접 조회 가능
         const bookId = (book as any)._alpasId || book.isbn13 || `d4l_${book.ranking}`;
+        // ALPAS에 권수 포함한 제목 있으면 우선 사용 (예: "설민석의 한국사 대모험 3")
+        const title = (book as any)._alpasTitle || book.bookname;
+        const author = (book as any)._alpasAuthor || book.authors;
         // 상세 조회 캐시에 미리 저장 — 클릭 시 즉시 반환
         bookDetailCache.set(bookId, {
           data: {
             id: bookId,
-            title: book.bookname,
-            author: book.authors,
+            title,
+            author,
             publisher: book.publisher || (book as any)._alpasPublisher || '',
             publishedYear: undefined,
             isbn: book.isbn13 || '',
@@ -893,8 +904,8 @@ export class DidController {
         });
         return {
           id: bookId,
-          title: book.bookname,
-          author: book.authors,
+          title,
+          author,
           coverImageUrl: book.bookImageURL || undefined,
           shelfCode: (book as any)._alpasShelfCode || '',
           category: book.class_nm || '',
