@@ -401,21 +401,42 @@ export async function warmCoverCache(): Promise<void> {
       }
     }
 
-    // ── Phase 3: 추천도서 리라이팅 (사서 추천 + 연령별 인기도서) ──
+    // ── Phase 3: 추천도서 리라이팅 (사서 추천 + 연령별 인기도서 각 10권) ──
+    // 화면에 실제 표시되는 책만 처리 — ALPAS 필터 통과한 것만
     try {
       const recs = await recommendationRepository.getAll();
       const [preschool, elementary, teen] = await Promise.all([
-        data4libraryService.getPopularByAgeGroup('preschool', 20).catch(() => []),
-        data4libraryService.getPopularByAgeGroup('elementary', 20).catch(() => []),
-        data4libraryService.getPopularByAgeGroup('teen', 20).catch(() => []),
+        data4libraryService.getPopularByAgeGroup('preschool', 30).catch(() => []),
+        data4libraryService.getPopularByAgeGroup('elementary', 30).catch(() => []),
+        data4libraryService.getPopularByAgeGroup('teen', 30).catch(() => []),
+      ]);
+
+      // ALPAS 대출가능 필터 적용 (각 연령 최대 10권)
+      const filterByAlpas = async <T extends { bookname: string }>(books: T[], limit = 10): Promise<T[]> => {
+        if (!isAlpasConnected()) return books.slice(0, limit);
+        const checked: T[] = [];
+        for (const b of books) {
+          if (checked.length >= limit) break;
+          try {
+            const results = await alpasService.searchBooks(b.bookname);
+            if (results.find(r => r.isAvailable)) checked.push(b);
+          } catch { /* ignore */ }
+        }
+        return checked;
+      };
+
+      const [preschoolFiltered, elementaryFiltered, teenFiltered] = await Promise.all([
+        filterByAlpas(preschool),
+        filterByAlpas(elementary),
+        filterByAlpas(teen),
       ]);
 
       type RecBook = { bookId: string; title: string; author: string; isbn?: string };
       const recBooks: RecBook[] = [
         ...recs.map(r => ({ bookId: r.bookId, title: r.title, author: r.author })),
-        ...preschool.map(b => ({ bookId: b.isbn13 || `d4l_${b.ranking}_preschool`, title: b.bookname, author: b.authors, isbn: b.isbn13 })),
-        ...elementary.map(b => ({ bookId: b.isbn13 || `d4l_${b.ranking}_elementary`, title: b.bookname, author: b.authors, isbn: b.isbn13 })),
-        ...teen.map(b => ({ bookId: b.isbn13 || `d4l_${b.ranking}_teen`, title: b.bookname, author: b.authors, isbn: b.isbn13 })),
+        ...preschoolFiltered.map(b => ({ bookId: b.isbn13 || `d4l_${b.ranking}_preschool`, title: b.bookname, author: b.authors, isbn: b.isbn13 })),
+        ...elementaryFiltered.map(b => ({ bookId: b.isbn13 || `d4l_${b.ranking}_elementary`, title: b.bookname, author: b.authors, isbn: b.isbn13 })),
+        ...teenFiltered.map(b => ({ bookId: b.isbn13 || `d4l_${b.ranking}_teen`, title: b.bookname, author: b.authors, isbn: b.isbn13 })),
       ];
 
       // 중복 제거 (bookId 기준)
@@ -442,11 +463,25 @@ export async function warmCoverCache(): Promise<void> {
           if (!desc) desc = await fetchAladinDescription(book.title, book.author);
 
           if (desc) {
-            await videoRepository.upsert(
-              book.bookId,
-              { bookId: book.bookId, title: book.title, author: book.author },
-              { title: book.title, author: book.author }
-            );
+            // 1. 책 정보 저장 (title, author)
+            try {
+              await videoRepository.upsert(
+                book.bookId,
+                { bookId: book.bookId, title: book.title, author: book.author },
+                { title: book.title, author: book.author }
+              );
+            } catch (err: any) {
+              console.log(`[Warm-Rec] WARN (책 정보): "${book.title}" ${err.message || JSON.stringify(err)}`);
+            }
+            // 2. originalSummary 저장 (선택)
+            try {
+              await videoRepository.upsert(
+                book.bookId,
+                { bookId: book.bookId, originalSummary: desc },
+                { originalSummary: desc }
+              );
+            } catch { /* 컬럼 없으면 무시 */ }
+            // 3. Gemini 리라이팅
             await rewriteDescription(desc, book.title, book.bookId);
             recOk++;
             console.log(`[Warm-Rec] OK: "${book.title}"`);
