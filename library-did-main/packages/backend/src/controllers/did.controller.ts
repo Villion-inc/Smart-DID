@@ -306,64 +306,66 @@ export async function warmCoverCache(): Promise<void> {
     let summaryOk = 0;
     const BATCH_SIZE = 5;
 
-    const processBook = async (book: typeof books[0]) => {
-      // 1. 표지 가져오기
+    // ── Phase 1: 표지 + 줄거리 검색 (5개씩 병렬) ──
+    // Gemini 리라이팅은 하지 않음 — API 검색만
+    const bookDescs: { book: typeof books[0]; desc: string }[] = [];
+
+    const fetchDescForBook = async (book: typeof books[0]) => {
+      // 표지
       await enrichCoverUrl(book.title, book.author, book.coverImageUrl, book.isbn);
       coverOk++;
 
-      // 2. 줄거리 사전 로딩 — Cloud SQL에 이미 있으면 건너뜀
+      // Cloud SQL에 이미 리라이팅된 줄거리 있으면 건너뜀
       try {
         const existing = await videoRepository.findByBookId(book.id);
         if (existing?.summary && !existing.summary.includes('출판한 도서입니다')) {
           summaryOk++;
           return;
         }
+      } catch { /* ignore */ }
 
-        // 정보나루 ISBN 상세 조회 → 줄거리
-        let desc: string | null = null;
-        if (book.isbn) {
-          try {
-            const detail = await data4libraryService.getBookDetail(book.isbn);
-            if (detail?.description && detail.description.length > 30) {
-              desc = detail.description;
-              console.log(`[Warm] OK (정보나루 줄거리): "${book.title}" ${desc.length}자`);
-            }
-          } catch { /* ignore */ }
-        }
+      // 정보나루 → 네이버 → 알라딘 순서로 줄거리 검색
+      let desc: string | null = null;
+      if (book.isbn) {
+        try {
+          const detail = await data4libraryService.getBookDetail(book.isbn);
+          if (detail?.description && detail.description.length > 30) {
+            desc = detail.description;
+            console.log(`[Warm] OK (정보나루 줄거리): "${book.title}" ${desc.length}자`);
+          }
+        } catch { /* ignore */ }
+      }
+      if (!desc) desc = await fetchNaverDescription(book.title, book.author);
+      if (!desc) desc = await fetchAladinDescription(book.title, book.author);
 
-        // 정보나루 없으면 네이버 폴백
-        if (!desc) {
-          desc = await fetchNaverDescription(book.title, book.author);
-        }
-
-        // 알라딘 폴백
-        if (!desc) {
-          desc = await fetchAladinDescription(book.title, book.author);
-        }
-
-        // 줄거리 찾았으면 리라이팅 → Cloud SQL 저장
-        if (desc) {
-          await videoRepository.upsert(
-            book.id,
-            { bookId: book.id, originalSummary: desc },
-            { originalSummary: desc }
-          );
-          await rewriteDescription(desc, book.title, book.id);
-          summaryOk++;
-          console.log(`[Warm] OK (줄거리 저장): "${book.title}"`);
-        } else {
-          console.log(`[Warm] SKIP (줄거리 없음): "${book.title}"`);
-        }
-      } catch (err: any) {
-        console.log(`[Warm] ERR (줄거리): "${book.title}" ${err.message}`);
+      if (desc) {
+        bookDescs.push({ book, desc });
+      } else {
+        console.log(`[Warm] SKIP (줄거리 없음): "${book.title}"`);
       }
     };
 
-    // 5개씩 배치 병렬 처리
     for (let i = 0; i < books.length; i += BATCH_SIZE) {
       const batch = books.slice(i, i + BATCH_SIZE);
-      await Promise.all(batch.map(processBook));
-      console.log(`[Warm] Progress: ${Math.min(i + BATCH_SIZE, books.length)}/${books.length}`);
+      await Promise.all(batch.map(fetchDescForBook));
+      console.log(`[Warm] Phase1: ${Math.min(i + BATCH_SIZE, books.length)}/${books.length}`);
+    }
+
+    // ── Phase 2: Gemini 리라이팅 + DB 저장 (순차 — rate limit 방지) ──
+    console.log(`[Warm] Phase2: ${bookDescs.length}권 리라이팅 시작`);
+    for (const { book, desc } of bookDescs) {
+      try {
+        await videoRepository.upsert(
+          book.id,
+          { bookId: book.id, originalSummary: desc },
+          { originalSummary: desc }
+        );
+        await rewriteDescription(desc, book.title, book.id);
+        summaryOk++;
+        console.log(`[Warm] OK (저장): "${book.title}"`);
+      } catch (err: any) {
+        console.log(`[Warm] ERR (리라이팅): "${book.title}" ${err.message || err}`);
+      }
     }
 
     const cached = [...coverCache.values()].filter(v => v !== null).length;
