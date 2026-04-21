@@ -300,12 +300,13 @@ export async function warmCoverCache(): Promise<void> {
   try {
     console.log('[Warm] Starting: covers + summaries for new arrivals...');
     const books = await alpasService.getNewArrivals();
-    console.log(`[Warm] ${books.length} books to process`);
+    console.log(`[Warm] ${books.length} books to process (5개씩 병렬)`);
 
     let coverOk = 0;
     let summaryOk = 0;
+    const BATCH_SIZE = 5;
 
-    for (const book of books) {
+    const processBook = async (book: typeof books[0]) => {
       // 1. 표지 가져오기
       await enrichCoverUrl(book.title, book.author, book.coverImageUrl, book.isbn);
       coverOk++;
@@ -315,7 +316,7 @@ export async function warmCoverCache(): Promise<void> {
         const existing = await videoRepository.findByBookId(book.id);
         if (existing?.summary && !existing.summary.includes('출판한 도서입니다')) {
           summaryOk++;
-          continue; // 이미 리라이팅된 줄거리 있음
+          return;
         }
 
         // 정보나루 ISBN 상세 조회 → 줄거리
@@ -342,13 +343,11 @@ export async function warmCoverCache(): Promise<void> {
 
         // 줄거리 찾았으면 리라이팅 → Cloud SQL 저장
         if (desc) {
-          // 원본 저장
           await videoRepository.upsert(
             book.id,
             { bookId: book.id, originalSummary: desc },
             { originalSummary: desc }
           );
-          // Gemini 리라이팅 → summary에 저장
           await rewriteDescription(desc, book.title, book.id);
           summaryOk++;
           console.log(`[Warm] OK (줄거리 저장): "${book.title}"`);
@@ -358,6 +357,13 @@ export async function warmCoverCache(): Promise<void> {
       } catch (err: any) {
         console.log(`[Warm] ERR (줄거리): "${book.title}" ${err.message}`);
       }
+    };
+
+    // 5개씩 배치 병렬 처리
+    for (let i = 0; i < books.length; i += BATCH_SIZE) {
+      const batch = books.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(processBook));
+      console.log(`[Warm] Progress: ${Math.min(i + BATCH_SIZE, books.length)}/${books.length}`);
     }
 
     const cached = [...coverCache.values()].filter(v => v !== null).length;
