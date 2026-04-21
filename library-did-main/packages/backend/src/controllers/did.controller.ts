@@ -16,60 +16,95 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const descriptionCache = new Map<string, string | null>();
 
 /**
- * 네이버 책 API에서 줄거리 가져오기
+ * 제목에서 검색용 키워드 생성
+ * ". 8, 괴도와..." → "추리 천재 엉덩이 탐정 8"
  */
-async function fetchNaverDescription(title: string, author?: string): Promise<string | null> {
-  if (!naverBookService.isConfigured()) return null;
-  try {
-    const query = author ? `${title} ${author}` : title;
-    const items = await naverBookService.searchBooks(query, 5);
-    if (!items || items.length === 0) return null;
+function makeSearchQueries(title: string, author?: string): string[] {
+  const queries: string[] = [];
+  const raw = title.trim();
+  const authorTrim = author?.trim();
 
-    const cleanTitle = title.replace(/\s/g, '').toLowerCase();
-    const best = items.find((it) => {
-      const t = (it.title || '').replace(/<[^>]+>/g, '').replace(/\s/g, '').toLowerCase();
-      return t.includes(cleanTitle) || cleanTitle.includes(t);
-    }) || items[0];
+  // 1. 원본 제목
+  if (authorTrim) queries.push(`${raw} ${authorTrim}`);
+  queries.push(raw);
 
-    const desc = (best.description || '')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"')
-      .trim();
+  // 2. 부제 제거 (. 숫자, 이후 제거 → "추리 천재 엉덩이 탐정. 8, XXX" → "추리 천재 엉덩이 탐정. 8")
+  const noSubtitle = raw.replace(/,\s*.{3,}$/, '').trim();
+  if (noSubtitle !== raw) queries.push(noSubtitle);
 
-    if (desc && desc.length > 30) {
-      console.log(`[Naver] Found description for "${title}": ${desc.length}자`);
-      return desc;
-    }
-    return null;
-  } catch (err: any) {
-    console.error(`[Naver] Fetch failed for "${title}": ${err.message}`);
-    return null;
-  }
+  // 3. 시리즈 번호까지만 ("추리 천재 엉덩이 탐정. 8, XXX" → "추리 천재 엉덩이 탐정 8")
+  const cleaned = raw
+    .replace(/\.\s*(\d+)\s*,.*$/, ' $1')  // ". 8, XXX" → " 8"
+    .replace(/,\s*.{3,}$/, '')             // 여전히 뒤에 부제 있으면
+    .replace(/\s*:\s*.{15,}$/, '')         // ": 긴 부제" 제거
+    .replace(/\(.*?\)/g, '')               // (괄호) 제거
+    .trim();
+  if (cleaned && cleaned !== raw && cleaned !== noSubtitle) queries.push(cleaned);
+
+  // 중복 제거
+  return [...new Set(queries)];
 }
 
 /**
- * 정보나루에서 줄거리 가져오기 (ISBN 검색 → 상세)
+ * 네이버 책 API에서 줄거리 가져오기 (여러 쿼리로 재시도)
+ */
+async function fetchNaverDescription(title: string, author?: string): Promise<string | null> {
+  if (!naverBookService.isConfigured()) return null;
+  const queries = makeSearchQueries(title, author);
+
+  for (const query of queries) {
+    try {
+      const items = await naverBookService.searchBooks(query, 5);
+      if (!items || items.length === 0) continue;
+
+      const cleanTitle = title.replace(/[\s.,:]/g, '').toLowerCase();
+      const best = items.find((it) => {
+        const t = (it.title || '').replace(/<[^>]+>/g, '').replace(/[\s.,:]/g, '').toLowerCase();
+        return t.includes(cleanTitle) || cleanTitle.includes(t);
+      }) || items[0];
+
+      const desc = (best.description || '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"')
+        .trim();
+
+      if (desc && desc.length > 30) {
+        console.log(`[Naver] Found for "${title}" (query="${query}"): ${desc.length}자`);
+        return desc;
+      }
+    } catch (err: any) {
+      console.error(`[Naver] Fetch failed for "${query}": ${err.message}`);
+    }
+  }
+  return null;
+}
+
+/**
+ * 정보나루에서 줄거리 가져오기 (여러 쿼리로 재시도)
  */
 async function fetchData4LibDescription(title: string, author?: string): Promise<string | null> {
   if (!data4libraryService.isConfigured()) return null;
-  try {
-    const results = await data4libraryService.searchBooks(title, 3);
-    if (!results || results.length === 0) return null;
+  const queries = makeSearchQueries(title);
 
-    const best = results[0];
-    if (!best.isbn13) return null;
+  for (const query of queries) {
+    try {
+      const results = await data4libraryService.searchBooks(query, 3);
+      if (!results || results.length === 0) continue;
 
-    const detail = await data4libraryService.getBookDetail(best.isbn13);
-    const desc = detail?.description?.trim();
-    if (desc && desc.length > 30) {
-      console.log(`[Data4Lib] Found description for "${title}": ${desc.length}자`);
-      return desc;
+      const best = results[0];
+      if (!best.isbn13) continue;
+
+      const detail = await data4libraryService.getBookDetail(best.isbn13);
+      const desc = detail?.description?.trim();
+      if (desc && desc.length > 30) {
+        console.log(`[Data4Lib] Found for "${title}" (query="${query}"): ${desc.length}자`);
+        return desc;
+      }
+    } catch (err: any) {
+      console.error(`[Data4Lib] Fetch failed for "${query}": ${err.message}`);
     }
-    return null;
-  } catch (err: any) {
-    console.error(`[Data4Lib] Fetch failed for "${title}": ${err.message}`);
-    return null;
   }
+  return null;
 }
 
 /**
