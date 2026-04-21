@@ -40,7 +40,7 @@ export class PipelineOrchestratorV8 {
     const tempOutput = `/tmp/${jobId}_trailer.mp4`;
 
     try {
-      const outputFilePath = await this.runPython(request.title, request.author || '', tempOutput);
+      const outputFilePath = await this.runPython(request.title, request.author || '', request.summary || '', tempOutput);
 
       // GCS 업로드
       let videoUrl: string | undefined;
@@ -85,7 +85,7 @@ export class PipelineOrchestratorV8 {
     }
   }
 
-  private runPython(title: string, author: string, outputPath: string): Promise<string> {
+  private runPython(title: string, author: string, summary: string, outputPath: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const args = [
         PYTHON_SCRIPT,
@@ -93,6 +93,9 @@ export class PipelineOrchestratorV8 {
         '--author', author,
         '--output', outputPath,
       ];
+      if (summary) {
+        args.push('--summary', summary);
+      }
 
       logger.info(`[V8] Running: python3 ${args.join(' ')}`);
 

@@ -17,6 +17,7 @@ function toVideoGenerationRequest(jobData: VideoJobData): VideoGenerationRequest
   const request: any = {
     title: jobData.title,
     author: jobData.author || undefined,
+    summary: jobData.summary || undefined,
     language: 'ko',
   };
 

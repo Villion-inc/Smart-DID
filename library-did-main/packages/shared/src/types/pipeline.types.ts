@@ -12,6 +12,7 @@ export type GenerationMode = 'parallel' | 'sequential';
 export interface VideoGenerationRequest {
   title: string;
   author?: string;
+  summary?: string;
   language: 'ko' | 'en';
   style?: 'animation-3d' | 'animation-2d';
   /** bookId for saving video and callback (worker MVP) */

@@ -29,12 +29,14 @@ import argparse
 _parser = argparse.ArgumentParser(add_help=False)
 _parser.add_argument("--title", default="")
 _parser.add_argument("--author", default="")
+_parser.add_argument("--summary", default="")  # 백엔드에서 전달하는 리라이팅된 줄거리
 _parser.add_argument("--output", default="")  # 최종 mp4 저장 경로
 _args, _ = _parser.parse_known_args()
 
 # ── 책 설정 (CLI > 기본값) ──
 BOOK_TITLE = _args.title or "마당을 나온 암탉"
 BOOK_AUTHOR = _args.author or "황선미"
+BOOK_SUMMARY = _args.summary or ""  # 백엔드에서 리라이팅된 줄거리
 OUTPUT_PATH = _args.output or ""  # 지정 시 해당 경로로 최종 파일 복사
 
 import re as _re
@@ -73,9 +75,20 @@ def strip_html(s):
 # ═══════════════════════════════════════════════════════
 # STEP 1: 줄거리 수집 (교보문고 → 정보나루 → 네이버 → Gemini)
 # ═══════════════════════════════════════════════════════
-def fetch_book_description(title: str, author: str = "", isbn: str = "") -> dict:
-    """여러 소스에서 줄거리를 수집하고 Gemini로 정제"""
+def fetch_book_description(title: str, author: str = "", isbn: str = "", provided_summary: str = "") -> dict:
+    """백엔드에서 전달한 리라이팅된 summary 우선 사용, 없으면 외부 소스 검색"""
     log_step("1. 줄거리 수집")
+
+    # 백엔드에서 전달한 줄거리가 있으면 우선 사용 (정보나루/네이버/알라딘 + Gemini 리라이팅 완료된 상태)
+    if provided_summary and len(provided_summary) > 30:
+        print(f"  ✓ 백엔드 제공 줄거리 사용: {len(provided_summary)}자")
+        end_step("1. 줄거리 수집")
+        return {
+            "title": title,
+            "author": author,
+            "raw_descriptions": provided_summary,
+            "source_count": 1,
+        }
 
     descriptions = []
 
@@ -545,7 +558,7 @@ def main():
     print(f"  구조: 설정샷(4s) → 로그라인(4s) → 분위기샷(6s) → 감정샷(4s) → 질문(4s) → 타이틀(4s)")
     print("=" * 60)
 
-    book_info = fetch_book_description(BOOK_TITLE, BOOK_AUTHOR)
+    book_info = fetch_book_description(BOOK_TITLE, BOOK_AUTHOR, provided_summary=BOOK_SUMMARY)
     scenario = generate_scenario(book_info)
 
     for f in OUT_DIR.glob("scene*_video.mp4"):
