@@ -40,7 +40,8 @@ model VideoRecord {
   author          String?
   publisher       String?
   coverImageUrl   String?
-  summary         String?
+  summary         String?   // Gemini 리라이팅 (화면 표시용)
+  originalSummary String?   // 네이버/알라딘 원본 (영상 생성용)
   category        String?
 
   @@map("video_records")

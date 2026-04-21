@@ -18,6 +18,7 @@ export class VideoRepository {
     publisher?: string;
     coverImageUrl?: string;
     summary?: string;
+    originalSummary?: string;
     category?: string;
   }): Promise<VideoRecord> {
     return prisma.videoRecord.create({
@@ -46,6 +47,7 @@ export class VideoRepository {
       publisher?: string;
       coverImageUrl?: string;
       summary?: string;
+      originalSummary?: string;
       category?: string;
     },
     update: Partial<Omit<VideoRecord, 'bookId' | 'createdAt'>>
