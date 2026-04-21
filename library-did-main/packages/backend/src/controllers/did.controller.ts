@@ -923,27 +923,30 @@ export class DidController {
       }
 
       // 3. 줄거리 확보 — 없으면 영상 생성 중지
-      // 영상 엔진에는 원본(네이버/알라딘) 전달, 리라이팅은 화면 표시용으로만 DB 저장
       let bestSummary = '';
-      // 3-1. Cloud SQL에 원본 줄거리 확인 (originalSummary 필드)
-      if (existingRecord?.originalSummary) {
-        bestSummary = existingRecord.originalSummary;
+      // 3-1. Cloud SQL에 리라이팅된 summary 확인
+      if (existingRecord?.summary && !existingRecord.summary.includes('출판한 도서입니다')) {
+        bestSummary = existingRecord.summary;
       }
-      // 3-2. 없으면 네이버/알라딘/정보나루에서 검색
+      // 3-2. 없으면 네이버/알라딘/정보나루에서 검색 → 리라이팅 → 저장
       if (!bestSummary) {
         const fetched = await fetchBestDescription(book.title, book.author);
         if (fetched) {
-          bestSummary = fetched;
-          // 원본을 DB에 저장 + 리라이팅은 화면 표시용으로 별도 저장
+          // 원본 저장 (백업)
           try {
             await videoRepository.upsert(
               book.id,
               { bookId: book.id, originalSummary: fetched },
               { originalSummary: fetched }
             );
-            // 리라이팅은 백그라운드로 (화면 표시용)
-            rewriteDescription(fetched, book.title, book.id).catch(() => {});
           } catch { /* ignore */ }
+          // Gemini 리라이팅 → DB 저장 + 영상에도 사용
+          try {
+            const rewritten = await rewriteDescription(fetched, book.title, book.id);
+            bestSummary = rewritten || fetched;
+          } catch {
+            bestSummary = fetched;
+          }
         }
       }
       // 3-3. 줄거리 없으면 영상 생성 거부
